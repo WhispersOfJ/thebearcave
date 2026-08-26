@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.3.0...v1.3.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **landing-page:** repoint doc links from media-stack to thebearcave ([ff5c3c5](https://github.com/WhispersOfJ/thebearcave/commit/ff5c3c56aa99b1134305bbf371a26d4236bd0e57))
+
 ## [1.3.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.2.0...v1.3.0) (2026-08-26)
 
 
