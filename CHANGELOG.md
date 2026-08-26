@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.2.0...v1.3.0) (2026-08-26)
+
+
+### Features
+
+* **landing-page:** CA-trust badge backed by the live TLS probe ([81d20b6](https://github.com/WhispersOfJ/thebearcave/commit/81d20b6433475795238ce060072b0f9a525fee3b))
+
 ## [1.2.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.1.0...v1.2.0) (2026-08-26)
 
 
