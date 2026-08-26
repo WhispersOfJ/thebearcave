@@ -69,7 +69,10 @@ jobs:
 
       - name: Tag for scanning
         run: |
-          first_tag=$(echo "${{ steps.meta.outputs.tags }}" | cut -d, -f1)
+          # metadata-action joins tags with commas on branch/PR pushes but with
+          # newlines when semver tags fire (release tag pushes). Normalize to
+          # commas before taking the first tag.
+          first_tag=$(printf '%s' "${{ steps.meta.outputs.tags }}" | tr '\n' ',' | cut -d, -f1)
           docker tag "$first_tag" metacache:ci
 
       - name: Cache Trivy DB
