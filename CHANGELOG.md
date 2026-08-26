@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/WhispersOfJ/thebearcave/compare/v1.3.1...v1.3.2) (2026-08-26)
+
+
+### Bug Fixes
+
+* **landing-page:** same-origin health fetch fixes HTTPS status dots ([46caf92](https://github.com/WhispersOfJ/thebearcave/commit/46caf92a05e22bb8119f2c33267017d7cb1fd6dc))
+
 ## [1.3.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.3.0...v1.3.1) (2026-08-26)
 
 
