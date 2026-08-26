@@ -128,7 +128,7 @@ class TestInstall:
         mock_docker.containers.run.assert_called_once()
         call_kwargs = mock_docker.containers.run.call_args.kwargs
         assert call_kwargs["name"] == "catalog-uptime-kuma"
-        assert call_kwargs["network"] == "stacknet"
+        assert call_kwargs["network"] == "bearcave"
         assert call_kwargs["labels"] == {"media-stack.catalog": "uptime-kuma"}
         assert result["ports"] == [3050]
         assert "installed and starting" in result["message"]

@@ -360,7 +360,7 @@ class HealthCheckView(EnvelopeAPIView):
         from core.plex_client import PLEX_URL
 
         # Plex runs host-networked (network_mode: host), so it has no DNS
-        # name on stacknet — PLEX_URL (compose overrides it to
+        # name on bearcave — PLEX_URL (compose overrides it to
         # host.docker.internal:32400) is the only reachable address from here.
         # NzbDAV's SABnzbd-compatible API takes apikey as a query param and
         # NZBDAV_URL already ends in /api (adding /api again 404s).

@@ -19,7 +19,7 @@ import httpx
 from core.api_base import ServiceError
 from core.nzbdav_client import NZBDAV_API_KEY, NZBDAV_URL, nzbdav_api  # noqa: F401
 
-# Internal stacknet hostnames - not HOST_IP, since this container reaches
+# Internal bearcave hostnames - not HOST_IP, since this container reaches
 # every *arr app over the docker network directly. Bare os.environ[...]
 # subscript matches the FastAPI-era app's own behavior: a missing key is a
 # deployment misconfiguration that should fail loudly at import time, not

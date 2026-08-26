@@ -16,7 +16,7 @@ own image (checked before writing this - see Dockerfile). It only has
 docker.sock. So install/remove goes straight through the Docker SDK
 (docker_client.containers.run/.stop/.remove) instead of editing the
 compose file at all. A catalog container is a real, independently-
-running Docker container on the same `stacknet` network, with its own
+running Docker container on the same `bearcave` network, with its own
 `restart: unless-stopped` policy - it survives a reboot or crash the same
 way a compose service would, but a `docker compose down && up` on the
 main stack won't touch it (compose has never heard of it). That's a
@@ -38,7 +38,7 @@ from catalog.entries import (
 )
 
 CATALOG_LABEL = "media-stack.catalog"  # label key marking a container as catalog-managed
-NETWORK = "stacknet"
+NETWORK = "bearcave"
 
 CATALOG: list[dict] = [
     *monitoring.CATALOG,
