@@ -70,6 +70,10 @@ jobs:
             exit 0
           fi
 
+      - name: Fix Trivy cache permissions for post-step save
+        if: always()
+        run: sudo chmod -R a+r trivy-cache/ 2>/dev/null || true
+
   trivy-config:
     runs-on: ubuntu-latest
     name: Scan IaC Config (Dockerfiles + Compose)
