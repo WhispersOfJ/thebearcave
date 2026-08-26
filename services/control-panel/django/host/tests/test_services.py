@@ -93,10 +93,13 @@ class _StaleImageContainer(_FakeContainer):
 
 def _fake_project(monkeypatch, containers, self_name="control-panel"):
     me = _FakeContainer(self_name)
-    # project_containers() is imported into host.services AND called by
-    # core.docker_client.find_project_container via that module's own
-    # namespace - patch both so every caller sees the same fake project.
-    monkeypatch.setattr("host.services.project_containers", lambda: (me, containers))
+    # project_containers() is imported into host.services.container AND
+    # host.services.diagnostics AND core.docker_client - patch all three
+    # so every caller sees the same fake project.
+    monkeypatch.setattr("host.services.container.project_containers", lambda: (me, containers))
+    monkeypatch.setattr("host.services.diagnostics.project_containers", lambda: (me, containers))
+    monkeypatch.setattr("host.services.maintenance.project_containers", lambda: (me, containers))
+    monkeypatch.setattr("host.services.info.project_containers", lambda: (me, containers))
     monkeypatch.setattr("core.docker_client.project_containers", lambda: (me, containers))
     return me
 
@@ -127,7 +130,10 @@ def _fake_docker_client(monkeypatch):
         def df(self):
             return {"Images": [], "Containers": [], "Volumes": [], "BuildCache": []}
 
-    monkeypatch.setattr(services, "docker_client", _FakeDocker())
+    # docker_client is used in container, diagnostics, and maintenance sub-modules
+    monkeypatch.setattr("host.services.container.docker_client", _FakeDocker())
+    monkeypatch.setattr("host.services.diagnostics.docker_client", _FakeDocker())
+    monkeypatch.setattr("host.services.maintenance.docker_client", _FakeDocker())
 
 
 # --- get_status / list_containers / container management ---
@@ -235,11 +241,14 @@ def test_stream_container_logs_yields_sse_lines(monkeypatch):
 def test_restart_all_returns_names_and_runs_worker(monkeypatch):
     containers = [_FakeContainer("radarr"), _FakeContainer("sonarr")]
     me = _FakeContainer("control-panel")
-    monkeypatch.setattr("host.services.project_containers", lambda: (me, containers + [me]))
+    monkeypatch.setattr("host.services.container.project_containers", lambda: (me, containers + [me]))
+    monkeypatch.setattr("host.services.diagnostics.project_containers", lambda: (me, containers + [me]))
+    monkeypatch.setattr("host.services.maintenance.project_containers", lambda: (me, containers + [me]))
+    monkeypatch.setattr("host.services.info.project_containers", lambda: (me, containers + [me]))
 
     # wait_for_healthy sleeps in a loop - stub it so the worker thread
     # finishes quickly and deterministically.
-    monkeypatch.setattr("host.services.wait_for_healthy", lambda c, timeout=60: None)
+    monkeypatch.setattr("host.services.container.wait_for_healthy", lambda c, timeout=60: None)
 
     message = services.restart_all()
     assert "radarr" in message and "sonarr" in message
@@ -250,7 +259,7 @@ def test_restart_all_returns_names_and_runs_worker(monkeypatch):
 
 
 def test_get_settings_returns_defaults(monkeypatch):
-    monkeypatch.setattr("host.services.settings_core.get_settings", lambda: {
+    monkeypatch.setattr("host.services.maintenance.settings_core.get_settings", lambda: {
         "theme": "amber", "failed_pending_storm_threshold": 15,
         "loop_review_profile_threshold": 8, "recent_values": {},
     })
@@ -261,7 +270,7 @@ def test_get_settings_returns_defaults(monkeypatch):
 
 def test_patch_settings_passes_patch_through(monkeypatch):
     captured = {}
-    monkeypatch.setattr("host.services.settings_core.update_settings", lambda patch: captured.update(patch) or {
+    monkeypatch.setattr("host.services.maintenance.settings_core.update_settings", lambda patch: captured.update(patch) or {
         "theme": "green", "failed_pending_storm_threshold": 15,
         "loop_review_profile_threshold": 8, "recent_values": {},
     })
@@ -294,13 +303,13 @@ def test_resource_check_all_set(monkeypatch):
 
 def test_disk_health_reports_mount_and_reclaimable(monkeypatch, tmp_path):
     monkeypatch.setattr(host_paths, "HOST_MNT_DIR", str(tmp_path))
-    monkeypatch.setattr(services, "HOST_MNT_DIR", str(tmp_path))
+    monkeypatch.setattr("host.services.diagnostics.HOST_MNT_DIR", str(tmp_path))
     result = services.disk_health()
     assert result["mount"]["path"] == str(tmp_path)
     assert result["mount"]["percent"] is not None
     # fake docker df returns all-empty -> zero reclaimable
-    assert result["reclaimable"]["images"] == "0B"
-    assert result["total_reclaimable"] == "0B"
+    assert result["reclaimable"]["images"] == "0 B"
+    assert result["total_reclaimable"] == "0 B"
 
 
 def test_prune_disk_reports_reclaimed(monkeypatch):
@@ -308,7 +317,7 @@ def test_prune_disk_reports_reclaimed(monkeypatch):
     assert "Reclaimed" in result
     assert "1 image(s)" in result
     assert "1 volume(s)" in result
-    assert "300B" in result
+    assert "300 B" in result
 
 
 def test_host_resources_reads_host_proc(monkeypatch, tmp_path):
@@ -320,25 +329,25 @@ def test_host_resources_reads_host_proc(monkeypatch, tmp_path):
         "MemTotal:       16777216 kB\nMemAvailable:    4194304 kB\n"
     )
     monkeypatch.setattr(host_paths, "HOST_PROC_DIR", str(proc))
-    monkeypatch.setattr(services, "HOST_PROC_DIR", str(proc))
-    monkeypatch.setattr(services.time, "sleep", lambda s: None)
+    monkeypatch.setattr("host.services.diagnostics.HOST_PROC_DIR", str(proc))
+    monkeypatch.setattr("host.services.diagnostics.time", type("Time", (), {"sleep": lambda self, s: None})())
     # CPU percent needs two /proc/stat samples; a static file yields zero
     # delta, so feed the two reads directly (both go through the same
     # module-level helper the real code uses).
     samples = iter([[1000, 0, 500, 9000], [1100, 0, 600, 9000]])
-    monkeypatch.setattr("host.services._read_host_proc_cpu_line", lambda: next(samples))
+    monkeypatch.setattr("host.services.diagnostics._read_host_proc_cpu_line", lambda: next(samples))
 
     result = services.host_resources()
     # idle delta 0 of total delta 200 -> 100% busy
     assert result["cpu_percent"] == 100.0
     assert result["mem_percent"] == 75.0
-    assert result["mem_used"] == "12.0GB"
-    assert result["mem_total"] == "16.0GB"
+    assert result["mem_used"] == "12.0 GB"
+    assert result["mem_total"] == "16.0 GB"
 
 
 def test_host_resources_missing_proc_raises_503(monkeypatch, tmp_path):
     monkeypatch.setattr(host_paths, "HOST_PROC_DIR", str(tmp_path / "nope"))
-    monkeypatch.setattr(services, "HOST_PROC_DIR", str(tmp_path / "nope"))
+    monkeypatch.setattr("host.services.diagnostics.HOST_PROC_DIR", str(tmp_path / "nope"))
     with pytest.raises(ServiceError) as exc_info:
         services.host_resources()
     assert exc_info.value.status_code == 503
@@ -359,7 +368,7 @@ def test_disk_usage_sums_config_dirs(monkeypatch, tmp_path):
     (config / "radarr" / "a.log").write_bytes(b"x" * (1024 * 1024))  # 1 MiB, definitely nonzero st_blocks
     (config / "sonarr").mkdir()
     monkeypatch.setattr(host_paths, "HOST_CONFIG_DIR", str(config))
-    monkeypatch.setattr(services, "HOST_CONFIG_DIR", str(config))
+    monkeypatch.setattr("host.services.diagnostics.HOST_CONFIG_DIR", str(config))
     result = services.disk_usage()
     by_app = {s["app"]: s["mb"] for s in result["sizes"]}
     assert "radarr" in by_app
@@ -372,7 +381,7 @@ def test_mount_health_reports_healthy_and_missing(monkeypatch, tmp_path):
     mnt = tmp_path / "mnt"
     (mnt / "remote" / "nzbdav").mkdir(parents=True)
     monkeypatch.setattr(host_paths, "HOST_MNT_DIR", str(mnt))
-    monkeypatch.setattr(services, "HOST_MNT_DIR", str(mnt))
+    monkeypatch.setattr("host.services.diagnostics.HOST_MNT_DIR", str(mnt))
     result = services.mount_health()
     assert result["mounts"] == [{"mount": "remote/nzbdav", "path": str(mnt / "remote" / "nzbdav"),
                                  "status": "healthy"}]
@@ -389,7 +398,7 @@ def test_perms_check_finds_unreadable_files(monkeypatch, tmp_path):
     locked.write_text("y")
     locked.chmod(0o600)
     monkeypatch.setattr(host_paths, "HOST_CONFIG_DIR", str(config))
-    monkeypatch.setattr(services, "HOST_CONFIG_DIR", str(config))
+    monkeypatch.setattr("host.services.diagnostics.HOST_CONFIG_DIR", str(config))
     result = services.perms_check()
     assert len(result["files"]) == 1
     assert result["files"][0].startswith("config/radarr/locked.conf")
@@ -458,7 +467,7 @@ def test_get_version_reads_readme(monkeypatch, tmp_path):
     readme = tmp_path / "README.md"
     readme.write_text("# Stack\nCurrent version: **v11.17.0**\n")
     monkeypatch.setattr(host_paths, "HOST_README", str(readme))
-    monkeypatch.setattr(services, "HOST_README", str(readme))
+    monkeypatch.setattr("host.services.info.HOST_README", str(readme))
     _fake_project(monkeypatch, [_FakeContainer("radarr", status="running"), _FakeContainer("plex", status="exited")])
     result = services.get_version()
     assert result["version"] == "v11.17.0"
@@ -470,13 +479,13 @@ def test_docs_readme_returns_text(monkeypatch, tmp_path):
     readme = tmp_path / "README.md"
     readme.write_text("# hello stack")
     monkeypatch.setattr(host_paths, "HOST_README", str(readme))
-    monkeypatch.setattr(services, "HOST_README", str(readme))
+    monkeypatch.setattr("host.services.info.HOST_README", str(readme))
     assert services.docs_readme() == "# hello stack"
 
 
 def test_docs_readme_missing_raises(monkeypatch, tmp_path):
     monkeypatch.setattr(host_paths, "HOST_README", str(tmp_path / "nope.md"))
-    monkeypatch.setattr(services, "HOST_README", str(tmp_path / "nope.md"))
+    monkeypatch.setattr("host.services.info.HOST_README", str(tmp_path / "nope.md"))
     with pytest.raises(ServiceError):
         services.docs_readme()
 
@@ -500,7 +509,7 @@ def test_stack_top_sorts_by_cpu(monkeypatch):
     idle.stats_override = {"cpu_percent": 1.0, "mem_percent": 5.0, "mem_used_mb": 50.0}
     _fake_project(monkeypatch, [busy, idle])
     monkeypatch.setattr(
-        "host.services.container_stats",
+        "host.services.maintenance.container_stats",
         lambda c: getattr(c, "stats_override", {"cpu_percent": None, "mem_percent": None, "mem_used_mb": None}),
     )
     result = services.stack_top(by="cpu", limit=10)

@@ -19,7 +19,7 @@ def test_queue_and_radarr_app_subsets_are_populated():
 def test_human_size_formats_bytes_up_through_units():
     assert human_size(None) == "?"
     assert human_size(0) == "?"
-    assert human_size(512) == "512.0 B"
+    assert human_size(512) == "512 B"
     assert human_size(1536) == "1.5 KB"
     assert human_size(1024 * 1024 * 3) == "3.0 MB"
 
