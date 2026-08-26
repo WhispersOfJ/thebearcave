@@ -67,7 +67,9 @@ They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Control:** Django dashboard at :8420 for infrastructure ops. arr-dashboard at :41789 for media ops.
+- **Health checks diverge:** The control panel's `HealthCheckView` (Django backend) checks a hardcoded list of services. The landing page's JS runs its own independent health checks against a different list. The two may disagree — the landing page is more complete (19 services).
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
+- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 22 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
 
 ---
 
@@ -298,6 +300,8 @@ GET  /metrics/prometheus   — Prometheus scrape endpoint
 ### CI/CD
 - **GitHub Actions** — 11 workflows; full policy in [docs/ci-cd.md](docs/ci-cd.md)
   - **All third-party actions are SHA-pinned** (immutable supply chain); the `# tag` comment records the version. Upgrade path: `gh api repos/{owner}/{repo}/commits/{tag} --jq .sha`, then update SHA + comment. Dependabot cannot auto-bump SHA pins.
+  - **release-please only opens PRs for `feat:`/`fix:` commits.** `ci:`, `docs:`, `chore:` do not trigger a release. If you need to cut a release, ensure at least one commit uses a release-worthy type.
+  - **Brand-new repo race condition:** workflows added in the initial push of a new repo may not trigger on push/PR events. Manual dispatch works. Re-adding or renaming the workflow file fixes it.
   - **actionlint gates every workflow change** in `validate.yml` — syntax, expressions, action refs, and shellcheck on `run:` blocks. Replicate locally: download the pinned actionlint release binary and run `actionlint .github/workflows/*.yml`.
   - `validate.yml` — compose validation, env coverage, shellcheck, ruff, actionlint, Django tests
   - `release-please.yml` — automated release management
@@ -342,6 +346,7 @@ Key groups:
 | `CONTROL_PANEL_SECRET_KEY` | Django secret key |
 | `TRAEFIK_DASHBOARD_AUTH` | Traefik dashboard basic auth |
 | `HOST_IP` | Host IP address (used for Traefik routing) |
+| `RELEASE_PLEASE_TOKEN` | PAT for release-please to create release PRs and push tags (required for automated releases) |
 
 ### Docker Secrets
 
@@ -360,19 +365,21 @@ Run `./scripts/setup.sh` to generate secrets.
 
 ### Critical Landmines (affect operations today)
 
-1. **FUSE mount fragility** — Mount-owner restart breaks all dependents. Never `sudo umount` a FUSE mountpoint. Restart the owner, then all dependents in order.
+1. **Bind-mount file staleness** — `sed -i`/`vim` on a bind-mounted file changes the inode; the container keeps serving the old file until restarted. Always `docker compose restart <container>` after editing a file served by a bind mount. The landing page has been bitten twice (badge fetch URL, then link repoint).
+2. **Self-signed cert warning** — Traefik's default cert is a self-signed `TRAEFIK DEFAULT CERT` that browsers reject. The stack uses mkcert to issue LAN-trusted certs (see `docs/landmines.md`). Devices must install `rootCA.pem` from the landing page. The `nip.io` domain is for routing only — it cannot get a real ACME cert.
+3. **FUSE mount fragility** — Mount-owner restart breaks all dependents. Never `sudo umount` a FUSE mountpoint. Restart the owner, then all dependents in order.
 
-2. **Plex `stop_grace_period: 90s` required** — Without it, Docker's 10s default SIGKILL fires mid-shutdown, producing a genuine unkillable D-state hang.
+4. **Plex `stop_grace_period: 90s` required** — Without it, Docker's 10s default SIGKILL fires mid-shutdown, producing a genuine unkillable D-state hang.
 
-3. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching.
+5. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching.
 
-4. **Control Panel reads .env at create time only** — `restart` doesn't pick up .env changes. Use `--force-recreate`.
+6. **Control Panel reads .env at create time only** — `restart` doesn't pick up .env changes. Use `--force-recreate`.
 
-5. **Traefik + Plex separation** — Plex runs on host network and cannot be behind Traefik. Access directly at `http://HOST_IP:32400`.
+7. **Traefik + Plex separation** — Plex runs on host network and cannot be behind Traefik. Access directly at `http://HOST_IP:32400`.
 
-6. **rclone.conf requires `rclone obscure`** — Passwords in rclone.conf must be rclone-obfuscated, not plaintext.
+8. **rclone.conf requires `rclone obscure`** — Passwords in rclone.conf must be rclone-obfuscated, not plaintext.
 
-7. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, Control Panel, traefik labels.
+9. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, Control Panel, traefik labels.
 
 ---
 
@@ -390,6 +397,7 @@ Run `./scripts/setup.sh` to generate secrets.
 2. Run bash syntax checks: `bash -n scripts/*.sh tests/*/*.sh`
 3. Run health checks: `./tests/health/run-all.sh`
 4. Run integration tests: `./tests/integration/test_pipeline.sh`
+5. **Restart containers after editing bind-mounted files** — `sed -i` or `vim` on a bind-mounted file changes the inode; the container keeps serving the old content until restarted. This is invisible (no error) and has bitten twice on the landing page.
 
 ### Safety Rules
 
@@ -409,3 +417,5 @@ Legacy files from the source repos are preserved in `archive/`:
 - `archive/metacacharr/` — DESIGN.md, tests, monitoring configs
 
 These are reference material only — not part of the active stack.
+
+**Watch out:** `services/metacache/monitoring/` contains a stale duplicate `docker-compose.yml` and `prometheus.yml` from the metacacharr source repo. These are not part of the active stack and could confuse operators or accidentally override the main stack's monitoring.

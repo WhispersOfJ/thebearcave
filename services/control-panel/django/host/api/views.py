@@ -388,6 +388,13 @@ class HealthCheckView(EnvelopeAPIView):
             {"name": "Landing Page", "url": "http://landing-page:80/healthz", "timeout": 2},
         ]
 
+        # Services without HTTP health endpoints — check via Docker container state
+        docker_services = [
+            {"name": "Unpackerr", "container": "unpackerr"},
+            {"name": "Promtail", "container": "promtail"},
+            {"name": "NzbDAV Rclone", "container": "nzbdav_rclone"},
+        ]
+
         def check_one(svc):
             try:
                 with httpx.Client(timeout=svc["timeout"], follow_redirects=True) as client:
@@ -400,6 +407,22 @@ class HealthCheckView(EnvelopeAPIView):
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             for name, info in pool.map(check_one, services_to_check):
                 result[name] = info
+
+        # Docker container checks for services without HTTP health endpoints
+        try:
+            from core.docker_client import docker_client, project_containers
+            _, containers = project_containers()
+            container_map = {c.name: c for c in containers}
+            for svc in docker_services:
+                c = container_map.get(svc["container"])
+                if c and c.status == "running":
+                    result[svc["name"]] = {"status": "up", "code": 200}
+                else:
+                    result[svc["name"]] = {"status": "down", "code": 0}
+        except Exception:
+            for svc in docker_services:
+                if svc["name"] not in result:
+                    result[svc["name"]] = {"status": "down", "code": 0}
 
         response = self.ok(f"{sum(1 for v in result.values() if v['status'] == 'up')}/{len(result)} services up", services=result)
         response["Access-Control-Allow-Origin"] = "*"
