@@ -19,7 +19,7 @@ import httpx
 
 from core import nzbdav_client
 from core.api_base import ServiceError
-from core.arr_client import human_size
+from core.formatters import human_size
 
 
 def get_queue() -> list[dict]:

@@ -47,6 +47,7 @@ from core.docker_client import (
     project_containers,
     wait_for_healthy,
 )
+from core.formatters import human_size
 from core.host_paths import HOST_CONFIG_DIR, HOST_MNT_DIR, HOST_PROC_DIR, HOST_README
 
 LOG_LEVEL_APPS = {
@@ -252,12 +253,7 @@ def resource_check() -> dict:
     }
 
 
-def _human_bytes(n: int) -> str:
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if abs(n) < 1024:
-            return f"{n:.1f}{unit}" if unit != "B" else f"{n}{unit}"
-        n /= 1024
-    return f"{n:.1f}PB"
+
 
 
 def disk_health() -> dict:
@@ -269,8 +265,8 @@ def disk_health() -> dict:
     cover (that one sums config/ directory sizes, not what's reclaimable)."""
     total, used, free = shutil.disk_usage(HOST_MNT_DIR)
     mount = {
-        "path": HOST_MNT_DIR, "total": _human_bytes(total), "used": _human_bytes(used),
-        "free": _human_bytes(free), "percent": round(used / total * 100, 1) if total else 0.0,
+        "path": HOST_MNT_DIR, "total": human_size(total, fallback="0 B"), "used": human_size(used, fallback="0 B"),
+        "free": human_size(free, fallback="0 B"), "percent": round(used / total * 100, 1) if total else 0.0,
     }
     try:
         df = docker_client.df()
@@ -282,13 +278,13 @@ def disk_health() -> dict:
         "volumes": sum(v.get("UsageData", {}).get("Size", 0) or 0 for v in df.get("Volumes") or [] if (v.get("UsageData") or {}).get("RefCount", 1) == 0),
         "build_cache": sum(b.get("Size", 0) for b in df.get("BuildCache") or [] if not b.get("InUse")),
     }
-    reclaimable_human = {k: _human_bytes(v) for k, v in reclaimable.items()}
+    reclaimable_human = {k: human_size(v, fallback="0 B") for k, v in reclaimable.items()}
     total_reclaimable = sum(reclaimable.values())
     return {
         "message": f"{mount['path']}: {mount['percent']}% used, {mount['free']} free. "
-                   f"{_human_bytes(total_reclaimable)} reclaimable from unused Docker images/volumes/build cache.",
+                   f"{human_size(total_reclaimable, fallback="0 B")} reclaimable from unused Docker images/volumes/build cache.",
         "mount": mount, "reclaimable": reclaimable_human,
-        "total_reclaimable": _human_bytes(total_reclaimable),
+        "total_reclaimable": human_size(total_reclaimable, fallback="0 B"),
     }
 
 
@@ -304,7 +300,7 @@ def prune_disk() -> str:
     except docker.errors.APIError as e:
         raise ServiceError(f"Prune failed: {e}") from e
     reclaimed = (images_result.get("SpaceReclaimed") or 0) + (volumes_result.get("SpaceReclaimed") or 0)
-    return (f"Reclaimed {_human_bytes(reclaimed)} "
+    return (f"Reclaimed {human_size(reclaimed, fallback="0 B")} "
             f"({len(images_result.get('ImagesDeleted') or [])} image(s), "
             f"{len(volumes_result.get('VolumesDeleted') or [])} volume(s)).")
 
@@ -365,9 +361,9 @@ def host_resources() -> dict:
     mem_percent = round(mem_used / mem_total * 100, 1) if mem_total else 0.0
 
     return {
-        "message": f"CPU {cpu_percent}%, RAM {mem_percent}% ({_human_bytes(mem_used)} / {_human_bytes(mem_total)}).",
+        "message": f"CPU {cpu_percent}%, RAM {mem_percent}% ({human_size(mem_used)} / {human_size(mem_total)}).",
         "cpu_percent": cpu_percent, "mem_percent": mem_percent,
-        "mem_used": _human_bytes(mem_used), "mem_total": _human_bytes(mem_total),
+        "mem_used": human_size(mem_used), "mem_total": human_size(mem_total),
     }
 
 

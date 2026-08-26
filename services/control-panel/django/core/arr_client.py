@@ -62,15 +62,7 @@ HOST_CONFIG_DIR = "/host-config"
 # imports keep working without touching every call site.
 
 
-def human_size(n: int | None) -> str:
-    if not n:
-        return "?"
-    size = float(n)
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if size < 1024:
-            return f"{size:.1f} {unit}"
-        size /= 1024
-    return f"{size:.1f} PB"
+from core.formatters import human_size  # noqa: F401 — re-exported for callers
 
 
 def format_eta(seconds: float) -> str:

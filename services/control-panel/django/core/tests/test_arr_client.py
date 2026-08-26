@@ -1,4 +1,5 @@
-from core.arr_client import ARR_APPS, PROWLARR_CFG, QUEUE_ARR_APPS, RADARR_APPS, dedup_suffix_hit, format_eta, human_size
+from core.arr_client import ARR_APPS, PROWLARR_CFG, QUEUE_ARR_APPS, RADARR_APPS, dedup_suffix_hit, format_eta
+from core.formatters import human_size
 
 
 def test_arr_apps_registry_is_populated():

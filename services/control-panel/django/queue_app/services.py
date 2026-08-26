@@ -15,7 +15,8 @@ This module only aggregates Arr app + NzbDAV queues.
 import time
 
 from core.api_base import ServiceError
-from core.arr_client import ARR_APPS, QUEUE_ARR_APPS, arr_queue, format_eta, human_size
+from core.arr_client import ARR_APPS, QUEUE_ARR_APPS, arr_queue, format_eta
+from core.formatters import human_size
 from core.nzbdav_client import nzbdav_api
 
 QUEUE_SAMPLE_SECONDS = 4
