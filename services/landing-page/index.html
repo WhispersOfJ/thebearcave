@@ -468,7 +468,6 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     ];
 
     const BASE = location.hostname;
-    const CP_PORT = 8420;
 
     function renderServices() {
       const grid = document.getElementById("services-grid");
@@ -493,7 +492,10 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
         // so a 5s client abort fired on slow polls and flashed everything red.
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 10000);
-        const r = await fetch(`http://${BASE}:${CP_PORT}/api/v2/host/health`, { signal: ctrl.signal });
+        // Same-origin through the nginx /api/ proxy: works over both HTTP and
+        // HTTPS (a direct http://…:8420 fetch is blocked as mixed content on
+        // the HTTPS surface, which used to flash every card red).
+        const r = await fetch("/api/v2/host/health", { signal: ctrl.signal });
         clearTimeout(tid);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
