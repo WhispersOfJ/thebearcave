@@ -22,6 +22,7 @@ jobs:
           # A user PAT, not the default GITHUB_TOKEN. GitHub deliberately does
           # not fire pull_request workflows for a PR opened with GITHUB_TOKEN
           # (recursion guard). A PAT-opened PR triggers validate.yml normally.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          # Falls back to GITHUB_TOKEN when the PAT secret isn't configured.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
