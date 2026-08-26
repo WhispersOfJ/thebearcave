@@ -3,9 +3,11 @@
 # The Bear Cave — Trust the Local CA on Devices
 # ============================================================================
 # Publishes the mkcert root CA to the landing page (nginx, served over HTTPS
-# by traefik) and prints per-device installation steps.
+# by traefik), rebuilds the combined CA bundle used inside containers, and
+# prints per-device installation steps.
 #
-# Run ONCE on the server after generating the CA (see docs/tls.md):
+# Run ONCE on the server after generating the CA (see docs/tls.md), and again
+# whenever the CA is regenerated or the host CA bundle is updated:
 #   ./scripts/trust-ca.sh
 #
 # Then, on each device, install rootCA.pem using the steps printed below.
@@ -20,8 +22,12 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_CA="${HOME}/.local/share/mkcert/rootCA.pem"
-PUBLISH_DEST="config/traefik/certs/rootCA.pem"
+CA_DIR="${REPO_ROOT}/config/ca"
+PUBLISH_DEST="${CA_DIR}/rootCA.pem"
+BUNDLE_DEST="${CA_DIR}/ca-bundle.pem"
+HOST_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
 CA_URL="https://bearcave.${HOST_IP:-192.168.4.20}.nip.io/rootCA.pem"
 
 if [[ ! -f "${ROOT_CA}" ]]; then
@@ -30,10 +36,24 @@ if [[ ! -f "${ROOT_CA}" ]]; then
     exit 1
 fi
 
-# Publish the CA next to the leaf cert; the landing-page nginx container mounts
-# this single file and serves it at /rootCA.pem (public cert — no key).
+# Publish the CA; the landing-page nginx container mounts this single file and
+# serves it at /rootCA.pem (public cert — no key).
+mkdir -p "${CA_DIR}"
 cp -f "${ROOT_CA}" "${PUBLISH_DEST}"
 echo -e "${GREEN}✓ rootCA.pem published (landing page serves it at ${CA_URL})${NC}"
+
+# Rebuild the combined bundle (public CAs + mkcert root) that every container
+# mounts as its SSL_CERT_FILE. SSL_CERT_FILE/CURL_CA_BUNDLE/REQUESTS_CA_BUNDLE
+# REPLACE the bundle — pointing them at rootCA.pem alone would break all
+# external HTTPS calls (indexers, usenet, TMDB/TVDB) — so the bundle must keep
+# the full public trust store plus the mkcert root.
+if [[ ! -f "${HOST_BUNDLE}" ]]; then
+    echo -e "${RED}✗ host CA bundle not found at ${HOST_BUNDLE}${NC}"
+    echo "  Rebuild ca-bundle.pem manually: cat <host bundle> ${ROOT_CA} > ${BUNDLE_DEST}" >&2
+else
+    cat "${HOST_BUNDLE}" "${ROOT_CA}" > "${BUNDLE_DEST}"
+    echo -e "${GREEN}✓ ca-bundle.pem rebuilt ($(grep -c 'BEGIN CERTIFICATE' "${BUNDLE_DEST}") certs: host store + mkcert)${NC}"
+fi
 echo
 
 cat <<'EOF'

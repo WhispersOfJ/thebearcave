@@ -35,7 +35,8 @@ valid cert with zero per-router configuration.
 | `~/.local/share/mkcert/rootCA-key.pem` | Root CA **private key** — never leaves the server | No (out of repo) |
 | `config/traefik/certs/bearcave.pem` | Wildcard leaf cert (mounted into traefik) | Gitignored |
 | `config/traefik/certs/bearcave-key.pem` | Leaf **private key** (mounted into traefik) | Gitignored |
-| `config/traefik/certs/rootCA.pem` | Public root CA — served by landing page for device trust | Gitignored |
+| `config/ca/rootCA.pem` | Public root CA — served by landing page, mounted into every container for Node | Gitignored |
+| `config/ca/ca-bundle.pem` | **Combined** bundle (host public CAs + mkcert root) — mounted into every container as the TLS bundle | Gitignored |
 | `config/traefik/dynamic/tls.yml` | Default-certificate wiring | ✅ committed |
 
 ## First-time setup (server)
@@ -67,7 +68,7 @@ The root CA is published by `scripts/trust-ca.sh` to the landing page (nginx
 serves it at `/rootCA.pem`), then installed per-device:
 
 ```bash
-./scripts/trust-ca.sh        # publishes rootCA.pem + prints per-platform steps
+./scripts/trust-ca.sh   # publishes rootCA.pem, rebuilds ca-bundle.pem, prints per-platform steps
 ```
 
 Fetch it from `https://bearcave.192.168.4.20.nip.io/rootCA.pem` and follow the
@@ -77,6 +78,30 @@ certificate is served — never the key.
 **Security note:** anyone with `rootCA.pem` *and* `rootCA-key.pem` can mint
 certificates for your domains. Only the server holds the key — devices get the
 certificate alone, which is safe to share over the LAN.
+
+## Trusting the CA inside containers
+
+Every service container mounts `config/ca/` read-only at
+`/etc/ssl/certs/mkcert/` and points its TLS stack at it via env vars
+(anchored `x-ca-env` / `x-ca-mount` in `docker-compose.yml`):
+
+| Env var | Points at | Semantics |
+|---------|-----------|-----------|
+| `SSL_CERT_FILE` / `CURL_CA_BUNDLE` / `REQUESTS_CA_BUNDLE` | `ca-bundle.pem` | **Replace** the bundle — must contain public CAs too, or external calls break |
+| `NODE_EXTRA_CA_CERTS` | `rootCA.pem` | **Append** to the default store — safe with the root alone |
+
+This makes in-stack HTTPS calls to the nip.io hostnames (healthchecks,
+*arr webhooks, Plex/Seerr callbacks, Grafana alert URLs) validate without
+`-k`. The container images' own bundles are untouched — the mount is an
+additional trust root, so public-Internet calls (indexers, usenet, TMDB/TVDB)
+keep working.
+
+`ca-bundle.pem` is rebuilt by `scripts/trust-ca.sh` (host store + mkcert
+root). After regenerating the CA, run it and recreate the containers
+(`docker compose up -d --force-recreate`) so the env/mount changes apply.
+
+The **leaf private key** (`config/traefik/certs/bearcave-key.pem`) is never
+mounted into app containers — only traefik itself sees it.
 
 ## Automating device trust (Ansible)
 
@@ -120,3 +145,4 @@ this a one-liner).
 | Android Chrome refuses the CA | Chrome requires the CA to be installed via Settings (not the download alone); see the Android steps |
 | iOS shows "not trusted" | Forgot step 3 (Certificate Trust Settings → enable full trust) |
 | Cert expired | Regenerate the leaf (renewal above) |
+| Container HTTPS call to a nip.io URL fails validation | Recreate the container (`docker compose up -d --force-recreate`) so it picks up the CA mount/env |

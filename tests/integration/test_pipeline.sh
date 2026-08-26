@@ -171,7 +171,7 @@ test_radarr_root_folders() {
         return 0
     fi
     
-    if echo "$response" | grep -q "path"; then
+    if [[ "$response" == *"\"path\""* ]]; then
         log_success "Radarr root folders configured"
     else
         log_warning "No Radarr root folders found"
@@ -192,7 +192,7 @@ test_sonarr_root_folders() {
         return 0
     fi
     
-    if echo "$response" | grep -q "path"; then
+    if [[ "$response" == *"\"path\""* ]]; then
         log_success "Sonarr root folders configured"
     else
         log_warning "No Sonarr root folders found"
