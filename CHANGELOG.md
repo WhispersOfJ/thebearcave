@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.3.2...v1.4.0) (2026-08-26)
+
+
+### Features
+
+* unified ecosystem — service registry, category layout, Mermaid graph, detail panels, backlinks ([06889f5](https://github.com/WhispersOfJ/thebearcave/commit/06889f53265ed56d05f4b1b1c14a8256a7e396b5))
+
 ## [1.3.2](https://github.com/WhispersOfJ/thebearcave/compare/v1.3.1...v1.3.2) (2026-08-26)
 
 
