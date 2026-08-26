@@ -70,7 +70,7 @@ This script will:
 2. Generate Docker secrets into `secrets/` (gitignored)
 3. Report placeholder values still needing real data
 
-> **rclone password note:** `services/nzbdav-rclone/rclone.conf` requires an
+> **rclone password note:** `config/nzbdav-rclone/rclone.conf` requires an
 > **rclone-obfuscated** password, not plaintext. Generate it with:
 > ```bash
 > rclone obscure "your-webdav-password"
@@ -129,6 +129,18 @@ The FUSE mount is the gate: radarr/sonarr/plex/unpackerr/cleanuparr all wait for
 ### Seerr
 1. Open `https://seerr.HOST_IP.nip.io`, complete setup wizard
 2. Connect Radarr, Sonarr, and Plex
+
+### HTTPS certificates (kill the browser warning)
+All `*.nip.io` hostnames are served over HTTPS by Traefik. By default Traefik uses
+its self-signed cert (browser warning). To get valid certificates from the
+stack's own mkcert CA — installed on this host already — run `scripts/trust-ca.sh`
+and install `rootCA.pem` on each device you browse from:
+
+```bash
+./scripts/trust-ca.sh   # prints per-platform install steps
+```
+
+See [docs/tls.md](tls.md) for the full model, renewal, and troubleshooting.
 
 ---
 
