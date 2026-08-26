@@ -17,6 +17,10 @@ envelope response) - it reuses posters.api.sse.sse_response, the same
 helper the posters app's three stream views use, and picks up the default
 auth pair from REST_FRAMEWORK settings like the posters stream views do.
 """
+import os
+import socket
+import ssl
+
 from rest_framework.views import APIView
 
 from core.api_base import EnvelopeAPIView, ServiceError
@@ -276,6 +280,62 @@ class TopView(EnvelopeAPIView):
         result = services.stack_top(query.validated_data["by"], query.validated_data["limit"])
         message = result.pop("message")
         return self.ok(message, **result)
+
+
+class TlsCertView(EnvelopeAPIView):
+    """GET /api/v2/host/tls - verify the served HTTPS cert against the local CA.
+
+    Public endpoint (no auth) so the landing page can render a live
+    cert-trust badge. Performs a real TLS handshake with the traefik HTTPS
+    endpoint using config/ca/rootCA.pem (mounted at /host-config/ca/rootCA.pem)
+    as the sole trust anchor: a successful handshake means the served cert is
+    signed by the local CA, so devices that trust rootCA.pem get no browser
+    warning; an SSLCertVerificationError means Traefik is serving its default
+    self-signed cert (or the CA is out of sync).
+    """
+
+    permission_classes = []  # AllowAny - read-only diagnostic
+
+    def get(self, request):
+        host_ip = os.environ.get("HOST_IP", "") or "192.168.4.20"
+        ca_file = "/host-config/ca/rootCA.pem"
+        hostname = f"bearcave.{host_ip}.nip.io"
+
+        if not os.path.exists(ca_file):
+            return self.ok(
+                "Local CA not mounted in the control panel.",
+                trusted=False,
+                issuer=None,
+                error="rootCA.pem missing at /host-config/ca/rootCA.pem (run scripts/trust-ca.sh)",
+            )
+
+        ctx = ssl.create_default_context(cafile=ca_file)
+        try:
+            with socket.create_connection((host_ip, 443), timeout=5) as raw:
+                with ctx.wrap_socket(raw, server_hostname=hostname) as tls:
+                    cert = tls.getpeercert()
+                    issuer = dict(entry[0] for entry in cert.get("issuer", []))
+        except ssl.SSLCertVerificationError as exc:
+            return self.ok(
+                "Served certificate does not validate against the local CA.",
+                trusted=False,
+                issuer=None,
+                error=str(exc),
+            )
+        except OSError as exc:
+            return self.ok(
+                "Could not reach the HTTPS endpoint.",
+                trusted=False,
+                issuer=None,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+
+        return self.ok(
+            "Served certificate validates against the local CA.",
+            trusted=True,
+            issuer=issuer.get("commonName") or issuer.get("organizationName"),
+            error=None,
+        )
 
 
 class HealthCheckView(EnvelopeAPIView):

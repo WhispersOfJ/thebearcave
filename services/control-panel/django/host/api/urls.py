@@ -23,6 +23,7 @@ from host.api.views import (
     RestartAllView,
     SettingsView,
     StatusView,
+    TlsCertView,
     TopView,
     VersionView,
 )
@@ -36,6 +37,7 @@ app_name = "host_api"
 urlpatterns = [
     path("status", StatusView.as_view(), name="status"),
     path("health", HealthCheckView.as_view(), name="health"),
+    path("tls", TlsCertView.as_view(), name="tls_cert"),
     path("containers", ContainersView.as_view(), name="containers"),
     path("container/<str:name>/restart", ContainerRestartView.as_view(), name="container_restart"),
     path("container/<str:name>/stop", ContainerStopView.as_view(), name="container_stop"),

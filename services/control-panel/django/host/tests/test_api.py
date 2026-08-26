@@ -330,6 +330,59 @@ def test_top_view_service_error_propagates(authed_client):
     assert response.data["ok"] is False
 
 
+@pytest.mark.django_db
+def test_tls_cert_view_trusted(authed_client):
+    import ssl
+    from unittest.mock import MagicMock
+
+    fake_tls = MagicMock()
+    # A MagicMock used as a context manager returns a NEW mock from __enter__
+    # unless told otherwise — make it return itself so the view sees it.
+    fake_tls.__enter__.return_value = fake_tls
+    fake_tls.getpeercert.return_value = {
+        "issuer": ((("organizationName", "mkcert development CA"),),)
+    }
+    fake_ctx = MagicMock()
+    fake_ctx.wrap_socket.return_value = fake_tls
+    with patch("host.api.views.os.path.exists", return_value=True), \
+         patch("host.api.views.ssl.create_default_context", return_value=fake_ctx), \
+         patch("host.api.views.socket.create_connection") as create_conn:
+        create_conn.return_value.__enter__.return_value = MagicMock()
+        response = authed_client.get("/api/v2/host/tls")
+    assert response.status_code == 200
+    assert response.data["ok"] is True
+    assert response.data["trusted"] is True
+    assert response.data["issuer"] == "mkcert development CA"
+    assert response.data["error"] is None
+
+
+@pytest.mark.django_db
+def test_tls_cert_view_untrusted_verification_error(authed_client):
+    import ssl
+    from unittest.mock import MagicMock
+
+    with patch("host.api.views.os.path.exists", return_value=True), \
+         patch("host.api.views.ssl.create_default_context") as ctx, \
+         patch("host.api.views.socket.create_connection") as create_conn:
+        create_conn.return_value.__enter__.return_value = MagicMock()
+        ctx.return_value.wrap_socket.side_effect = ssl.SSLCertVerificationError("certificate verify failed")
+        response = authed_client.get("/api/v2/host/tls")
+    assert response.status_code == 200
+    assert response.data["ok"] is True
+    assert response.data["trusted"] is False
+    assert "does not validate" in response.data["message"]
+    assert response.data["error"]
+
+
+@pytest.mark.django_db
+def test_tls_cert_view_missing_ca(authed_client):
+    with patch("host.api.views.os.path.exists", return_value=False):
+        response = authed_client.get("/api/v2/host/tls")
+    assert response.status_code == 200
+    assert response.data["trusted"] is False
+    assert "rootCA.pem" in response.data["error"]
+
+
 def test_host_endpoints_reject_unauthenticated():
     client = APIClient()
     checks = [
