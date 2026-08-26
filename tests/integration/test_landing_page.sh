@@ -20,8 +20,11 @@ echo "  Target: ${HOST}"
 echo "=========================================="
 echo ""
 
-# Fetch page once
-PAGE=$(curl -sk "${HOST}/" 2>/dev/null || echo "")
+# Fetch page once (temp file to avoid pipefail issues with large HTML)
+TMPFILE=$(mktemp)
+curl -sk "${HOST}/" 2>/dev/null > "$TMPFILE" || true
+PAGE=$(cat "$TMPFILE")
+rm -f "$TMPFILE"
 
 # ── 1. Page serves ──────────────────────────────────────────────
 echo "1. Page serves"
