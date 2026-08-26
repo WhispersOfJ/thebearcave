@@ -288,10 +288,12 @@ class TlsCertView(EnvelopeAPIView):
     Public endpoint (no auth) so the landing page can render a live
     cert-trust badge. Performs a real TLS handshake with the traefik HTTPS
     endpoint using config/ca/rootCA.pem (mounted at /host-config/ca/rootCA.pem)
-    as the sole trust anchor: a successful handshake means the served cert is
+    as a trust anchor. A successful handshake means the served cert is
     signed by the local CA, so devices that trust rootCA.pem get no browser
     warning; an SSLCertVerificationError means Traefik is serving its default
-    self-signed cert (or the CA is out of sync).
+    self-signed cert (or the CA is out of sync). Note: create_default_context
+    adds the CA to the system trust store rather than replacing it — external
+    HTTPS calls (TMDB, indexers) are unaffected.
     """
 
     permission_classes = []  # AllowAny - read-only diagnostic
@@ -377,6 +379,13 @@ class HealthCheckView(EnvelopeAPIView):
             {"name": "Grafana", "url": "http://grafana:3000/api/health", "timeout": 2},
             {"name": "Prometheus", "url": "http://prometheus:9090/-/healthy", "timeout": 2},
             {"name": "arr-dashboard", "url": "http://arr-dashboard:3000/health", "timeout": 3},
+            # --- services added to cover all 22 landing-page cards ---
+            {"name": "Traefik", "url": "http://traefik:80/", "timeout": 2},
+            {"name": "Loki", "url": "http://loki:3100/ready", "timeout": 2},
+            {"name": "Node Exporter", "url": "http://host.docker.internal:9100/metrics", "timeout": 2},
+            {"name": "cAdvisor", "url": "http://cadvisor:8080/healthz", "timeout": 2},
+            {"name": "NzbDAV Exporter", "url": "http://nzbdav-exporter:9200/metrics", "timeout": 2},
+            {"name": "Landing Page", "url": "http://landing-page:80/healthz", "timeout": 2},
         ]
 
         def check_one(svc):

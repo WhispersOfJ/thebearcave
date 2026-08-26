@@ -30,10 +30,11 @@
   <!-- ═══ Sidebar ═══ -->
   <aside id="sidebar" role="navigation" aria-label="Main navigation">
     <div class="sidebar-brand">
-      <a href="/" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:0.4rem" title="Back to The Bear Cave">
+      <a id="bearcave-home" href="/" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:0.4rem" title="Back to The Bear Cave">
         <span style="font-size:1.2rem">🐻</span>
         <span class="brand-name">The Bear Cave</span>
       </a>
+      <script>document.getElementById('bearcave-home').href='http://'+location.hostname+':8000';</script>
     </div>
 
     <nav class="sidebar-nav">

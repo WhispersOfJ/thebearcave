@@ -87,7 +87,8 @@ public static class MetricsDashboardEndpoints
 </style>
 </head>
 <body>
-<a class="backlink" href="/">🐻 The Bear Cave</a>
+<a class="backlink" id="bearcave-home" href="#">🐻 The Bear Cave</a>
+<script>document.getElementById('bearcave-home').href='http://'+location.hostname+':8000';</script>
 <header>
   <h1>Metacache · Dashboard</h1>
   <span id="updated">—</span>

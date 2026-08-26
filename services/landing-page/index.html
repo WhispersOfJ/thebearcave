@@ -337,6 +337,13 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
 
     const HOST = location.hostname;
 
+    // Validate registry structure — show a visible error instead of a blank page
+    if (!REGISTRY?.services || !REGISTRY?.categories || !REGISTRY?.pipeline_flow) {
+      document.getElementById('service-categories').innerHTML =
+        '<p style="color:var(--red);padding:2rem">Service registry failed to load. Check service-registry.json.</p>';
+      throw new Error('Invalid service registry: missing services, categories, or pipeline_flow');
+    }
+
     // ══════════════════════════════════════════════════════════
     // RENDER: category sections + card grids
     // ══════════════════════════════════════════════════════════
