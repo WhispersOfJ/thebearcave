@@ -1,4 +1,9 @@
 name: Stale Issues and PRs
+# Pinned actions policy: third-party actions are pinned to full commit SHAs
+# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
+# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
+# update the SHA and the "# tag" comment on its uses: line.
+
 
 on:
   schedule:
@@ -13,7 +18,7 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9
         with:
           days-before-stale: 30
           days-before-close: 7

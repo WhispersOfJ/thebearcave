@@ -1,4 +1,9 @@
 name: Validate
+# Pinned actions policy: third-party actions are pinned to full commit SHAs
+# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
+# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
+# update the SHA and the "# tag" comment on its uses: line.
+
 
 on:
   push:
@@ -11,7 +16,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Create dummy .env
         run: cp .env.template .env
@@ -32,7 +37,7 @@ jobs:
           fi
 
       - name: Shellcheck
-        uses: ludeeus/action-shellcheck@2.0.0
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
         with:
           severity: warning
           scandir: "."
