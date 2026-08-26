@@ -55,6 +55,15 @@ jobs:
             bash -n "$f"
           done
 
+      - name: Actionlint (workflow lint)
+        run: |
+          # v1.7.12 pinned — to upgrade, bump the version here (asset name is
+          # actionlint_<version>_linux_amd64.tar.gz) and re-run validate.
+          curl -sSL -o /tmp/actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint -color .github/workflows/*.yml
+
       - name: Unit tests - Django control panel
         run: |
           pip install -r services/control-panel/django/requirements.txt

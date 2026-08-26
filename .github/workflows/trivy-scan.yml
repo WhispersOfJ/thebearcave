@@ -114,14 +114,18 @@ jobs:
 
       - name: Generate report
         run: |
-          echo "# CVE Baseline Report" > STAGE-4-CVE-BASELINE.md
-          echo "" >> STAGE-4-CVE-BASELINE.md
-          echo "Generated: $(date -u '+%Y-%m-%d %H:%M UTC')" >> STAGE-4-CVE-BASELINE.md
-          echo "" >> STAGE-4-CVE-BASELINE.md
+          {
+            echo "# CVE Baseline Report"
+            echo ""
+            echo "Generated: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo ""
+          } > STAGE-4-CVE-BASELINE.md
           grep -oP '^\s+image:\s+\K[^\s@\n]+' docker-compose.yml | sort -u | while read -r image; do
-            echo "## $image" >> STAGE-4-CVE-BASELINE.md
-            trivy image --severity CRITICAL,HIGH --format table "$image" 2>/dev/null >> STAGE-4-CVE-BASELINE.md || echo "Scan failed" >> STAGE-4-CVE-BASELINE.md
-            echo "" >> STAGE-4-CVE-BASELINE.md
+            {
+              echo "## $image"
+              trivy image --severity CRITICAL,HIGH --format table "$image" 2>/dev/null || echo "Scan failed"
+              echo ""
+            } >> STAGE-4-CVE-BASELINE.md
           done
 
       - name: Commit report
