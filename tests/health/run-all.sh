@@ -25,7 +25,6 @@ SERVICE=""
 TOTAL=0
 PASSED=0
 FAILED=0
-SKIPPED=0
 
 # ============================================================================
 # Helper Functions
@@ -50,8 +49,6 @@ log_error() {
 check_container() {
     local container_name=$1
     local service_name=${2:-$1}
-    local health_url=${3:-}
-    local health_port=${4:-}
     
     TOTAL=$((TOTAL + 1))
     
@@ -66,13 +63,14 @@ check_container() {
         
         if [ "$health_status" = "healthy" ] || [ "$health_status" = "no_healthcheck" ]; then
             log_success "$service_name ($container_name) — $status, health: $health_status"
-            PASSED=$((PASSED + 1))
-            return 0
         else
             log_warning "$service_name ($container_name) — $status, health: $health_status"
-            PASSED=$((PASSED + 1))
-            return 0
         fi
+        if [ "$VERBOSE" = "true" ]; then
+            log_info "$service_name — status=$status health=$health_status"
+        fi
+        PASSED=$((PASSED + 1))
+        return 0
     elif [ "$status" = "not_found" ]; then
         log_error "$service_name ($container_name) — container not found"
         FAILED=$((FAILED + 1))
@@ -230,6 +228,9 @@ main() {
     done
     
     # Run checks
+    if [ "$VERBOSE" = "true" ]; then
+        log_info "Verbose mode enabled"
+    fi
     if [ -n "$SERVICE" ]; then
         # Check specific service
         case "$SERVICE" in
