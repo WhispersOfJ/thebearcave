@@ -186,18 +186,13 @@ def log_stream_partial(request):
     container = request.GET.get("container", "")
     log_lines = []
     if container:
-        client = None
         try:
-            import docker
-            client = docker.from_env()
-            c = client.containers.get(container)
+            from core.docker_client import docker_client
+            c = docker_client.containers.get(container)
             raw = c.logs(tail=200, timestamps=True).decode(errors="replace")
             log_lines = [line.rstrip() for line in raw.splitlines() if line.strip()]
         except Exception:
             log_lines = [f"Error: could not read logs for {container}"]
-        finally:
-            if client:
-                client.close()
     return render(request, "ui/partials/log_stream.html", {
         "log_lines": log_lines,
         "container": container,
@@ -217,20 +212,16 @@ def log_stream_sse(request):
 
     def generate():
         import json
-        client = None
+
         try:
-            import docker
-            client = docker.from_env()
-            c = client.containers.get(container)
+            from core.docker_client import docker_client
+            c = docker_client.containers.get(container)
             for line in c.logs(stream=True, follow=True, tail=50, timestamps=True):
                 text = line.decode(errors="replace").rstrip()
                 if text:
                     yield f"data: {json.dumps({'line': text})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        finally:
-            if client:
-                client.close()
         yield "data: [DONE]\n\n"
 
     response = StreamingHttpResponse(generate(), content_type="text/event-stream")
