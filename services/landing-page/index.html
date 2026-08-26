@@ -213,6 +213,37 @@
       line-height: 1.4;
       max-width: 62ch;
     }
+    .cert-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.6rem;
+    }
+    .cert-shield {
+      display: inline-flex;
+      align-items: stretch;
+      border-radius: 5px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.72rem;
+    }
+    .shield-label {
+      background: #4a5063;
+      color: #fff;
+      padding: 0.2rem 0.55rem;
+      letter-spacing: 0.05em;
+    }
+    .shield-value {
+      padding: 0.2rem 0.55rem;
+      color: #fff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .shield-value.checking { background: #8b8fa3; }
+    .shield-value.ok { background: var(--green); }
+    .shield-value.bad { background: var(--red); }
+    .shield-value.http { background: #8b8fa3; }
     .cert-download {
       background: var(--accent);
       color: #fff;
@@ -319,7 +350,13 @@
           <strong>Trust the HTTPS certificate on this device</strong>
           <p>Every service is served over HTTPS with a certificate signed by this stack's own local CA. Install the CA once per device and the browser warning disappears.</p>
         </div>
-        <a class="cert-download" href="/rootCA.pem" download>⬇ Download rootCA.pem</a>
+        <div class="cert-actions">
+          <div class="cert-shield" title="Live trust status of the certificate on this device">
+            <span class="shield-label">cert</span>
+            <span class="shield-value checking" id="cert-shield-value">checking&hellip;</span>
+          </div>
+          <a class="cert-download" href="/rootCA.pem" download>⬇ Download rootCA.pem</a>
+        </div>
       </div>
 
       <details class="cert-step" open>
@@ -498,6 +535,36 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     document.querySelectorAll(".cert-card code").forEach(el => {
       el.textContent = el.textContent.split("__HOST__").join(CA_HOST);
     });
+
+    // Cert trust badge: the server-side probe (/api/v2/host/tls) is the truth
+    // — it performs a real TLS handshake against the traefik HTTPS endpoint
+    // using config/ca/rootCA.pem as the sole trust anchor, so it can't be
+    // fooled by a dismissed browser warning. Fetched same-origin through the
+    // landing nginx proxy, so it works over both HTTP and HTTPS (no mixed
+    // content). Re-checks every 30s.
+    const certShield = document.getElementById("cert-shield-value");
+    function checkCertTrust() {
+      fetch("/api/v2/host/tls", { cache: "no-store" })
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then(data => {
+          if (data.trusted) {
+            certShield.textContent = "\u2713 CA trusted";
+            certShield.className = "shield-value ok";
+          } else {
+            certShield.textContent = "\u26a0 not trusted";
+            certShield.className = "shield-value bad";
+          }
+        })
+        .catch(() => {
+          certShield.textContent = "check unavailable";
+          certShield.className = "shield-value http";
+        });
+    }
+    checkCertTrust();
+    setInterval(checkCertTrust, 30000);
 
     // CVE baseline card - parses the summary table in STAGE-4-CVE-BASELINE.md
     // from the public repo. Refreshes every 5 minutes; degrades gracefully
