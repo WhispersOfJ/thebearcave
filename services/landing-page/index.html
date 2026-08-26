@@ -339,7 +339,7 @@
       </div>
       <div class="cve-foot">
         <span id="cve-meta">Loading baseline&hellip;</span>
-        <a href="https://github.com/WhispersOfJ/media-stack/blob/main/STAGE-4-CVE-BASELINE.md" target="_blank">View baseline &nearr;</a>
+        <a href="https://github.com/WhispersOfJ/thebearcave/blob/main/STAGE-4-CVE-BASELINE.md" target="_blank">View baseline &nearr;</a>
       </div>
     </div>
 
@@ -420,19 +420,19 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
 
     <h2>Documentation</h2>
     <div class="docs-grid">
-      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack" target="_blank">
+      <a class="doc-card" href="https://github.com/WhispersOfJ/thebearcave" target="_blank">
         <div class="doc-title">📖 README</div>
         <div class="doc-desc">Full setup guide, architecture overview, and commands reference</div>
       </a>
-      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack/blob/main/AGENTS.md" target="_blank">
+      <a class="doc-card" href="https://github.com/WhispersOfJ/thebearcave/blob/main/AGENTS.md" target="_blank">
         <div class="doc-title">🤖 AGENTS.md</div>
         <div class="doc-desc">AI agent context — technologies, APIs, service map, and coding conventions</div>
       </a>
-      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack/blob/main/BUG-SMASHED.md" target="_blank">
+      <a class="doc-card" href="https://github.com/WhispersOfJ/thebearcave/blob/main/archive/media-stack/BUG-SMASHED.md" target="_blank">
         <div class="doc-title">🐛 Bug History</div>
         <div class="doc-desc">Graphical history of resolved issues across the stack</div>
       </a>
-      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack/actions" target="_blank">
+      <a class="doc-card" href="https://github.com/WhispersOfJ/thebearcave/actions" target="_blank">
         <div class="doc-title">⚙️ CI/CD</div>
         <div class="doc-desc">GitHub Actions workflows — build, test, and deploy status</div>
       </a>
@@ -447,7 +447,7 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     </div>
   </main>
   <footer>
-    Media Stack &middot; <a href="https://github.com/WhispersOfJ/media-stack">GitHub</a>
+    Media Stack &middot; <a href="https://github.com/WhispersOfJ/thebearcave">GitHub</a>
   </footer>
 
   <script>
@@ -569,7 +569,7 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     // CVE baseline card - parses the summary table in STAGE-4-CVE-BASELINE.md
     // from the public repo. Refreshes every 5 minutes; degrades gracefully
     // when GitHub is unreachable.
-    const BASELINE_URL = "https://raw.githubusercontent.com/WhispersOfJ/media-stack/main/STAGE-4-CVE-BASELINE.md";
+    const BASELINE_URL = "https://raw.githubusercontent.com/WhispersOfJ/thebearcave/main/STAGE-4-CVE-BASELINE.md";
     async function loadCveBaseline() {
       try {
         const r = await fetch(BASELINE_URL, { cache: "no-store" });
