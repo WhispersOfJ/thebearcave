@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.4.0...v1.4.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* health view covers 19 services, backlinks use absolute URLs, registry validation, docstring accuracy ([6ab8e5c](https://github.com/WhispersOfJ/thebearcave/commit/6ab8e5c5cd88febea6d1242e51290757c1234095))
+* **landing-page:** correct pipeline flow parallelism and guard Mermaid ([2753f11](https://github.com/WhispersOfJ/thebearcave/commit/2753f110d5da679d954ce0b4201f135488da85a3))
+
 ## [1.4.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.3.2...v1.4.0) (2026-08-26)
 
 
