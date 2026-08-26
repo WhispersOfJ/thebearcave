@@ -31,3 +31,27 @@ first boot.
   and API keys match `.env`
 - **Can't see download paths** — the FUSE mount bind must be present; check
   `docker exec cleanuparr ls /mnt/remote/nzbdav`
+
+## Automated Cleanup Setup
+
+Cleanuparr needs manual configuration through its web UI (`http://localhost:11011`).
+
+### Steps
+
+1. Open `http://cleanuparr:11011` (or `http://HOST_IP:11011`)
+2. Add instances:
+   - **Radarr**: URL `http://radarr:7878`, API key from `.env` (`RADARR_API_KEY`)
+   - **Sonarr**: URL `http://sonarr:8989`, API key from `.env` (`SONARR_API_KEY`)
+3. Configure cleanup rules:
+   - Enable **Stale download cleanup** (remove downloads stuck >48h)
+   - Enable **Failed download cleanup** (remove after 3 retry failures)
+   - Enable **Orphaned file cleanup** (remove files not tracked by arr apps)
+   - Set **Minimum file age** to 24h (don't clean recent downloads)
+4. Enable **Strike system** (3 strikes = auto-remove)
+
+### What Cleanuparr Does
+
+- Monitors Radarr/Sonarr queues for stalled/failed downloads
+- Removes orphaned files from the download client
+- Cleans up failed releases from the queue
+- Runs on a configurable schedule (default: every 30 minutes)

@@ -21,6 +21,8 @@ config/*/
 config/traefik/certs/
 config/nzbdav-rclone/cache/
 config/nzbdav-rclone/rclone.conf
+config/alertmanager/
+!config/alertmanager/alertmanager.yml.template
 
 # Persistent data volumes
 data/
@@ -91,3 +93,4 @@ temp/
 
 # Freebuff client workspace state (lives inside the repo via the symlink at ~/Projects/The Bear Cave)
 .freebuff/
+data/alertmanager/
