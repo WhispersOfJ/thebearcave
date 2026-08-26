@@ -9,7 +9,13 @@
 #   ./scripts/setup.sh                    # Interactive setup
 #   ./scripts/setup.sh --non-interactive  # Non-interactive (uses defaults)
 #   ./scripts/setup.sh --validate-only    # Only validate existing config
+#   ./scripts/setup.sh --sync-github-secrets  # Sync .env → GitHub Actions secrets
 # ============================================================================
+#
+# GitHub secret sync: release-please needs RELEASE_PLEASE_TOKEN as a repo
+# Actions secret — the local .env is never visible to CI. This script syncs
+# the value (piped, never echoed) automatically in --non-interactive mode, on
+# request in interactive mode, or via --sync-github-secrets.
 
 set -euo pipefail
 
@@ -259,6 +265,51 @@ generate_secrets() {
 }
 
 # ============================================================================
+# GitHub Secrets Sync
+# ============================================================================
+
+# RELEASE_PLEASE_TOKEN lives in .env for local convenience, but GitHub Actions
+# can only read it as a repository Actions secret — the local .env is never
+# visible to CI. Keep the two in sync. The value is piped to `gh secret set`
+# from stdin so it is never echoed, logged, or exposed in the process list.
+#
+# Why it matters: release-please opens the release PR with this token so the
+# PR triggers validate.yml. PRs opened with the default GITHUB_TOKEN are
+# skipped by GitHub's recursion guard, so the release PR would ship without CI.
+sync_github_secrets() {
+    log_info "Syncing GitHub Actions secrets from .env..."
+
+    if ! command -v gh &> /dev/null; then
+        log_warning "GitHub CLI (gh) not found — skipping secret sync."
+        echo "  RELEASE_PLEASE_TOKEN (if set) only works as a GitHub Actions secret."
+        echo "  Install gh (https://cli.github.com) and re-run, or set it manually:"
+        echo "  Settings → Secrets and variables → Actions → New repository secret."
+        return 0
+    fi
+
+    local token
+    token=$(grep -E "^RELEASE_PLEASE_TOKEN=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '"' || true)
+
+    if [ -z "$token" ]; then
+        log_warning "RELEASE_PLEASE_TOKEN is not set in $ENV_FILE."
+        echo "  release-please needs it so release PRs run validate.yml; add"
+        echo "  RELEASE_PLEASE_TOKEN=ghp_... to .env and re-run, or set it as a"
+        echo "  repo Actions secret manually. Without it, release-please falls"
+        echo "  back to GITHUB_TOKEN (works, but release PRs skip CI)."
+        return 0
+    fi
+
+    if ! gh repo view &> /dev/null; then
+        log_warning "Not inside a GitHub repository (or gh is not authenticated) — skipping secret sync."
+        return 0
+    fi
+
+    printf '%s' "$token" | gh secret set RELEASE_PLEASE_TOKEN
+    log_success "RELEASE_PLEASE_TOKEN synced to the GitHub Actions secret."
+    return 0
+}
+
+# ============================================================================
 # Main Setup Functions
 # ============================================================================
 
@@ -310,7 +361,14 @@ interactive_setup() {
         create_secrets_dir
         generate_secrets
     fi
-    
+
+    # Sync GitHub secrets
+    echo ""
+    read -p "Sync RELEASE_PLEASE_TOKEN to GitHub Actions secret? (Y/n): " sync_gh
+    if [ "${sync_gh:-Y}" != "n" ]; then
+        sync_github_secrets
+    fi
+
     # Final status
     echo ""
     echo "=========================================="
@@ -342,7 +400,10 @@ non_interactive_setup() {
     # Generate secrets
     create_secrets_dir
     generate_secrets
-    
+
+    # Sync GitHub secrets automatically (non-interactive mode does everything)
+    sync_github_secrets
+
     log_success "Non-interactive setup complete"
 }
 
@@ -370,6 +431,9 @@ main() {
             ;;
         --validate-only)
             validate_only
+            ;;
+        --sync-github-secrets)
+            sync_github_secrets
             ;;
         *)
             interactive_setup
