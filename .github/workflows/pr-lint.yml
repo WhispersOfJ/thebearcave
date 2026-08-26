@@ -29,12 +29,8 @@ jobs:
             ci
             chore
             revert
+            docker
           requireScope: false
           subjectPattern: ^[^ ].+$
           subjectPatternError: |
             The subject "{subject}" must not start with a space.
-          headerPatternError: |
-            The PR title "{title}" does not follow Conventional Commits.
-            Format: `type(scope): description`
-            Example: `feat(metacache): add predictive warming for next episode`
-            Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
