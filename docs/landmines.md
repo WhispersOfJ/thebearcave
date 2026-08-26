@@ -85,6 +85,23 @@ port" will be confused — document `:32400` for Plex.
 Prometheus reaches node-exporter via `host.docker.internal:9100`. This works on Linux
 (extra_hosts → host-gateway) but not on Docker Desktop. The stack is Linux-only.
 
+### 13. HTTPS is a local CA — Let's Encrypt can never work here
+
+All `*.nip.io` hostnames serve the mkcert-signed wildcard cert (wired in as Traefik's
+default certificate via `config/traefik/dynamic/tls.yml`). Let's Encrypt **cannot**
+issue for these names: the ACME HTTP-01 challenge requires a publicly reachable host,
+and `*.192.168.4.20.nip.io` resolves to a private LAN IP. Do **not** re-add a
+`certificatesResolvers` block expecting it to work — it only spams errors and falls
+back to the self-signed default cert (see git history: `ef2ab3c`).
+
+- A browser warning on a device means the **local CA isn't installed there** — run
+  `scripts/trust-ca.sh` and follow its per-device steps. Never just dismiss the warning.
+- The CA and leaf **private keys** live only on the server (`~/.local/share/mkcert/`,
+  `config/traefik/certs/`); devices install only the public `rootCA.pem` (served at
+  `https://bearcave.192.168.4.20.nip.io/rootCA.pem`).
+- Real public certificates require a public domain pointing at this host with 80/443
+  forwarded, then a working `ACME_EMAIL`. Full model in [docs/tls.md](tls.md).
+
 ---
 
 ## Diagnostics
@@ -95,4 +112,5 @@ Prometheus reaches node-exporter via `host.docker.internal:9100`. This works on 
 | Imports stuck "importing" | `docker compose logs nzbdav radarr sonarr \| tail` |
 | Services unreachable via nip.io | Traefik up? `docker compose ps traefik` |
 | Everything unhealthy | `.env` placeholders? `grep changeme .env` |
+| Browser shows certificate warning | CA not installed on that device — `scripts/trust-ca.sh` |
 | Metacache "Fix Match" spam | Cache warm status: `curl localhost:8765/warm/status` |
