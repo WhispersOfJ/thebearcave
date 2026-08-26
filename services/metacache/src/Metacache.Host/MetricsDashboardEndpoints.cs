@@ -24,9 +24,13 @@ public static class MetricsDashboardEndpoints
   :root { --bg:#0f1115; --card:#171a21; --border:#232833; --text:#e6e8ee; --muted:#9aa2b1; --accent:#4f8cff; --good:#3fb97f; --bad:#e5534b; --warn:#ffb454; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font:14px/1.5 ui-sans-serif, system-ui, sans-serif; padding:20px; max-width:1200px; margin:0 auto; }
+  .backlink { display:inline-block; margin-bottom:12px; color:var(--accent); text-decoration:none; font-size:13px; }
+  .backlink:hover { text-decoration:underline; }
   header { display:flex; align-items:baseline; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
   h1 { font-size:20px; }
   #updated { color:var(--muted); font-size:12px; }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
   .tabs { display:flex; gap:2px; margin-bottom:16px; border-bottom:1px solid var(--border); }
   .tab { padding:8px 16px; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; transition:all .15s; }
   .tab:hover { color:var(--text); }
@@ -83,6 +87,7 @@ public static class MetricsDashboardEndpoints
 </style>
 </head>
 <body>
+<a class="backlink" href="/">🐻 The Bear Cave</a>
 <header>
   <h1>Metacache · Dashboard</h1>
   <span id="updated">—</span>

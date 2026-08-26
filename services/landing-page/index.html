@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Media Stack</title>
+  <title>The Bear Cave</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -28,295 +28,166 @@
       text-align: center;
       border-bottom: 1px solid var(--border);
     }
-    header h1 {
-      font-size: 1.8rem;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-    }
-    header p {
-      color: var(--text-dim);
-      margin-top: 0.3rem;
-      font-size: 0.9rem;
-    }
+    header h1 { font-size: 1.8rem; font-weight: 600; letter-spacing: -0.02em; }
+    header p { color: var(--text-dim); margin-top: 0.3rem; font-size: 0.9rem; }
     .status-bar {
-      display: flex;
-      justify-content: center;
-      gap: 1.5rem;
-      margin-top: 1rem;
-      font-size: 0.8rem;
+      display: flex; justify-content: center; gap: 1.5rem;
+      margin-top: 1rem; font-size: 0.8rem;
     }
     .status-bar .stat { display: flex; align-items: center; gap: 0.4rem; }
-    .status-bar .dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      display: inline-block;
-    }
+    .status-bar .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
     .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
-    .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
     main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
     h2 {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--text-dim);
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-dim); margin-bottom: 1rem; padding-bottom: 0.5rem;
       border-bottom: 1px solid var(--border);
     }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    /* ── Category sections ── */
+    .category-section { margin-bottom: 2.5rem; }
+    .category-header {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-bottom: 0.8rem; padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .category-icon { font-size: 1.1rem; }
+    .category-name { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+    .category-desc { font-size: 0.75rem; color: var(--text-dim); margin-left: auto; }
+    .category-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 0.75rem;
-      margin-bottom: 2.5rem;
     }
+    /* ── Pipeline flow strip ── */
+    .pipeline-flow {
+      display: flex; align-items: center; gap: 0;
+      overflow-x: auto; padding: 0.5rem 0; margin-bottom: 1rem;
+    }
+    .pipeline-node {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.5rem 0.8rem;
+      text-align: center; min-width: 100px;
+      cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+      text-decoration: none; color: var(--text); flex-shrink: 0;
+    }
+    .pipeline-node:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .pipeline-node .pipe-icon { font-size: 1.2rem; display: block; margin-bottom: 0.2rem; }
+    .pipeline-node .pipe-name { font-size: 0.72rem; font-weight: 600; }
+    .pipeline-arrow { color: var(--accent); font-size: 1.2rem; padding: 0 0.3rem; flex-shrink: 0; }
+    /* ── Cards ── */
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1rem 1.1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      text-decoration: none;
-      color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.1rem;
+      display: flex; flex-direction: column; gap: 0.4rem;
+      text-decoration: none; color: var(--text);
       transition: border-color 0.2s, transform 0.15s;
-      position: relative;
+      position: relative; cursor: pointer;
     }
-    .card:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-    .card .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .card .card-title {
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-    .card .card-status {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--text-dim);
-      transition: background 0.3s;
-    }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .card.expanded { border-color: var(--accent); transform: none; }
+    .card .card-header { display: flex; justify-content: space-between; align-items: center; }
+    .card .card-title { font-weight: 600; font-size: 0.95rem; }
+    .card .card-status { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); transition: background 0.3s; }
     .card .card-status.up { background: var(--green); box-shadow: 0 0 6px var(--green); }
     .card .card-status.down { background: var(--red); box-shadow: 0 0 6px var(--red); }
-    .card .card-desc {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      line-height: 1.4;
+    .card .card-desc { font-size: 0.78rem; color: var(--text-dim); line-height: 1.4; }
+    .card .card-port { font-size: 0.72rem; color: var(--accent); font-family: 'SF Mono', 'Fira Code', monospace; margin-top: auto; padding-top: 0.3rem; }
+    /* ── Detail panel ── */
+    .card-detail {
+      display: none; margin-top: 0.6rem; padding-top: 0.6rem;
+      border-top: 1px solid var(--border); font-size: 0.78rem;
     }
-    .card .card-port {
-      font-size: 0.72rem;
-      color: var(--accent);
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      margin-top: auto;
-      padding-top: 0.3rem;
+    .card.expanded .card-detail { display: block; }
+    .detail-row { display: flex; justify-content: space-between; margin-bottom: 0.3rem; }
+    .detail-label { color: var(--text-dim); }
+    .detail-value { color: var(--text); font-family: 'SF Mono', 'Fira Code', monospace; }
+    .detail-links { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .detail-link {
+      background: rgba(108,92,231,0.15); color: var(--accent);
+      padding: 0.25rem 0.6rem; border-radius: 5px;
+      text-decoration: none; font-size: 0.72rem; font-weight: 600;
+      transition: background 0.2s;
     }
-    .docs-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 0.75rem;
+    .detail-link:hover { background: rgba(108,92,231,0.3); }
+    /* ── Graph ── */
+    .graph-section { margin-bottom: 2.5rem; }
+    .graph-container {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.5rem; overflow-x: auto;
     }
+    .graph-container svg { max-width: 100%; height: auto; }
+    .mermaid { text-align: center; }
+    /* ── Docs grid ── */
+    .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
     .doc-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1rem 1.1rem;
-      text-decoration: none;
-      color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.1rem;
+      text-decoration: none; color: var(--text);
       transition: border-color 0.2s, transform 0.15s;
     }
-    .doc-card:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
+    .doc-card:hover { border-color: var(--accent); transform: translateY(-2px); }
     .doc-card .doc-title { font-weight: 600; font-size: 0.9rem; }
-    .doc-card .doc-desc {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      margin-top: 0.3rem;
-      line-height: 1.4;
-    }
+    .doc-card .doc-desc { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.3rem; line-height: 1.4; }
+    /* ── CVE card ── */
     .cve-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1rem 1.1rem;
-      margin-bottom: 2.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.1rem; margin-bottom: 2.5rem;
     }
-    .cve-stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
+    .cve-stats { display: flex; flex-wrap: wrap; gap: 0.75rem; }
     .cve-stat {
-      flex: 1 1 100px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.6rem 0.8rem;
-      text-align: center;
+      flex: 1 1 100px; background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.6rem 0.8rem; text-align: center;
     }
-    .cve-stat .cve-count {
-      display: block;
-      font-size: 1.5rem;
-      font-weight: 700;
-      font-family: 'SF Mono', 'Fira Code', monospace;
-    }
-    .cve-stat .cve-label {
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-dim);
-    }
+    .cve-stat .cve-count { display: block; font-size: 1.5rem; font-weight: 700; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .cve-stat .cve-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
     .cve-critical .cve-count { color: var(--red); }
     .cve-high .cve-count { color: #ff9f43; }
     .cve-medium .cve-count { color: var(--yellow); }
     .cve-low .cve-count { color: var(--text-dim); }
     .cve-total .cve-count { color: var(--accent); }
-    .cve-foot {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      font-size: 0.75rem;
-      color: var(--text-dim);
-    }
+    .cve-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem; font-size: 0.75rem; color: var(--text-dim); }
     .cve-foot a { color: var(--accent); text-decoration: none; }
     .cve-foot a:hover { text-decoration: underline; }
-    .cert-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.1rem 1.2rem;
-      margin-bottom: 2.5rem;
-    }
-    .cert-intro {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-bottom: 0.8rem;
-    }
+    /* ── Cert section ── */
+    .cert-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.2rem; margin-bottom: 2.5rem; }
+    .cert-intro { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
     .cert-intro strong { font-size: 1rem; }
-    .cert-intro p {
-      font-size: 0.8rem;
-      color: var(--text-dim);
-      margin-top: 0.3rem;
-      line-height: 1.4;
-      max-width: 62ch;
-    }
-    .cert-actions {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.6rem;
-    }
-    .cert-shield {
-      display: inline-flex;
-      align-items: stretch;
-      border-radius: 5px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 0.72rem;
-    }
-    .shield-label {
-      background: #4a5063;
-      color: #fff;
-      padding: 0.2rem 0.55rem;
-      letter-spacing: 0.05em;
-    }
-    .shield-value {
-      padding: 0.2rem 0.55rem;
-      color: #fff;
-      font-weight: 600;
-      white-space: nowrap;
-    }
+    .cert-intro p { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.3rem; line-height: 1.4; max-width: 62ch; }
+    .cert-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem; }
+    .cert-shield { display: inline-flex; align-items: stretch; border-radius: 5px; overflow: hidden; border: 1px solid var(--border); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.72rem; }
+    .shield-label { background: #4a5063; color: #fff; padding: 0.2rem 0.55rem; letter-spacing: 0.05em; }
+    .shield-value { padding: 0.2rem 0.55rem; color: #fff; font-weight: 600; white-space: nowrap; }
     .shield-value.checking { background: #8b8fa3; }
     .shield-value.ok { background: var(--green); }
     .shield-value.bad { background: var(--red); }
     .shield-value.http { background: #8b8fa3; }
-    .cert-download {
-      background: var(--accent);
-      color: #fff;
-      border-radius: 8px;
-      padding: 0.55rem 1rem;
-      text-decoration: none;
-      font-size: 0.85rem;
-      font-weight: 600;
-      white-space: nowrap;
-      transition: filter 0.2s;
-    }
+    .cert-download { background: var(--accent); color: #fff; border-radius: 8px; padding: 0.55rem 1rem; text-decoration: none; font-size: 0.85rem; font-weight: 600; white-space: nowrap; transition: filter 0.2s; }
     .cert-download:hover { filter: brightness(1.15); }
-    details.cert-step {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-top: 0.5rem;
-      background: rgba(255,255,255,0.02);
-    }
-    details.cert-step summary {
-      cursor: pointer;
-      padding: 0.6rem 0.9rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text);
-      user-select: none;
-    }
+    details.cert-step { border: 1px solid var(--border); border-radius: 8px; margin-top: 0.5rem; background: rgba(255,255,255,0.02); }
+    details.cert-step summary { cursor: pointer; padding: 0.6rem 0.9rem; font-size: 0.85rem; font-weight: 600; color: var(--text); user-select: none; }
     details.cert-step summary:hover { color: var(--accent); }
     details.cert-step[open] summary { border-bottom: 1px solid var(--border); }
-    details.cert-step pre {
-      margin: 0;
-      padding: 0.7rem 0.9rem;
-      overflow-x: auto;
-      font-size: 0.78rem;
-      line-height: 1.5;
-    }
-    details.cert-step code {
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      color: var(--green);
-    }
-    details.cert-step ol {
-      margin: 0;
-      padding: 0.7rem 0.9rem 0.7rem 2.2rem;
-      font-size: 0.82rem;
-      line-height: 1.6;
-      color: var(--text);
-    }
+    details.cert-step pre { margin: 0; padding: 0.7rem 0.9rem; overflow-x: auto; font-size: 0.78rem; line-height: 1.5; }
+    details.cert-step code { font-family: 'SF Mono', 'Fira Code', monospace; color: var(--green); }
+    details.cert-step ol { margin: 0; padding: 0.7rem 0.9rem 0.7rem 2.2rem; font-size: 0.82rem; line-height: 1.6; color: var(--text); }
     details.cert-step ol code { color: var(--green); }
-    .cert-note {
-      margin-top: 0.8rem;
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      line-height: 1.5;
-    }
+    .cert-note { margin-top: 0.8rem; font-size: 0.75rem; color: var(--text-dim); line-height: 1.5; }
     .cert-note code { font-family: 'SF Mono', 'Fira Code', monospace; }
-    footer {
-      text-align: center;
-      padding: 2rem;
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      border-top: 1px solid var(--border);
-    }
+    footer { text-align: center; padding: 2rem; color: var(--text-dim); font-size: 0.75rem; border-top: 1px solid var(--border); }
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
     @media (max-width: 600px) {
-      .grid { grid-template-columns: 1fr; }
+      .category-grid { grid-template-columns: 1fr; }
       .docs-grid { grid-template-columns: 1fr; }
       header h1 { font-size: 1.4rem; }
+      .pipeline-flow { flex-wrap: wrap; justify-content: center; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>📦 Media Stack</h1>
+    <h1>🐻 The Bear Cave</h1>
     <p>Unified control plane for your media infrastructure</p>
     <div class="status-bar">
       <span class="stat"><span class="dot green" id="online-count-dot"></span> <span id="online-count">0</span> online</span>
@@ -325,10 +196,22 @@
     </div>
   </header>
   <main>
-    <h2>Services</h2>
-    <div class="grid" id="services-grid"></div>
+    <!-- Ecosystem graph (filled by JS) -->
+    <h2>Ecosystem</h2>
+    <div class="graph-section">
+      <div class="graph-container">
+        <div class="mermaid" id="ecosystem-graph"></div>
+      </div>
+    </div>
 
-    <h2>Security &middot; CVE Baseline</h2>
+    <!-- Pipeline flow strip (filled by JS) -->
+    <h2>Content Pipeline</h2>
+    <div class="pipeline-flow" id="pipeline-flow"></div>
+
+    <!-- Category sections (filled by JS) -->
+    <div id="service-categories"></div>
+
+    <h2>Security · CVE Baseline</h2>
     <div class="cve-card">
       <div class="cve-stats">
         <div class="cve-stat cve-critical"><span class="cve-label">CRITICAL</span><span class="cve-count" id="cve-critical">—</span></div>
@@ -338,12 +221,12 @@
         <div class="cve-stat cve-total"><span class="cve-label">TOTAL</span><span class="cve-count" id="cve-total">—</span></div>
       </div>
       <div class="cve-foot">
-        <span id="cve-meta">Loading baseline&hellip;</span>
-        <a href="https://github.com/WhispersOfJ/thebearcave/blob/main/STAGE-4-CVE-BASELINE.md" target="_blank">View baseline &nearr;</a>
+        <span id="cve-meta">Loading baseline…</span>
+        <a href="https://github.com/WhispersOfJ/thebearcave/blob/main/STAGE-4-CVE-BASELINE.md" target="_blank">View baseline ↗</a>
       </div>
     </div>
 
-    <h2>Certificate setup</h2>
+    <h2>Certificate Setup</h2>
     <div class="cert-card">
       <div class="cert-intro">
         <div>
@@ -353,68 +236,59 @@
         <div class="cert-actions">
           <div class="cert-shield" title="Live trust status of the certificate on this device">
             <span class="shield-label">cert</span>
-            <span class="shield-value checking" id="cert-shield-value">checking&hellip;</span>
+            <span class="shield-value checking" id="cert-shield-value">checking…</span>
           </div>
           <a class="cert-download" href="/rootCA.pem" download>⬇ Download rootCA.pem</a>
         </div>
       </div>
-
       <details class="cert-step" open>
-        <summary>Linux &middot; Debian / Ubuntu</summary>
+        <summary>Linux · Debian / Ubuntu</summary>
         <pre><code>curl -kO https://__HOST__/rootCA.pem
 sudo cp rootCA.pem /usr/local/share/ca-certificates/mkcert-rootCA.crt
 sudo update-ca-certificates</code></pre>
       </details>
-
       <details class="cert-step">
-        <summary>Linux &middot; Fedora / RHEL</summary>
+        <summary>Linux · Fedora / RHEL</summary>
         <pre><code>curl -kO https://__HOST__/rootCA.pem
 sudo cp rootCA.pem /etc/pki/ca-trust/source/anchors/
 sudo update-ca-trust</code></pre>
       </details>
-
       <details class="cert-step">
-        <summary>Linux &middot; Arch</summary>
+        <summary>Linux · Arch</summary>
         <pre><code>curl -kO https://__HOST__/rootCA.pem
 sudo cp rootCA.pem /etc/ca-certificates/trust-source/anchors/
 sudo update-ca-trust</code></pre>
       </details>
-
       <details class="cert-step">
         <summary>macOS</summary>
         <pre><code>curl -kO https://__HOST__/rootCA.pem
 sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain rootCA.pem</code></pre>
       </details>
-
       <details class="cert-step">
         <summary>Windows</summary>
         <pre><code>curl.exe -k -O https://__HOST__/rootCA.pem
 certutil -addstore -f "ROOT" rootCA.pem</code></pre>
       </details>
-
       <details class="cert-step">
         <summary>iOS / iPadOS</summary>
         <ol>
           <li>In Safari, open <code>https://__HOST__/rootCA.pem</code> and allow the download</li>
-          <li>Settings &rarr; General &rarr; VPN &amp; Device Management &rarr; install the profile</li>
-          <li>Settings &rarr; General &rarr; About &rarr; Certificate Trust Settings &rarr; enable <strong>full trust</strong> for the CA</li>
+          <li>Settings → General → VPN &amp; Device Management → install the profile</li>
+          <li>Settings → General → About → Certificate Trust Settings → enable <strong>full trust</strong> for the CA</li>
         </ol>
       </details>
-
       <details class="cert-step">
         <summary>Android</summary>
         <ol>
           <li>In Chrome, open <code>https://__HOST__/rootCA.pem</code> and download it</li>
-          <li>Settings &rarr; Security &rarr; Encryption &amp; credentials &rarr; Install a certificate &rarr; CA certificate</li>
-          <li>Select the downloaded file &mdash; done</li>
+          <li>Settings → Security → Encryption &amp; credentials → Install a certificate → CA certificate</li>
+          <li>Select the downloaded file — done</li>
         </ol>
       </details>
-
       <p class="cert-note">
-        Firefox (Linux/macOS) doesn't read the system store: open Settings &rarr; Privacy &amp; Security &rarr;
-        Certificates &rarr; View &rarr; Authorities &rarr; Import and pick <code>rootCA.pem</code>.
-        <code>rootCA.pem</code> is the public certificate &mdash; the private key never leaves the server.
-        Once installed, this page should show a valid padlock.
+        Firefox (Linux/macOS) doesn't read the system store: open Settings → Privacy &amp; Security →
+        Certificates → View → Authorities → Import and pick <code>rootCA.pem</code>.
+        <code>rootCA.pem</code> is the public certificate — the private key never leaves the server.
       </p>
     </div>
 
@@ -447,161 +321,244 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     </div>
   </main>
   <footer>
-    Media Stack &middot; <a href="https://github.com/WhispersOfJ/thebearcave">GitHub</a>
+    🐻 The Bear Cave · <a href="https://github.com/WhispersOfJ/thebearcave">GitHub</a>
   </footer>
 
+  <!-- Mermaid.js for the ecosystem graph -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+
   <script>
-    const SERVICES = [
-      { name: "Plex",           desc: "Media server & streaming",          port: 32400 },
-      { name: "Radarr",         desc: "Movie management & downloads",      port: 7878 },
-      { name: "Sonarr",         desc: "TV show management & downloads",    port: 8989 },
-      { name: "Prowlarr",       desc: "Indexer management & search",       port: 9696 },
-      { name: "NzbDAV",         desc: "Usenet queue & WebDAV mount",       port: 3000 },
-      { name: "Overseerr",      desc: "Request management & discovery",    port: 5055 },
-      { name: "Control Panel",  desc: "Stack operations & fish CLI",       port: 8420 },
-      { name: "arr-dashboard",  desc: "Queue, calendar & TRaSH Guides",    port: 41789 },
-      { name: "Metacache",      desc: "Plex metadata cache & matching",    port: 8765 },
-      { name: "Watchstate",     desc: "Watch history sync",                port: 8705 },
-      { name: "Cleanuparr",     desc: "Stale download cleanup",            port: 11011 },
-      { name: "Grafana",        desc: "Metrics dashboards & visualization", port: 3001 },
-      { name: "Prometheus",     desc: "Metrics collection & alerting",     port: 9090 },
-    ];
+    // ══════════════════════════════════════════════════════════
+    // SERVICE REGISTRY — single source of truth (also lives as
+    // service-registry.json; inline here for a static page).
+    // ══════════════════════════════════════════════════════════
+    const REGISTRY = {"categories":{"infrastructure":{"name":"Infrastructure","icon":"📡","description":"Core platform services"},"pipeline":{"name":"Media Pipeline","icon":"🎬","description":"Content acquisition and delivery"},"data":{"name":"Data & Metadata","icon":"📊","description":"Metadata, state, and analytics"},"monitoring":{"name":"Monitoring & Logs","icon":"📈","description":"Observability and alerting"}},"pipeline_flow":["prowlarr","radarr","sonarr","nzbdav","nzbdav_rclone","plex"],"services":{"traefik":{"name":"Traefik","description":"Reverse proxy with automatic HTTPS","port":443,"category":"infrastructure","health":{"type":"none"},"dashboard":null,"depends_on":[],"depended_by":["radarr","sonarr","prowlarr","nzbdav","seerr","control-panel","arr-dashboard","metacache","watchstate","cleanuparr","grafana","prometheus","landing-page"],"icon":"🔀","docs":"docs/services/traefik.md"},"prowlarr":{"name":"Prowlarr","description":"Indexer management & search","port":9696,"category":"pipeline","health":{"type":"http","url":"http://prowlarr:9696/api/v1/system/status"},"dashboard":"http://{host}:9696","depends_on":["traefik"],"depended_by":["radarr","sonarr","arr-dashboard"],"icon":"🔍","docs":"docs/services/prowlarr.md"},"radarr":{"name":"Radarr","description":"Movie management & downloads","port":7878,"category":"pipeline","health":{"type":"http","url":"http://radarr:7878/api/v3/system/status"},"dashboard":"http://{host}:7878","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":["seerr","watchstate","cleanuparr","control-panel","arr-dashboard"],"icon":"🎬","docs":"docs/services/radarr.md"},"sonarr":{"name":"Sonarr","description":"TV show management & downloads","port":8989,"category":"pipeline","health":{"type":"http","url":"http://sonarr:8989/api/v3/system/status"},"dashboard":"http://{host}:8989","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":["seerr","watchstate","cleanuparr","control-panel","arr-dashboard"],"icon":"📺","docs":"docs/services/sonarr.md"},"nzbdav":{"name":"NzbDAV","description":"Usenet queue & WebDAV mount","port":3000,"category":"pipeline","health":{"type":"http","url":"http://nzbdav:3000/?mode=get_cats&output=json"},"dashboard":"http://{host}:3000","depends_on":["traefik"],"depended_by":["nzbdav_rclone","radarr","sonarr","unpackerr","cleanuparr","control-panel"],"icon":"📥","docs":"docs/services/nzbdav.md"},"nzbdav_rclone":{"name":"NzbDAV Rclone","description":"FUSE mount — streams on demand","port":null,"category":"pipeline","health":{"type":"none"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":["plex"],"icon":"🔗","docs":"docs/services/nzbdav-rclone.md"},"seerr":{"name":"Seerr","description":"Request management & discovery","port":5055,"category":"pipeline","health":{"type":"http","url":"http://seerr:5055/api/v1/status"},"dashboard":"http://{host}:5055","depends_on":["traefik","radarr","sonarr"],"depended_by":[],"icon":"📋","docs":"docs/services/seerr.md"},"plex":{"name":"Plex","description":"Media server & streaming","port":32400,"category":"pipeline","health":{"type":"http","url":"http://host.docker.internal:32400/identity"},"dashboard":"http://{host}:32400","depends_on":["nzbdav_rclone","metacache"],"depended_by":["watchstate"],"icon":"🎥","docs":"docs/services/plex.md"},"unpackerr":{"name":"Unpackerr","description":"Auto-extracts downloads","port":null,"category":"pipeline","health":{"type":"none"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":[],"icon":"📦","docs":"docs/services/unpackerr.md"},"metacache":{"name":"Metacache","description":"Plex metadata cache & matching","port":8765,"category":"data","health":{"type":"http","url":"http://metacache:8765/healthz"},"dashboard":"http://{host}:8765/dashboard","depends_on":["traefik"],"depended_by":["plex","control-panel"],"icon":"🗄️","docs":"docs/services/metacache.md"},"arr-dashboard":{"name":"arr-dashboard","description":"Queue, calendar & TRaSH Guides","port":41789,"category":"data","health":{"type":"http","url":"http://arr-dashboard:3000/health"},"dashboard":"http://{host}:41789","depends_on":["traefik","radarr","sonarr","prowlarr"],"depended_by":[],"icon":"📊","docs":"docs/services/arr-dashboard.md"},"watchstate":{"name":"Watchstate","description":"Watch history sync","port":8705,"category":"data","health":{"type":"http","url":"http://watchstate:8080/"},"dashboard":"http://{host}:8705","depends_on":["traefik","plex","radarr","sonarr"],"depended_by":["control-panel"],"icon":"✅","docs":"docs/services/watchstate.md"},"cleanuparr":{"name":"Cleanuparr","description":"Stale download cleanup","port":11011,"category":"data","health":{"type":"http","url":"http://cleanuparr:11011/health"},"dashboard":"http://{host}:11011","depends_on":["traefik","nzbdav","radarr","sonarr"],"depended_by":[],"icon":"🧹","docs":"docs/services/cleanuparr.md"},"control-panel":{"name":"Control Panel","description":"Stack operations & infrastructure dashboard","port":8420,"category":"infrastructure","health":{"type":"http","url":"http://localhost:8420/healthz"},"dashboard":"http://{host}:8420","depends_on":["traefik","radarr","sonarr","prowlarr","nzbdav","plex","metacache","watchstate","grafana"],"depended_by":["landing-page"],"icon":"⚡","docs":"docs/services/control-panel.md"},"grafana":{"name":"Grafana","description":"Metrics dashboards & visualization","port":3001,"category":"monitoring","health":{"type":"http","url":"http://grafana:3000/api/health"},"dashboard":"http://{host}:3001","depends_on":["traefik","prometheus","loki"],"depended_by":["control-panel"],"icon":"📈","docs":"docs/services/monitoring.md"},"prometheus":{"name":"Prometheus","description":"Metrics collection & alerting","port":9090,"category":"monitoring","health":{"type":"http","url":"http://prometheus:9090/-/healthy"},"dashboard":"http://{host}:9090","depends_on":["traefik"],"depended_by":["grafana","control-panel"],"icon":"🔥","docs":"docs/services/monitoring.md"},"loki":{"name":"Loki","description":"Log aggregation","port":3100,"category":"monitoring","health":{"type":"http","url":"http://loki:3100/ready"},"dashboard":null,"depends_on":["traefik"],"depended_by":["grafana","promtail"],"icon":"📝","docs":"docs/services/monitoring.md"},"promtail":{"name":"Promtail","description":"Log shipping to Loki","port":null,"category":"monitoring","health":{"type":"none"},"dashboard":null,"depends_on":["loki"],"depended_by":[],"icon":"🚛","docs":"docs/services/monitoring.md"},"node-exporter":{"name":"Node Exporter","description":"Host CPU, RAM & disk metrics","port":9100,"category":"monitoring","health":{"type":"http","url":"http://host.docker.internal:9100/metrics"},"dashboard":null,"depends_on":[],"depended_by":["prometheus"],"icon":"🖥️","docs":"docs/services/monitoring.md"},"cadvisor":{"name":"cAdvisor","description":"Container resource metrics","port":8080,"category":"monitoring","health":{"type":"http","url":"http://cadvisor:8080/healthz"},"dashboard":null,"depends_on":["traefik"],"depended_by":["prometheus"],"icon":"🐳","docs":"docs/services/monitoring.md"},"nzbdav-exporter":{"name":"NzbDAV Exporter","description":"NzbDAV config & queue metrics","port":9200,"category":"monitoring","health":{"type":"http","url":"http://nzbdav-exporter:9200/metrics"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":["prometheus"],"icon":"📊","docs":"docs/services/monitoring.md"},"landing-page":{"name":"Landing Page","description":"Nginx service portal","port":8000,"category":"infrastructure","health":{"type":"http","url":"http://localhost:8000/healthz"},"dashboard":"http://{host}:8000","depends_on":["traefik","control-panel"],"depended_by":[],"icon":"🏠","docs":"docs/services/landing-page.md"}}};
 
-    const BASE = location.hostname;
+    const HOST = location.hostname;
 
-    function renderServices() {
-      const grid = document.getElementById("services-grid");
-      grid.innerHTML = SERVICES.map(s => `
-        <a class="card" href="http://${BASE}:${s.port}" target="_blank" data-port="${s.port}" data-name="${s.name}">
-          <div class="card-header">
-            <span class="card-title">${s.name}</span>
-            <span class="card-status" id="status-${s.port}"></span>
-          </div>
-          <div class="card-desc">${s.desc}</div>
-          <div class="card-port">:${s.port}</div>
-        </a>
-      `).join("");
+    // ══════════════════════════════════════════════════════════
+    // RENDER: category sections + card grids
+    // ══════════════════════════════════════════════════════════
+    function renderCategories() {
+      const container = document.getElementById('service-categories');
+      const svc = REGISTRY.services;
+      const cats = REGISTRY.categories;
+      const order = ['infrastructure', 'pipeline', 'data', 'monitoring'];
+      let html = '';
+      for (const catId of order) {
+        const cat = cats[catId];
+        const members = Object.entries(svc).filter(([, s]) => s.category === catId);
+        if (!members.length) continue;
+        html += `<div class="category-section">`;
+        html += `<div class="category-header"><span class="category-icon">${cat.icon}</span><span class="category-name">${cat.name}</span><span class="category-desc">${cat.description}</span></div>`;
+        html += `<div class="category-grid">`;
+        for (const [id, s] of members) {
+          const dashUrl = s.dashboard ? s.dashboard.replace('{host}', HOST) : '#';
+          const portStr = s.port ? `:${s.port}` : 'no port';
+          const depNames = (s.depends_on || []).map(d => svc[d] ? svc[d].name : d).join(', ');
+          const depdByNames = (s.depended_by || []).map(d => svc[d] ? svc[d].name : d).join(', ');
+          html += `<div class="card" data-id="${id}" onclick="toggleDetail(this)" ${s.dashboard ? `data-href="${dashUrl}"` : ''}>`;
+          html += `<div class="card-header"><span class="card-title">${s.name}</span><span class="card-status" id="status-${id}"></span></div>`;
+          html += `<div class="card-desc">${s.description}</div>`;
+          html += `<div class="card-port">${portStr}</div>`;
+          html += `<div class="card-detail">`;
+          if (depNames) html += `<div class="detail-row"><span class="detail-label">Depends on</span><span class="detail-value">${depNames}</span></div>`;
+          if (depdByNames) html += `<div class="detail-row"><span class="detail-label">Used by</span><span class="detail-value">${depdByNames}</span></div>`;
+          html += `<div class="detail-row"><span class="detail-label">Category</span><span class="detail-value">${cat.icon} ${cat.name}</span></div>`;
+          html += `<div class="detail-links">`;
+          if (s.dashboard) html += `<a class="detail-link" href="${dashUrl}" target="_blank" onclick="event.stopPropagation()">Dashboard ↗</a>`;
+          if (s.docs) html += `<a class="detail-link" href="https://github.com/WhispersOfJ/thebearcave/blob/main/${s.docs}" target="_blank" onclick="event.stopPropagation()">Docs ↗</a>`;
+          html += `</div></div></div>`;
+        }
+        html += `</div></div>`;
+      }
+      container.innerHTML = html;
     }
 
+    // ══════════════════════════════════════════════════════════
+    // RENDER: pipeline flow strip
+    // ══════════════════════════════════════════════════════════
+    function renderPipeline() {
+      const flow = REGISTRY.pipeline_flow;
+      const svc = REGISTRY.services;
+      const el = document.getElementById('pipeline-flow');
+      let html = '';
+      for (let i = 0; i < flow.length; i++) {
+        const s = svc[flow[i]];
+        const url = s.dashboard ? s.dashboard.replace('{host}', HOST) : '#';
+        html += `<a class="pipeline-node" href="${url}" target="_blank"><span class="pipe-icon">${s.icon}</span><span class="pipe-name">${s.name}</span></a>`;
+        if (i < flow.length - 1) html += `<span class="pipeline-arrow">→</span>`;
+      }
+      el.innerHTML = html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // RENDER: Mermaid ecosystem graph
+    // ══════════════════════════════════════════════════════════
+    function renderGraph() {
+      const svc = REGISTRY.services;
+      const seen = new Set();
+      let edges = '';
+      for (const [id, s] of Object.entries(svc)) {
+        for (const dep of (s.depends_on || [])) {
+          const key = `${dep}->${id}`;
+          if (!seen.has(key) && svc[dep]) {
+            seen.add(key);
+            const depName = svc[dep].name.replace(/[^a-zA-Z0-9]/g, '_');
+            const thisName = id.replace(/[^a-zA-Z0-9]/g, '_');
+            edges += `    ${depName} --> ${thisName}\n`;
+          }
+        }
+      }
+      // Build node definitions with labels
+      let nodes = '';
+      for (const [id, s] of Object.entries(svc)) {
+        const safeId = id.replace(/[^a-zA-Z0-9]/g, '_');
+        nodes += `    ${safeId}["${s.icon} ${s.name}"]\n`;
+      }
+      const graph = `flowchart LR\n${nodes}${edges}`;
+      document.getElementById('ecosystem-graph').textContent = graph;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+          primaryColor: '#1a1d27',
+          primaryTextColor: '#e4e6f0',
+          lineColor: '#6c5ce7',
+          primaryBorderColor: '#2a2d3a',
+          fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
+        },
+        flowchart: { curve: 'basis', padding: 15 }
+      });
+      mermaid.run({ nodes: [document.getElementById('ecosystem-graph')] });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // INTERACTION: toggle card detail panel
+    // ══════════════════════════════════════════════════════════
+    function toggleDetail(card) {
+      // If the click was on a link inside the card, let it navigate
+      if (event.target.closest('a')) return;
+      // If card has a dashboard link and isn't expanded, open the dashboard
+      const href = card.dataset.href;
+      if (href && !card.classList.contains('expanded')) {
+        // Single click: expand detail. Double-click or long-press: navigate.
+        // Here we just expand — user can click the Dashboard link inside.
+      }
+      card.classList.toggle('expanded');
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // HEALTH: fetch status via same-origin proxy
+    // ══════════════════════════════════════════════════════════
     async function checkAll() {
-      const cards = document.querySelectorAll(".card[data-port]");
-      // Reset all to pending (gray)
-      cards.forEach(c => { document.getElementById(`status-${c.dataset.port}`).className = "card-status"; });
+      const cards = document.querySelectorAll('.card[data-id]');
+      cards.forEach(c => {
+        const dot = document.getElementById('status-' + c.dataset.id);
+        if (dot) dot.className = 'card-status';
+      });
       try {
-        // 10s cap: the proxy checks 13 services with up to 3s timeouts each,
-        // so a 5s client abort fired on slow polls and flashed everything red.
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 10000);
-        // Same-origin through the nginx /api/ proxy: works over both HTTP and
-        // HTTPS (a direct http://…:8420 fetch is blocked as mixed content on
-        // the HTTPS surface, which used to flash every card red).
-        const r = await fetch("/api/v2/host/health", { signal: ctrl.signal });
+        const r = await fetch('/api/v2/host/health', { signal: ctrl.signal });
         clearTimeout(tid);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
         const data = await r.json();
         const svc = data.services || {};
         let up = 0;
         cards.forEach(c => {
-          const name = c.dataset.name;
-          const el = document.getElementById(`status-${c.dataset.port}`);
+          const name = c.dataset.id;
+          const el = document.getElementById('status-' + name);
+          if (!el) return;
           if (svc[name]) {
-            el.className = svc[name].status === "up" ? "card-status up" : "card-status down";
-            if (svc[name].status === "up") up++;
+            el.className = svc[name].status === 'up' ? 'card-status up' : 'card-status down';
+            if (svc[name].status === 'up') up++;
           } else {
-            el.className = "card-status down";
+            el.className = 'card-status down';
           }
         });
-        document.getElementById("online-count").textContent = up;
-        document.getElementById("offline-count").textContent = cards.length - up;
+        document.getElementById('online-count').textContent = up;
+        document.getElementById('offline-count').textContent = cards.length - up;
       } catch (e) {
         cards.forEach(c => {
-          document.getElementById(`status-${c.dataset.port}`).className = "card-status down";
+          const el = document.getElementById('status-' + c.dataset.id);
+          if (el) el.className = 'card-status down';
         });
-        document.getElementById("online-count").textContent = 0;
-        document.getElementById("offline-count").textContent = cards.length;
+        document.getElementById('online-count').textContent = 0;
+        document.getElementById('offline-count').textContent = cards.length;
       }
-      document.getElementById("last-checked").textContent = new Date().toLocaleTimeString();
+      document.getElementById('last-checked').textContent = new Date().toLocaleTimeString();
     }
 
-    renderServices();
-    // Docs cards link to the live services; relative /grafana/ would resolve
-    // against the landing page itself (nginx serves index.html for any path).
-    document.getElementById("grafana-link").href = `http://${BASE}:3001`;
-    document.getElementById("prometheus-link").href = `http://${BASE}:9090`;
-
-    // Certificate section: substitute the real hostname into the copy-paste
-    // commands (fall back to the canonical nip.io name off-LAN/localhost).
-    const CA_HOST = location.hostname.includes("nip.io")
-      ? location.hostname
-      : "bearcave.192.168.4.20.nip.io";
-    document.querySelectorAll(".cert-card code").forEach(el => {
-      el.textContent = el.textContent.split("__HOST__").join(CA_HOST);
-    });
-
-    // Cert trust badge: the server-side probe (/api/v2/host/tls) is the truth
-    // — it performs a real TLS handshake against the traefik HTTPS endpoint
-    // using config/ca/rootCA.pem as the sole trust anchor, so it can't be
-    // fooled by a dismissed browser warning. Fetched same-origin through the
-    // landing nginx proxy, so it works over both HTTP and HTTPS (no mixed
-    // content). Re-checks every 30s.
-    const certShield = document.getElementById("cert-shield-value");
+    // ══════════════════════════════════════════════════════════
+    // CERT BADGE: server-side probe via same-origin proxy
+    // ══════════════════════════════════════════════════════════
+    const certShield = document.getElementById('cert-shield-value');
     function checkCertTrust() {
-      fetch("/api/v2/host/tls", { cache: "no-store" })
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .then(data => {
-          if (data.trusted) {
-            certShield.textContent = "\u2713 CA trusted";
-            certShield.className = "shield-value ok";
-          } else {
-            certShield.textContent = "\u26a0 not trusted";
-            certShield.className = "shield-value bad";
-          }
+      fetch('/api/v2/host/tls', { cache: 'no-store' })
+        .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+        .then(d => {
+          certShield.textContent = d.trusted ? '\u2713 CA trusted' : '\u26a0 not trusted';
+          certShield.className = d.trusted ? 'shield-value ok' : 'shield-value bad';
         })
         .catch(() => {
-          certShield.textContent = "check unavailable";
-          certShield.className = "shield-value http";
+          certShield.textContent = 'check unavailable';
+          certShield.className = 'shield-value http';
         });
     }
-    checkCertTrust();
-    setInterval(checkCertTrust, 30000);
 
-    // CVE baseline card - parses the summary table in STAGE-4-CVE-BASELINE.md
-    // from the public repo. Refreshes every 5 minutes; degrades gracefully
-    // when GitHub is unreachable.
-    const BASELINE_URL = "https://raw.githubusercontent.com/WhispersOfJ/thebearcave/main/STAGE-4-CVE-BASELINE.md";
+    // ══════════════════════════════════════════════════════════
+    // CVE BASELINE: parse summary table from raw GitHub
+    // ══════════════════════════════════════════════════════════
+    const BASELINE_URL = 'https://raw.githubusercontent.com/WhispersOfJ/thebearcave/main/STAGE-4-CVE-BASELINE.md';
     async function loadCveBaseline() {
       try {
-        const r = await fetch(BASELINE_URL, { cache: "no-store" });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const r = await fetch(BASELINE_URL, { cache: 'no-store' });
+        if (!r.ok) throw new Error();
         const md = await r.text();
         let total = 0;
-        for (const sev of ["CRITICAL", "HIGH", "MEDIUM", "LOW"]) {
+        for (const sev of ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']) {
           const m = md.match(new RegExp(`\\|\\s*${sev}\\s*\\|\\s*(\\d+|—)`));
-          const n = m ? (m[1] === "—" ? 0 : parseInt(m[1], 10)) : 0;
+          const n = m ? (m[1] === '—' ? 0 : parseInt(m[1], 10)) : 0;
           total += n;
-          document.getElementById(`cve-${sev.toLowerCase()}`).textContent = n;
+          document.getElementById('cve-' + sev.toLowerCase()).textContent = n;
         }
-        document.getElementById("cve-total").textContent = total;
-        const crit = parseInt(document.getElementById("cve-critical").textContent, 10);
-        document.getElementById("cve-meta").textContent =
-          crit > 0
-            ? "Baseline from main \u00b7 CRITICALs block merge until cleared"
-            : "Baseline from main \u00b7 no CRITICAL CVEs";
+        document.getElementById('cve-total').textContent = total;
+        const crit = parseInt(document.getElementById('cve-critical').textContent, 10);
+        document.getElementById('cve-meta').textContent =
+          crit > 0 ? 'Baseline from main · CRITICALs block merge until cleared' : 'Baseline from main · no CRITICAL CVEs';
       } catch (e) {
-        document.getElementById("cve-meta").textContent = "Baseline unavailable \u2014 cannot reach GitHub";
-        for (const sev of ["critical", "high", "medium", "low", "total"]) {
-          document.getElementById(`cve-${sev}`).textContent = "\u2014";
-        }
+        document.getElementById('cve-meta').textContent = 'Baseline unavailable — cannot reach GitHub';
+        ['critical', 'high', 'medium', 'low', 'total'].forEach(s => {
+          document.getElementById('cve-' + s).textContent = '—';
+        });
       }
     }
+
+    // ══════════════════════════════════════════════════════════
+    // INIT
+    // ══════════════════════════════════════════════════════════
+    renderCategories();
+    renderPipeline();
+    renderGraph();
+    checkAll();
+    setInterval(checkAll, 15000);
+    checkCertTrust();
+    setInterval(checkCertTrust, 30000);
     loadCveBaseline();
     setInterval(loadCveBaseline, 300000);
 
-    checkAll();
-    setInterval(checkAll, 15000);
+    // Docs cards: Grafana/Prometheus live links
+    document.getElementById('grafana-link').href = 'http://' + HOST + ':3001';
+    document.getElementById('prometheus-link').href = 'http://' + HOST + ':9090';
+
+    // Cert section: substitute hostname into copy-paste commands
+    const CA_HOST = location.hostname.includes('nip.io')
+      ? location.hostname
+      : 'bearcave.192.168.4.20.nip.io';
+    document.querySelectorAll('.cert-card code').forEach(el => {
+      el.textContent = el.textContent.split('__HOST__').join(CA_HOST);
+    });
   </script>
 </body>
 </html>
