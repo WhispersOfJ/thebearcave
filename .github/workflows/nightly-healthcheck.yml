@@ -13,7 +13,7 @@ jobs:
     name: Compose Validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Create dummy .env
         run: cp .env.template .env
@@ -50,7 +50,7 @@ jobs:
           - services/control-panel/django
           - services/nzbdav-exporter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -68,7 +68,7 @@ jobs:
     name: Script Syntax
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Bash syntax check
         run: |
@@ -93,7 +93,7 @@ jobs:
     name: Env Var Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Create dummy .env
         run: cp .env.template .env
