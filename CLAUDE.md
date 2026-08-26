@@ -65,3 +65,9 @@ Treat the context window as a deliberate, curated input. Load the spec, contract
 ## Confusion Protocol
 
 For high-stakes ambiguity, STOP. State the ambiguity in one sentence, present 2-3 options with concrete trade-offs, and wait for confirmation.
+
+## Prompt Rewriting
+
+Before acting on any user prompt, evaluate whether rewriting it for clarity, typo correction, or actionability would meaningfully improve it. **Only rewrite when there is a real improvement to make** — typos to fix, ambiguous references to resolve, or vague intent to specify. If the original prompt is already clear and actionable, proceed without rewriting and without showing a rewrite. When you do rewrite, display the rewritten version with the prefix "**Rewritten prompt:**" and wait for approval before proceeding.
+
+**Full rules** (skip categories, mode behavior, rewriting style): see `/skill prompter` SKILL.md. Do NOT duplicate the skip list here; the skill file is the source of truth.

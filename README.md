@@ -107,23 +107,29 @@ Plex runs on host network for GDM/DLNA/remote access. Access directly at `http:/
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — System design and data flow
-- [Quick Start](docs/quick-start.md) — Step-by-step installation
-- [Services](docs/services/) — Per-service documentation
-- [Operations](docs/operations/) — Backup, restore, troubleshooting
-- [Migration](docs/migration/) — Guides for migrating from media-stack/metacacharr
+| Doc | What it covers |
+|-----|----------------|
+| [Architecture](docs/architecture.md) | Mermaid diagrams: topology, data flow, FUSE lifecycle, dependencies |
+| [Quick Start](docs/quick-start.md) | Zero-to-streaming in ~30 min + day-1 checklist |
+| [Services](docs/services/) | Per-service docs for all 22 containers |
+| [Landmines](docs/landmines.md) | Operational gotchas that bite — read before touching the stack |
+| [Operations](docs/operations/backup-restore.md) | Backup, restore, DR checklist |
+| [Operations](docs/operations/troubleshooting.md) | Symptom-driven playbooks |
+| [Security](docs/security.md) | Secrets model, exposure, tradeoffs, incident response |
+| [Testing](docs/testing.md) | Health checks, integration pipeline, live tests |
+| [Migration](docs/migration/) | from-media-stack / from-metacacharr guides |
+| [AGENTS.md](AGENTS.md) | Full system reference for AI agents |
 
 ## Testing
 
 ```bash
-# Run all health checks
+# Run all health checks (22 services)
 ./tests/health/run-all.sh
 
-# Run integration tests
-./tests/integration/test_request_flow.sh
+# Integration pipeline (FUSE mount, Plex, *arr, InfiniDysk, Metacache)
+./tests/integration/test_pipeline.sh
 
-# Verify NZBdav streaming
-./tests/integration/test_streaming.sh
+# Live tests (streaming, playback) — see docs/testing.md
 ```
 
 ## Platform Constraints
