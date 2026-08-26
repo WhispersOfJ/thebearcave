@@ -68,6 +68,7 @@ services:
       - "traefik.http.routers.dashboard.rule=Host(`traefik.${HOST_IP}.nip.io`)"
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.middlewares=auth"
+      - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
 
   # ==========================================================================
@@ -85,13 +86,14 @@ services:
       retries: 3
       start_period: 30s
     volumes:
-      - ./services/prowlarr/config:/config
+      - ./config/prowlarr:/config
     ports:
       - "9696:9696"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${HOST_IP}.nip.io`)"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+      - "traefik.http.routers.prowlarr.tls=true"
 
   # ==========================================================================
   # *arr Apps
@@ -112,7 +114,7 @@ services:
         condition: service_healthy
         restart: true
     volumes:
-      - ./services/radarr/config:/config
+      - ./config/radarr:/config
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/movies:/data/movies
       - ./media/anime-movies:/data/anime-movies
@@ -122,6 +124,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.radarr.rule=Host(`radarr.${HOST_IP}.nip.io`)"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+      - "traefik.http.routers.radarr.tls=true"
 
   sonarr:
     <<: *common
@@ -139,7 +142,7 @@ services:
         condition: service_healthy
         restart: true
     volumes:
-      - ./services/sonarr/config:/config
+      - ./config/sonarr:/config
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/shows:/data/shows
       - ./media/anime-shows:/data/anime-shows
@@ -149,6 +152,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarr.rule=Host(`sonarr.${HOST_IP}.nip.io`)"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+      - "traefik.http.routers.sonarr.tls=true"
 
   # ==========================================================================
   # Usenet — InfiniDysk + rclone sidecar
@@ -229,7 +233,7 @@ services:
       NZBDAV_CONFIG__WATCHTOWER__RANKING: "largest"
       NZBDAV_CONFIG__WATCHTOWER__SEASON_BUNDLE_FALLBACK: "true"
     volumes:
-      - ./services/nzbdav/config:/config
+      - ./config/nzbdav:/config
       - /mnt:/mnt
     ports:
       - "3000:3000"
@@ -237,6 +241,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.nzbdav.rule=Host(`nzbdav.${HOST_IP}.nip.io`)"
       - "traefik.http.services.nzbdav.loadbalancer.server.port=3000"
+      - "traefik.http.routers.nzbdav.tls=true"
 
   nzbdav_rclone:
     image: rclone/rclone:latest
@@ -252,8 +257,8 @@ services:
       - SYS_ADMIN
     volumes:
       - /mnt/remote:/mnt/remote:rshared
-      - ./services/nzbdav-rclone/rclone.conf:/config/rclone/rclone.conf
-      - ./services/nzbdav-rclone/cache:/cache
+      - ./config/nzbdav-rclone/rclone.conf:/config/rclone/rclone.conf
+      - ./config/nzbdav-rclone/cache:/cache
     healthcheck:
       test: ["CMD-SHELL", "mountpoint -q /mnt/remote/nzbdav || exit 1"]
       interval: 30s
@@ -312,13 +317,14 @@ services:
     environment:
       TZ: ${TZ}
     volumes:
-      - ./services/seerr/config:/app/config
+      - ./config/seerr:/app/config
     ports:
       - "5055:5055"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.seerr.rule=Host(`seerr.${HOST_IP}.nip.io`)"
       - "traefik.http.services.seerr.loadbalancer.server.port=5055"
+      - "traefik.http.routers.seerr.tls=true"
 
   # ==========================================================================
   # Media Server — Plex (host network, VAAPI)
@@ -348,8 +354,8 @@ services:
         condition: service_healthy
         restart: true
     volumes:
-      - ./services/plex/config:/config
-      - ./services/plex/transcode:/transcode
+      - ./config/plex:/config
+      - ./config/plex-transcode:/transcode
       - ./media/movies:/data/movies
       - ./media/shows:/data/shows
       - ./media/anime-movies:/data/anime-movies
@@ -400,6 +406,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.metacache.rule=Host(`metacache.${HOST_IP}.nip.io`)"
       - "traefik.http.services.metacache.loadbalancer.server.port=8765"
+      - "traefik.http.routers.metacache.tls=true"
 
   # ==========================================================================
   # Dashboard — Control Panel (Django)
@@ -448,14 +455,16 @@ services:
       - /proc:/host-proc
       - /sys/fs/fuse:/host-sys-fuse
       - ./README.md:/host-README.md
-      - ./data/control-panel:/data
+      - ./config/control-panel:/data
       - ./logs/control-panel:/logs
+      - /run/controlpanel-helper.sock:/host-helper.sock
     ports:
       - "8420:8420"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.control-panel.rule=Host(`panel.${HOST_IP}.nip.io`)"
       - "traefik.http.services.control-panel.loadbalancer.server.port=8420"
+      - "traefik.http.routers.control-panel.tls=true"
 
   # ==========================================================================
   # Queue Management
@@ -484,7 +493,7 @@ services:
       UN_SONARR_0_API_KEY: ${SONARR_API_KEY}
     volumes:
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
-      - ./services/unpackerr:/usenet
+      - ./usenet:/usenet
 
   cleanuparr:
     <<: *common
@@ -502,7 +511,7 @@ services:
         condition: service_healthy
         restart: true
     volumes:
-      - ./services/cleanuparr/config:/config
+      - ./config/cleanuparr:/config
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
     ports:
       - "11011:11011"
@@ -532,13 +541,14 @@ services:
       retries: 3
       start_period: 30s
     volumes:
-      - ./services/watchstate/config:/config
+      - ./config/watchstate:/config
     ports:
       - "8705:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.watchstate.rule=Host(`watchstate.${HOST_IP}.nip.io`)"
       - "traefik.http.services.watchstate.loadbalancer.server.port=8080"
+      - "traefik.http.routers.watchstate.tls=true"
 
   # ==========================================================================
   # Centralized Logging
@@ -550,7 +560,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./services/loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - ./config/loki/loki-config.yaml:/etc/loki/loki-config.yaml
       - ./data/loki:/loki
     command: -config.file=/etc/loki/loki-config.yaml
     environment:
@@ -570,7 +580,7 @@ services:
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./services/promtail/promtail-config.yaml:/etc/promtail/config.yaml
+      - ./config/promtail/promtail-config.yaml:/etc/promtail/config.yaml
     command: -config.file=/etc/promtail/config.yaml
     environment:
       TZ: ${TZ}
@@ -587,8 +597,8 @@ services:
     ports:
       - "3001:3000"
     volumes:
-      - ./services/grafana/provisioning:/etc/grafana/provisioning
-      - ./services/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
       - ./data/grafana:/var/lib/grafana
     environment:
       TZ: ${TZ}
@@ -617,6 +627,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.${HOST_IP}.nip.io`)"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.tls=true"
 
   # ==========================================================================
   # Metrics
@@ -649,7 +660,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./data/prometheus:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -737,6 +748,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.arr-dashboard.rule=Host(`arr.${HOST_IP}.nip.io`)"
       - "traefik.http.services.arr-dashboard.loadbalancer.server.port=3000"
+      - "traefik.http.routers.arr-dashboard.tls=true"
 
   # ==========================================================================
   # Landing Page
@@ -755,6 +767,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.landing-page.rule=Host(`bearcave.${HOST_IP}.nip.io`)"
       - "traefik.http.services.landing-page.loadbalancer.server.port=80"
+      - "traefik.http.routers.landing-page.tls=true"
 
 # ==========================================================================
 # Volumes

@@ -18,17 +18,14 @@ entryPoints:
           scheme: https
   websecure:
     address: ":443"
-    tls:
-      certResolver: letsencrypt
 
-# Certificate resolvers
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: ${ACME_EMAIL:-admin@bearcave.local}
-      storage: /certs/acme.json
-      httpChallenge:
-        entryPoint: web
+# Certificate resolvers — intentionally absent. This stack runs on a private
+# LAN IP (nip.io hostnames), which Let's Encrypt can never validate, so ACME
+# attempts would just spam errors and fall back to the self-signed default
+# cert anyway. Routers enable TLS without a certresolver, so Traefik serves
+# its built-in self-signed certificate — encrypted in transit, untrusted.
+# To add real certs later: define a certificatesResolvers block here, set
+# ACME_EMAIL, and re-add the tls.certresolver labels in docker-compose.yml.
 
 # Providers
 providers:
