@@ -22,7 +22,7 @@ jobs:
           l_max_size: 1000
           fail_if_xl: false
           message_if_xl: >
-            ⚠️ This PR is very large (${{ size }} lines changed).
+            ⚠️ This PR is very large and exceeds the XL size limit.
             Consider breaking it into smaller, focused PRs for easier review.
 
   path-label:
