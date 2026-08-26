@@ -2,38 +2,74 @@
   "categories": {
     "infrastructure": {
       "name": "Infrastructure",
-      "icon": "📡",
+      "icon": "\ud83d\udce1",
       "description": "Core platform services"
     },
     "pipeline": {
       "name": "Media Pipeline",
-      "icon": "🎬",
+      "icon": "\ud83c\udfac",
       "description": "Content acquisition and delivery"
     },
     "data": {
       "name": "Data & Metadata",
-      "icon": "📊",
+      "icon": "\ud83d\udcca",
       "description": "Metadata, state, and analytics"
     },
     "monitoring": {
       "name": "Monitoring & Logs",
-      "icon": "📈",
+      "icon": "\ud83d\udcc8",
       "description": "Observability and alerting"
     }
   },
-  "pipeline_flow": ["prowlarr", "radarr", "sonarr", "nzbdav", "nzbdav_rclone", "plex"],
+  "pipeline_flow": [
+    [
+      "prowlarr"
+    ],
+    [
+      "radarr",
+      "sonarr"
+    ],
+    [
+      "nzbdav"
+    ],
+    [
+      "nzbdav_rclone"
+    ],
+    [
+      "plex"
+    ]
+  ],
   "services": {
     "traefik": {
       "name": "Traefik",
       "description": "Reverse proxy with automatic HTTPS",
       "port": 443,
-      "ports": [80, 443],
+      "ports": [
+        80,
+        443
+      ],
       "category": "infrastructure",
-      "health": { "type": "none" },
+      "health": {
+        "type": "none"
+      },
       "dashboard": null,
       "depends_on": [],
-      "depended_by": ["radarr", "sonarr", "prowlarr", "nzbdav", "seerr", "control-panel", "arr-dashboard", "metacache", "watchstate", "cleanuparr", "grafana", "prometheus", "landing-page"],
-      "icon": "🔀",
+      "depended_by": [
+        "radarr",
+        "sonarr",
+        "prowlarr",
+        "nzbdav",
+        "seerr",
+        "control-panel",
+        "arr-dashboard",
+        "metacache",
+        "watchstate",
+        "cleanuparr",
+        "grafana",
+        "prometheus",
+        "landing-page"
+      ],
+      "icon": "\ud83d\udd00",
       "docs": "docs/services/traefik.md"
     },
     "prowlarr": {
@@ -41,11 +77,20 @@
       "description": "Indexer management & search",
       "port": 9696,
       "category": "pipeline",
-      "health": { "type": "http", "url": "http://prowlarr:9696/api/v1/system/status" },
+      "health": {
+        "type": "http",
+        "url": "http://prowlarr:9696/api/v1/system/status"
+      },
       "dashboard": "http://{host}:9696",
-      "depends_on": ["traefik"],
-      "depended_by": ["radarr", "sonarr", "arr-dashboard"],
-      "icon": "🔍",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [
+        "radarr",
+        "sonarr",
+        "arr-dashboard"
+      ],
+      "icon": "\ud83d\udd0d",
       "docs": "docs/services/prowlarr.md"
     },
     "radarr": {
@@ -53,11 +98,24 @@
       "description": "Movie management & downloads",
       "port": 7878,
       "category": "pipeline",
-      "health": { "type": "http", "url": "http://radarr:7878/api/v3/system/status" },
+      "health": {
+        "type": "http",
+        "url": "http://radarr:7878/api/v3/system/status"
+      },
       "dashboard": "http://{host}:7878",
-      "depends_on": ["traefik", "prowlarr", "nzbdav"],
-      "depended_by": ["seerr", "watchstate", "cleanuparr", "control-panel", "arr-dashboard"],
-      "icon": "🎬",
+      "depends_on": [
+        "traefik",
+        "prowlarr",
+        "nzbdav"
+      ],
+      "depended_by": [
+        "seerr",
+        "watchstate",
+        "cleanuparr",
+        "control-panel",
+        "arr-dashboard"
+      ],
+      "icon": "\ud83c\udfac",
       "docs": "docs/services/radarr.md"
     },
     "sonarr": {
@@ -65,11 +123,24 @@
       "description": "TV show management & downloads",
       "port": 8989,
       "category": "pipeline",
-      "health": { "type": "http", "url": "http://sonarr:8989/api/v3/system/status" },
+      "health": {
+        "type": "http",
+        "url": "http://sonarr:8989/api/v3/system/status"
+      },
       "dashboard": "http://{host}:8989",
-      "depends_on": ["traefik", "prowlarr", "nzbdav"],
-      "depended_by": ["seerr", "watchstate", "cleanuparr", "control-panel", "arr-dashboard"],
-      "icon": "📺",
+      "depends_on": [
+        "traefik",
+        "prowlarr",
+        "nzbdav"
+      ],
+      "depended_by": [
+        "seerr",
+        "watchstate",
+        "cleanuparr",
+        "control-panel",
+        "arr-dashboard"
+      ],
+      "icon": "\ud83d\udcfa",
       "docs": "docs/services/sonarr.md"
     },
     "nzbdav": {
@@ -77,23 +148,41 @@
       "description": "Usenet queue & WebDAV mount",
       "port": 3000,
       "category": "pipeline",
-      "health": { "type": "http", "url": "http://nzbdav:3000/?mode=get_cats&output=json" },
+      "health": {
+        "type": "http",
+        "url": "http://nzbdav:3000/?mode=get_cats&output=json"
+      },
       "dashboard": "http://{host}:3000",
-      "depends_on": ["traefik"],
-      "depended_by": ["nzbdav_rclone", "radarr", "sonarr", "unpackerr", "cleanuparr", "control-panel"],
-      "icon": "📥",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [
+        "nzbdav_rclone",
+        "radarr",
+        "sonarr",
+        "unpackerr",
+        "cleanuparr",
+        "control-panel"
+      ],
+      "icon": "\ud83d\udce5",
       "docs": "docs/services/nzbdav.md"
     },
     "nzbdav_rclone": {
       "name": "NzbDAV Rclone",
-      "description": "FUSE mount — streams on demand",
+      "description": "FUSE mount \u2014 streams on demand",
       "port": null,
       "category": "pipeline",
-      "health": { "type": "none" },
+      "health": {
+        "type": "none"
+      },
       "dashboard": null,
-      "depends_on": ["nzbdav"],
-      "depended_by": ["plex"],
-      "icon": "🔗",
+      "depends_on": [
+        "nzbdav"
+      ],
+      "depended_by": [
+        "plex"
+      ],
+      "icon": "\ud83d\udd17",
       "docs": "docs/services/nzbdav-rclone.md"
     },
     "seerr": {
@@ -101,11 +190,18 @@
       "description": "Request management & discovery",
       "port": 5055,
       "category": "pipeline",
-      "health": { "type": "http", "url": "http://seerr:5055/api/v1/status" },
+      "health": {
+        "type": "http",
+        "url": "http://seerr:5055/api/v1/status"
+      },
       "dashboard": "http://{host}:5055",
-      "depends_on": ["traefik", "radarr", "sonarr"],
+      "depends_on": [
+        "traefik",
+        "radarr",
+        "sonarr"
+      ],
       "depended_by": [],
-      "icon": "📋",
+      "icon": "\ud83d\udccb",
       "docs": "docs/services/seerr.md"
     },
     "plex": {
@@ -113,11 +209,19 @@
       "description": "Media server & streaming",
       "port": 32400,
       "category": "pipeline",
-      "health": { "type": "http", "url": "http://host.docker.internal:32400/identity" },
+      "health": {
+        "type": "http",
+        "url": "http://host.docker.internal:32400/identity"
+      },
       "dashboard": "http://{host}:32400",
-      "depends_on": ["nzbdav_rclone", "metacache"],
-      "depended_by": ["watchstate"],
-      "icon": "🎥",
+      "depends_on": [
+        "nzbdav_rclone",
+        "metacache"
+      ],
+      "depended_by": [
+        "watchstate"
+      ],
+      "icon": "\ud83c\udfa5",
       "docs": "docs/services/plex.md"
     },
     "unpackerr": {
@@ -125,11 +229,15 @@
       "description": "Auto-extracts downloads",
       "port": null,
       "category": "pipeline",
-      "health": { "type": "none" },
+      "health": {
+        "type": "none"
+      },
       "dashboard": null,
-      "depends_on": ["nzbdav"],
+      "depends_on": [
+        "nzbdav"
+      ],
       "depended_by": [],
-      "icon": "📦",
+      "icon": "\ud83d\udce6",
       "docs": "docs/services/unpackerr.md"
     },
     "metacache": {
@@ -137,11 +245,19 @@
       "description": "Plex metadata cache & matching",
       "port": 8765,
       "category": "data",
-      "health": { "type": "http", "url": "http://metacache:8765/healthz" },
+      "health": {
+        "type": "http",
+        "url": "http://metacache:8765/healthz"
+      },
       "dashboard": "http://{host}:8765/dashboard",
-      "depends_on": ["traefik"],
-      "depended_by": ["plex", "control-panel"],
-      "icon": "🗄️",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [
+        "plex",
+        "control-panel"
+      ],
+      "icon": "\ud83d\uddc4\ufe0f",
       "docs": "docs/services/metacache.md"
     },
     "arr-dashboard": {
@@ -149,11 +265,19 @@
       "description": "Queue, calendar & TRaSH Guides",
       "port": 41789,
       "category": "data",
-      "health": { "type": "http", "url": "http://arr-dashboard:3000/health" },
+      "health": {
+        "type": "http",
+        "url": "http://arr-dashboard:3000/health"
+      },
       "dashboard": "http://{host}:41789",
-      "depends_on": ["traefik", "radarr", "sonarr", "prowlarr"],
+      "depends_on": [
+        "traefik",
+        "radarr",
+        "sonarr",
+        "prowlarr"
+      ],
       "depended_by": [],
-      "icon": "📊",
+      "icon": "\ud83d\udcca",
       "docs": "docs/services/arr-dashboard.md"
     },
     "watchstate": {
@@ -161,11 +285,21 @@
       "description": "Watch history sync",
       "port": 8705,
       "category": "data",
-      "health": { "type": "http", "url": "http://watchstate:8080/" },
+      "health": {
+        "type": "http",
+        "url": "http://watchstate:8080/"
+      },
       "dashboard": "http://{host}:8705",
-      "depends_on": ["traefik", "plex", "radarr", "sonarr"],
-      "depended_by": ["control-panel"],
-      "icon": "✅",
+      "depends_on": [
+        "traefik",
+        "plex",
+        "radarr",
+        "sonarr"
+      ],
+      "depended_by": [
+        "control-panel"
+      ],
+      "icon": "\u2705",
       "docs": "docs/services/watchstate.md"
     },
     "cleanuparr": {
@@ -173,11 +307,19 @@
       "description": "Stale download cleanup",
       "port": 11011,
       "category": "data",
-      "health": { "type": "http", "url": "http://cleanuparr:11011/health" },
+      "health": {
+        "type": "http",
+        "url": "http://cleanuparr:11011/health"
+      },
       "dashboard": "http://{host}:11011",
-      "depends_on": ["traefik", "nzbdav", "radarr", "sonarr"],
+      "depends_on": [
+        "traefik",
+        "nzbdav",
+        "radarr",
+        "sonarr"
+      ],
       "depended_by": [],
-      "icon": "🧹",
+      "icon": "\ud83e\uddf9",
       "docs": "docs/services/cleanuparr.md"
     },
     "control-panel": {
@@ -185,11 +327,26 @@
       "description": "Stack operations & infrastructure dashboard",
       "port": 8420,
       "category": "infrastructure",
-      "health": { "type": "http", "url": "http://localhost:8420/healthz" },
+      "health": {
+        "type": "http",
+        "url": "http://localhost:8420/healthz"
+      },
       "dashboard": "http://{host}:8420",
-      "depends_on": ["traefik", "radarr", "sonarr", "prowlarr", "nzbdav", "plex", "metacache", "watchstate", "grafana"],
-      "depended_by": ["landing-page"],
-      "icon": "⚡",
+      "depends_on": [
+        "traefik",
+        "radarr",
+        "sonarr",
+        "prowlarr",
+        "nzbdav",
+        "plex",
+        "metacache",
+        "watchstate",
+        "grafana"
+      ],
+      "depended_by": [
+        "landing-page"
+      ],
+      "icon": "\u26a1",
       "docs": "docs/services/control-panel.md"
     },
     "grafana": {
@@ -197,11 +354,20 @@
       "description": "Metrics dashboards & visualization",
       "port": 3001,
       "category": "monitoring",
-      "health": { "type": "http", "url": "http://grafana:3000/api/health" },
+      "health": {
+        "type": "http",
+        "url": "http://grafana:3000/api/health"
+      },
       "dashboard": "http://{host}:3001",
-      "depends_on": ["traefik", "prometheus", "loki"],
-      "depended_by": ["control-panel"],
-      "icon": "📈",
+      "depends_on": [
+        "traefik",
+        "prometheus",
+        "loki"
+      ],
+      "depended_by": [
+        "control-panel"
+      ],
+      "icon": "\ud83d\udcc8",
       "docs": "docs/services/monitoring.md"
     },
     "prometheus": {
@@ -209,11 +375,19 @@
       "description": "Metrics collection & alerting",
       "port": 9090,
       "category": "monitoring",
-      "health": { "type": "http", "url": "http://prometheus:9090/-/healthy" },
+      "health": {
+        "type": "http",
+        "url": "http://prometheus:9090/-/healthy"
+      },
       "dashboard": "http://{host}:9090",
-      "depends_on": ["traefik"],
-      "depended_by": ["grafana", "control-panel"],
-      "icon": "🔥",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [
+        "grafana",
+        "control-panel"
+      ],
+      "icon": "\ud83d\udd25",
       "docs": "docs/services/monitoring.md"
     },
     "loki": {
@@ -221,11 +395,19 @@
       "description": "Log aggregation",
       "port": 3100,
       "category": "monitoring",
-      "health": { "type": "http", "url": "http://loki:3100/ready" },
+      "health": {
+        "type": "http",
+        "url": "http://loki:3100/ready"
+      },
       "dashboard": null,
-      "depends_on": ["traefik"],
-      "depended_by": ["grafana", "promtail"],
-      "icon": "📝",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [
+        "grafana",
+        "promtail"
+      ],
+      "icon": "\ud83d\udcdd",
       "docs": "docs/services/monitoring.md"
     },
     "promtail": {
@@ -233,11 +415,15 @@
       "description": "Log shipping to Loki",
       "port": null,
       "category": "monitoring",
-      "health": { "type": "none" },
+      "health": {
+        "type": "none"
+      },
       "dashboard": null,
-      "depends_on": ["loki"],
+      "depends_on": [
+        "loki"
+      ],
       "depended_by": [],
-      "icon": "🚛",
+      "icon": "\ud83d\ude9b",
       "docs": "docs/services/monitoring.md"
     },
     "node-exporter": {
@@ -245,11 +431,16 @@
       "description": "Host CPU, RAM & disk metrics",
       "port": 9100,
       "category": "monitoring",
-      "health": { "type": "http", "url": "http://host.docker.internal:9100/metrics" },
+      "health": {
+        "type": "http",
+        "url": "http://host.docker.internal:9100/metrics"
+      },
       "dashboard": null,
       "depends_on": [],
-      "depended_by": ["prometheus"],
-      "icon": "🖥️",
+      "depended_by": [
+        "prometheus"
+      ],
+      "icon": "\ud83d\udda5\ufe0f",
       "docs": "docs/services/monitoring.md"
     },
     "cadvisor": {
@@ -257,11 +448,18 @@
       "description": "Container resource metrics",
       "port": 8080,
       "category": "monitoring",
-      "health": { "type": "http", "url": "http://cadvisor:8080/healthz" },
+      "health": {
+        "type": "http",
+        "url": "http://cadvisor:8080/healthz"
+      },
       "dashboard": null,
-      "depends_on": ["traefik"],
-      "depended_by": ["prometheus"],
-      "icon": "🐳",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [
+        "prometheus"
+      ],
+      "icon": "\ud83d\udc33",
       "docs": "docs/services/monitoring.md"
     },
     "nzbdav-exporter": {
@@ -269,11 +467,18 @@
       "description": "NzbDAV config & queue metrics",
       "port": 9200,
       "category": "monitoring",
-      "health": { "type": "http", "url": "http://nzbdav-exporter:9200/metrics" },
+      "health": {
+        "type": "http",
+        "url": "http://nzbdav-exporter:9200/metrics"
+      },
       "dashboard": null,
-      "depends_on": ["nzbdav"],
-      "depended_by": ["prometheus"],
-      "icon": "📊",
+      "depends_on": [
+        "nzbdav"
+      ],
+      "depended_by": [
+        "prometheus"
+      ],
+      "icon": "\ud83d\udcca",
       "docs": "docs/services/monitoring.md"
     },
     "landing-page": {
@@ -281,11 +486,17 @@
       "description": "Nginx service portal",
       "port": 8000,
       "category": "infrastructure",
-      "health": { "type": "http", "url": "http://localhost:8000/healthz" },
+      "health": {
+        "type": "http",
+        "url": "http://localhost:8000/healthz"
+      },
       "dashboard": "http://{host}:8000",
-      "depends_on": ["traefik", "control-panel"],
+      "depends_on": [
+        "traefik",
+        "control-panel"
+      ],
       "depended_by": [],
-      "icon": "🏠",
+      "icon": "\ud83c\udfe0",
       "docs": "docs/services/landing-page.md"
     }
   }
