@@ -9,9 +9,9 @@ def human_size(n: int | float | None, fallback: str = "?") -> str:
     """
     if not n:
         return fallback
-    size = float(n)
+    size = abs(float(n))
     for unit in ("B", "KB", "MB", "GB", "TB"):
-        if abs(size) < 1024:
+        if size < 1024:
             return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
         size /= 1024
     return f"{size:.1f} PB"
