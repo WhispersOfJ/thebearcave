@@ -1,68 +1,63 @@
-"""Shared Radarr/Sonarr config + helpers, ported from the FastAPI-era
-control-panel/core/arr_client.py near-verbatim for the Django/DRF rewrite.
-Every arr|radarr|sonarr app's services.py imports from here instead of
-re-declaring ARR_APPS or re-implementing the queue/command/history helpers,
-mirroring the old app's single-source-of-truth design.
+"""Shared Radarr/Sonarr config + helpers — backward-compatible re-export hub.
 
-Only transform applied vs. the FastAPI-era source: core.responses.fail()
-(which raised a fastapi.HTTPException) is replaced with
-core.api_base.ServiceError, and the one local `from fastapi import
-HTTPException` (in arr_sizeleft_snapshot) now catches ServiceError instead.
-Every constant/function name and signature is otherwise byte-identical.
+This module re-exports every symbol that callers previously imported from
+here, but the implementations now live in focused modules:
+
+  core/arr_config  — ARR_APPS, QUEUE_ARR_APPS, RADARR_APPS, SONARR_APPS,
+                     PROWLARR_CFG, HOST_CONFIG_DIR
+  core/arr_movie   — get_movie_or_episode, item_is_monitored,
+                     blocklist_and_research, radarr_root_folder_and_profile,
+                     radarr_quality_profile_id_by_name, radarr_ensure_tags,
+                     radarr_add_movie
+  core/arr_series  — sonarr_root_folder_and_profile, sonarr_add_series
+  core/formatters  — human_size
+
+New code should import directly from the focused modules. This file
+exists only so existing callers don't break.
 """
-import os
 import re
-from datetime import datetime, timezone
+
+from core.api_base import ServiceError
+
+# --- config ---
+from core.arr_config import (  # noqa: F401
+    ARR_APPS,
+    HOST_CONFIG_DIR,
+    PROWLARR_API_KEY,
+    PROWLARR_CFG,
+    QUEUE_ARR_APPS,
+    RADARR_APPS,
+    SONARR_APPS,
+)
+
+# --- formatters ---
+from core.formatters import human_size  # noqa: F401
+
+# --- nzbdav re-export (kept for callers that import from here) ---
+from core.nzbdav_client import NZBDAV_API_KEY, NZBDAV_URL, nzbdav_api  # noqa: F401
+
+# --- movie operations ---
+from core.arr_movie import (  # noqa: F401
+    blocklist_and_research,
+    get_movie_or_episode,
+    item_is_monitored,
+    radarr_add_movie,
+    radarr_ensure_tags,
+    radarr_quality_profile_id_by_name,
+    radarr_root_folder_and_profile,
+)
+
+# --- series operations ---
+from core.arr_series import (  # noqa: F401
+    sonarr_add_series,
+    sonarr_root_folder_and_profile,
+)
+
+# --- local helpers (small enough to keep here) ---
 
 import httpx
 
-from core.api_base import ServiceError
-from core.nzbdav_client import NZBDAV_API_KEY, NZBDAV_URL, nzbdav_api  # noqa: F401
-
-# Internal bearcave hostnames - not HOST_IP, since this container reaches
-# every *arr app over the docker network directly. Bare os.environ[...]
-# subscript matches the FastAPI-era app's own behavior: a missing key is a
-# deployment misconfiguration that should fail loudly at import time, not
-# silently produce a broken ARR_APPS entry.
-ARR_APPS = {
-    "radarr": {
-        "url": "http://radarr:7878",
-        "api": "v3",
-        "key": os.environ["RADARR_API_KEY"],
-        "search_command": "MissingMoviesSearch",
-        "label": "Radarr",
-        "import_events": ("downloadFolderImported",),
-    },
-    "sonarr": {
-        "url": "http://sonarr:8989",
-        "api": "v3",
-        "key": os.environ["SONARR_API_KEY"],
-        "search_command": "MissingEpisodeSearch",
-        "label": "Sonarr",
-        "import_events": ("downloadFolderImported",),
-    },
-}
-
-# Radarr and Sonarr both have a real download queue (NzbDAV wired to each as
-# the sole download client) - Unstick/manual-import work identically on both.
-QUEUE_ARR_APPS = ("radarr", "sonarr")
-
-RADARR_APPS = ("radarr",)
-
-SONARR_APPS = ("sonarr",)
-
-PROWLARR_API_KEY = os.environ.get("PROWLARR_API_KEY")
-PROWLARR_CFG = {"url": "http://prowlarr:9696", "api": "v1", "key": PROWLARR_API_KEY, "label": "Prowlarr"}
-
-HOST_CONFIG_DIR = "/host-config"
-
-# NzbDAV's SABnzbd-compatible API - queue-autofix (below) needs its queue
-# health (paused state). Owned by core/nzbdav_client.py; re-exported here
-# (see the import at the top of the file) only so arr app services.py
-# imports keep working without touching every call site.
-
-
-from core.formatters import human_size  # noqa: F401 — re-exported for callers
+from core.arr_config import ARR_APPS as _ARR_APPS, QUEUE_ARR_APPS as _QUEUE_ARR_APPS, RADARR_APPS as _RADARR_APPS
 
 
 def format_eta(seconds: float) -> str:
@@ -82,9 +77,9 @@ def format_eta(seconds: float) -> str:
 
 
 def arr_command(app_name: str, command: str) -> dict:
-    if app_name not in ARR_APPS:
+    if app_name not in _ARR_APPS:
         raise ServiceError(f"Unknown app '{app_name}'.", status=404)
-    cfg = ARR_APPS[app_name]
+    cfg = _ARR_APPS[app_name]
     url = f"{cfg['url']}/api/{cfg['api']}/command"
     try:
         r = httpx.post(url, json={"name": command}, headers={"X-Api-Key": cfg["key"]}, timeout=15)
@@ -95,15 +90,15 @@ def arr_command(app_name: str, command: str) -> dict:
 
 
 def require_queue_app(app_name: str) -> dict:
-    if app_name not in QUEUE_ARR_APPS:
+    if app_name not in _QUEUE_ARR_APPS:
         raise ServiceError(f"'{app_name}' isn't supported here - only radarr and sonarr have a queue.", status=404)
-    return ARR_APPS[app_name]
+    return _ARR_APPS[app_name]
 
 
 def arr_queue(app_name: str) -> list[dict]:
-    cfg = ARR_APPS[app_name]
+    cfg = _ARR_APPS[app_name]
     params = {"pageSize": 250, "includeUnknownMovieItems": "true"}
-    params["includeMovie" if app_name in RADARR_APPS else "includeEpisode"] = "true"
+    params["includeMovie" if app_name in _RADARR_APPS else "includeEpisode"] = "true"
     try:
         r = httpx.get(f"{cfg['url']}/api/{cfg['api']}/queue", params=params, headers={"X-Api-Key": cfg["key"]}, timeout=20)
         r.raise_for_status()
@@ -113,16 +108,10 @@ def arr_queue(app_name: str) -> list[dict]:
 
 
 def stuck_queue_items(app_name: str) -> list[dict]:
-    # warning/error is exactly what lights up the warning icon in Radarr's
-    # and Sonarr's own Activity/Queue tab - not "importPending", which is
-    # just normal in-progress state.
     return [q for q in arr_queue(app_name) if q.get("trackedDownloadStatus") in ("warning", "error")]
 
 
 def import_candidate_queue_items(app_name: str) -> list[dict]:
-    # Broader than stuck_queue_items - also includes "importPending" (fully
-    # downloaded, waiting on the arr app's own internal queue-processing
-    # command to actually run the import).
     return [
         q for q in arr_queue(app_name)
         if q.get("trackedDownloadStatus") in ("warning", "error")
@@ -130,83 +119,10 @@ def import_candidate_queue_items(app_name: str) -> list[dict]:
     ]
 
 
-def get_movie_or_episode(app_name: str, cfg: dict, target_id: int) -> dict | None:
-    endpoint = "movie" if app_name in RADARR_APPS else "episode"
-    try:
-        r = httpx.get(f"{cfg['url']}/api/{cfg['api']}/{endpoint}/{target_id}", headers={"X-Api-Key": cfg["key"]}, timeout=20)
-        r.raise_for_status()
-        return r.json()
-    except httpx.HTTPError:
-        return None
-
-
-def item_is_monitored(app_name: str, q: dict, cfg: dict, id_field: str) -> bool:
-    # unmonitored movies/episodes should never be re-searched by the loop -
-    # the queue response's embedded movie/episode object is NOT reliable
-    # (confirmed live: can sit null for 8+ seconds straight), so always
-    # confirm via a direct lookup by id instead of trusting it blindly.
-    embedded = q.get("movie") if app_name in RADARR_APPS else q.get("episode")
-    if embedded is not None:
-        return bool(embedded.get("monitored", True))
-    target_id = q.get(id_field)
-    if target_id is None:
-        return True
-    endpoint = "movie" if app_name in RADARR_APPS else "episode"
-    try:
-        r = httpx.get(f"{cfg['url']}/api/{cfg['api']}/{endpoint}/{target_id}", headers={"X-Api-Key": cfg["key"]}, timeout=20)
-        r.raise_for_status()
-        return bool(r.json().get("monitored", True))
-    except httpx.HTTPError:
-        return True
-
-
-def blocklist_and_research(app_name: str, items: list[dict]) -> tuple[list[str], list[str]]:
-    cfg = ARR_APPS[app_name]
-    fixed, errors = [], []
-    search_ids: list[int] = []
-    id_field = "movieId" if app_name in RADARR_APPS else "episodeId"
-    for q in items:
-        title = q.get("title") or str(q["id"])
-        monitored = item_is_monitored(app_name, q, cfg, id_field)
-        params = {"removeFromClient": "true", "blocklist": "true", "skipRedownload": str(not monitored).lower()}
-        delete_ok = False
-        for attempt in range(2):
-            try:
-                r = httpx.delete(f"{cfg['url']}/api/{cfg['api']}/queue/{q['id']}", params=params,
-                                  headers={"X-Api-Key": cfg["key"]}, timeout=20)
-                if r.status_code not in (200, 404):
-                    r.raise_for_status()
-                delete_ok = True
-                break
-            except httpx.TimeoutException:
-                if attempt == 0:
-                    continue
-                errors.append(f"{title}: timed out")
-            except httpx.HTTPError as e:
-                errors.append(f"{title}: {e}")
-                break
-        if not delete_ok:
-            continue
-        fixed.append(title)
-        target_id = q.get(id_field)
-        if monitored and target_id is not None:
-            search_ids.append(target_id)
-    if search_ids:
-        command_name = "MoviesSearch" if app_name in RADARR_APPS else "EpisodeSearch"
-        command_field = "movieIds" if app_name in RADARR_APPS else "episodeIds"
-        try:
-            r = httpx.post(f"{cfg['url']}/api/{cfg['api']}/command", json={"name": command_name, command_field: search_ids},
-                            headers={"X-Api-Key": cfg["key"]}, timeout=20)
-            r.raise_for_status()
-        except httpx.HTTPError as e:
-            errors.append(f"search trigger failed for {len(search_ids)} item(s): {e}")
-    return fixed, errors
-
-
 def disable_autoredownload_if_storm(app_name: str, failed_pending_count: int, threshold: int) -> bool:
     if failed_pending_count < threshold:
         return False
-    cfg = ARR_APPS[app_name]
+    cfg = _ARR_APPS[app_name]
     try:
         r = httpx.get(f"{cfg['url']}/api/{cfg['api']}/config/downloadclient", headers={"X-Api-Key": cfg["key"]}, timeout=20)
         r.raise_for_status()
@@ -259,9 +175,6 @@ def find_candidate_files(container, output_path: str) -> tuple[str, list[str]]:
 
 
 def importing_queue_targets(app_name: str) -> list[dict]:
-    # Multiple queue records can share one underlying download (a season
-    # pack fans out to one record per episode, all with the same
-    # downloadId) - dedupe before testing.
     items = [q for q in arr_queue(app_name) if q.get("trackedDownloadState") == "importing"]
     by_download: dict[str, dict] = {}
     for q in items:
@@ -303,7 +216,7 @@ def arr_sizeleft_snapshot(app_name: str) -> dict[int, int]:
 
 
 def wanted_missing_total(app_name: str) -> int:
-    cfg = ARR_APPS[app_name]
+    cfg = _ARR_APPS[app_name]
     try:
         r = httpx.get(f"{cfg['url']}/api/{cfg['api']}/wanted/missing", params={"pageSize": 1},
                        headers={"X-Api-Key": cfg["key"]}, timeout=20)
@@ -322,7 +235,7 @@ def recent_import_rate_per_hour(app_name: str) -> tuple[float, int]:
     """Returns (rate_per_hour, sample_count). Rate is 0 if there aren't at
     least 2 qualifying events, or the newest one is older than
     RECENT_IMPORT_LOOKBACK_HOURS."""
-    cfg = ARR_APPS[app_name]
+    cfg = _ARR_APPS[app_name]
     try:
         r = httpx.get(f"{cfg['url']}/api/{cfg['api']}/history",
                        params={"pageSize": RECENT_IMPORT_SAMPLE_SIZE, "sortKey": "date", "sortDirection": "descending"},
@@ -334,170 +247,10 @@ def recent_import_rate_per_hour(app_name: str) -> tuple[float, int]:
     events = [rec for rec in records if rec.get("eventType") in cfg["import_events"]]
     if len(events) < 2:
         return 0.0, len(events)
+    from datetime import datetime, timezone
     newest = datetime.fromisoformat(events[0]["date"].replace("Z", "+00:00"))
     oldest = datetime.fromisoformat(events[-1]["date"].replace("Z", "+00:00"))
     if (datetime.now(timezone.utc) - newest).total_seconds() > RECENT_IMPORT_LOOKBACK_HOURS * 3600:
         return 0.0, len(events)
     span_hours = max((newest - oldest).total_seconds() / 3600, MIN_RATE_WINDOW_HOURS)
     return len(events) / span_hours, len(events)
-
-
-def radarr_root_folder_and_profile(cfg, root_folder: str | None, quality_profile: str | None) -> tuple[str, int]:
-    try:
-        folders = httpx.get(f"{cfg['url']}/api/{cfg['api']}/rootfolder", headers={"X-Api-Key": cfg["key"]}, timeout=15).json()
-        profiles = httpx.get(f"{cfg['url']}/api/{cfg['api']}/qualityprofile", headers={"X-Api-Key": cfg["key"]}, timeout=15).json()
-    except httpx.HTTPError as e:
-        raise ServiceError(f"Couldn't read Radarr's root folders/quality profiles: {e}")
-
-    root_folder_path = (
-        root_folder
-        or next((f["path"] for f in folders if f["path"] == "/data/movies"), None)
-        or (folders[0]["path"] if folders else None)
-    )
-    if not root_folder_path:
-        raise ServiceError("Radarr has no root folders configured.", status=500)
-
-    wanted_profile = quality_profile or "Unlimited"
-    quality_profile_id = next((p["id"] for p in profiles if p["name"] == wanted_profile), None)
-    if quality_profile_id is None:
-        quality_profile_id = profiles[0]["id"] if profiles else None
-    if quality_profile_id is None:
-        raise ServiceError("Radarr has no quality profiles configured.", status=500)
-
-    return root_folder_path, quality_profile_id
-
-
-def radarr_quality_profile_id_by_name(cfg: dict, name: str) -> int | None:
-    try:
-        profiles = httpx.get(f"{cfg['url']}/api/{cfg['api']}/qualityprofile", headers={"X-Api-Key": cfg["key"]}, timeout=15).json()
-    except httpx.HTTPError:
-        return None
-    return next((p["id"] for p in profiles if p["name"] == name), None)
-
-
-def radarr_ensure_tags(cfg: dict, tag_names: list[str]) -> list[int]:
-    """Returns the Radarr tag ids for tag_names, creating any that don't
-    exist yet. Radarr's v3 tag API requires creating a tag via POST /tag
-    before it can be referenced by id on a movie - there's no
-    create-on-attach shortcut."""
-    if not tag_names:
-        return []
-    try:
-        existing = httpx.get(f"{cfg['url']}/api/{cfg['api']}/tag", headers={"X-Api-Key": cfg["key"]}, timeout=15).json()
-    except httpx.HTTPError as e:
-        raise ServiceError(f"Couldn't read Radarr's tags: {e}")
-    by_label = {t["label"]: t["id"] for t in existing}
-
-    ids = []
-    for name in tag_names:
-        if name in by_label:
-            ids.append(by_label[name])
-            continue
-        try:
-            created = httpx.post(f"{cfg['url']}/api/{cfg['api']}/tag", json={"label": name},
-                                  headers={"X-Api-Key": cfg["key"]}, timeout=15)
-            created.raise_for_status()
-        except httpx.HTTPError as e:
-            raise ServiceError(f"Couldn't create Radarr tag '{name}': {e}")
-        new_id = created.json()["id"]
-        by_label[name] = new_id
-        ids.append(new_id)
-    return ids
-
-
-def sonarr_root_folder_and_profile(cfg, root_folder: str | None, quality_profile: str | None) -> tuple[str, int]:
-    try:
-        folders = httpx.get(f"{cfg['url']}/api/{cfg['api']}/rootfolder", headers={"X-Api-Key": cfg["key"]}, timeout=15).json()
-        profiles = httpx.get(f"{cfg['url']}/api/{cfg['api']}/qualityprofile", headers={"X-Api-Key": cfg["key"]}, timeout=15).json()
-    except httpx.HTTPError as e:
-        raise ServiceError(f"Couldn't read Sonarr's root folders/quality profiles: {e}")
-
-    root_folder_path = (
-        root_folder
-        or next((f["path"] for f in folders if f["path"] == "/data/shows"), None)
-        or (folders[0]["path"] if folders else None)
-    )
-    if not root_folder_path:
-        raise ServiceError("Sonarr has no root folders configured.", status=500)
-
-    wanted_profile = quality_profile or "Any"
-    quality_profile_id = next((p["id"] for p in profiles if p["name"] == wanted_profile), None)
-    if quality_profile_id is None:
-        quality_profile_id = profiles[0]["id"] if profiles else None
-    if quality_profile_id is None:
-        raise ServiceError("Sonarr has no quality profiles configured.", status=500)
-
-    return root_folder_path, quality_profile_id
-
-
-def radarr_add_movie(cfg, tmdb_id: int, monitored: bool, search: bool, root_folder_path: str, quality_profile_id: int,
-                      existing_tmdb_ids: set[int], dry_run: bool = False, tag_ids: list[int] | None = None) -> dict:
-    if tmdb_id in existing_tmdb_ids:
-        return {"status": "already", "title": None, "tmdbId": tmdb_id}
-    try:
-        lookup = httpx.get(f"{cfg['url']}/api/{cfg['api']}/movie/lookup/tmdb", params={"tmdbId": tmdb_id},
-                            headers={"X-Api-Key": cfg["key"]}, timeout=20)
-        lookup.raise_for_status()
-        movie = lookup.json()
-    except httpx.HTTPError as e:
-        return {"status": "failed", "reason": f"tmdb {tmdb_id}: lookup failed ({e})"}
-    if not movie or not movie.get("title"):
-        return {"status": "failed", "reason": f"tmdb {tmdb_id}: no Radarr match"}
-
-    movie["qualityProfileId"] = quality_profile_id
-    movie["rootFolderPath"] = root_folder_path
-    movie["monitored"] = monitored
-    movie["addOptions"] = {"searchForMovie": search}
-    if tag_ids:
-        movie["tags"] = tag_ids
-
-    if dry_run:
-        return {"status": "added", "title": movie["title"]}
-
-    try:
-        add = httpx.post(f"{cfg['url']}/api/{cfg['api']}/movie", json=movie, headers={"X-Api-Key": cfg["key"]}, timeout=30)
-        add.raise_for_status()
-    except httpx.HTTPStatusError as e:
-        return {"status": "failed", "reason": f'"{movie["title"]}": {e.response.text.strip() or e}'}
-    except httpx.HTTPError as e:
-        return {"status": "failed", "reason": f'"{movie["title"]}": {e}'}
-    return {"status": "added", "title": add.json().get("title", movie["title"])}
-
-
-def sonarr_add_series(cfg, tvdb_id: int, monitored: bool, search: bool, root_folder_path: str, quality_profile_id: int,
-                       existing_tvdb_ids: set[int], dry_run: bool = False) -> dict:
-    if tvdb_id in existing_tvdb_ids:
-        return {"status": "already", "title": None, "tvdbId": tvdb_id}
-    try:
-        lookup = httpx.get(f"{cfg['url']}/api/{cfg['api']}/series/lookup", params={"term": f"tvdb:{tvdb_id}"},
-                            headers={"X-Api-Key": cfg["key"]}, timeout=20)
-        lookup.raise_for_status()
-        results = lookup.json()
-    except httpx.HTTPError as e:
-        return {"status": "failed", "reason": f"tvdb {tvdb_id}: lookup failed ({e})"}
-    if not results:
-        return {"status": "failed", "reason": f"tvdb {tvdb_id}: no Sonarr match"}
-    series = results[0]
-
-    series["qualityProfileId"] = quality_profile_id
-    series["rootFolderPath"] = root_folder_path
-    series["monitored"] = monitored
-    series["seasonFolder"] = True
-    series["addOptions"] = {
-        "monitor": "all" if monitored else "none",
-        "searchForMissingEpisodes": search,
-        "searchForCutoffUnmetEpisodes": False,
-    }
-
-    if dry_run:
-        return {"status": "added", "title": series["title"]}
-
-    try:
-        add = httpx.post(f"{cfg['url']}/api/{cfg['api']}/series", json=series, headers={"X-Api-Key": cfg["key"]}, timeout=30)
-        add.raise_for_status()
-    except httpx.HTTPStatusError as e:
-        return {"status": "failed", "reason": f'"{series["title"]}": {e.response.text.strip() or e}'}
-    except httpx.HTTPError as e:
-        return {"status": "failed", "reason": f'"{series["title"]}": {e}'}
-    added = add.json()
-    return {"status": "added", "title": added.get("title", series["title"])}
