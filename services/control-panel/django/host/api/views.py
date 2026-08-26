@@ -338,56 +338,22 @@ class HealthCheckView(EnvelopeAPIView):
     """GET /api/v2/host/health - check all service health endpoints.
 
     Returns a dict mapping service name to {status: "up"|"down", code: int}.
-    Uses the same API keys the control panel already has for Arr/NzbDAV.
-    The landing page calls this instead of hitting each service directly.
-    Public endpoint (no auth) so the landing page can poll it.
+    Health check list is derived from service-registry.json (the landing
+    page's single source of truth) — adding a new service to the landing
+    page automatically adds it here. Public endpoint (no auth) so the
+    landing page can poll it.
     """
 
     permission_classes = []  # AllowAny - read-only status check
 
     def get(self, request):
         import concurrent.futures
+
         import httpx
 
-        from core.arr_client import ARR_APPS, PROWLARR_CFG
-        from core.nzbdav_client import NZBDAV_API_KEY, NZBDAV_URL
-        from core.plex_client import PLEX_URL
+        from host.services.health import build_health_check_list
 
-        # Plex runs host-networked (network_mode: host), so it has no DNS
-        # name on bearcave — PLEX_URL (compose overrides it to
-        # host.docker.internal:32400) is the only reachable address from here.
-        # NzbDAV's SABnzbd-compatible API takes apikey as a query param and
-        # NZBDAV_URL already ends in /api (adding /api again 404s).
-        nzbdav_key = f"&apikey={NZBDAV_API_KEY}" if NZBDAV_API_KEY else ""
-        services_to_check = [
-            {"name": "Plex", "url": f"{PLEX_URL}/identity" if PLEX_URL else "http://127.0.0.1:9/", "timeout": 3},
-            {"name": "Radarr", "url": f"{ARR_APPS['radarr']['url']}/api/v3/system/status", "headers": {"X-Api-Key": ARR_APPS['radarr']['key']}, "timeout": 3},
-            {"name": "Sonarr", "url": f"{ARR_APPS['sonarr']['url']}/api/v3/system/status", "headers": {"X-Api-Key": ARR_APPS['sonarr']['key']}, "timeout": 3},
-            {"name": "Prowlarr", "url": f"{PROWLARR_CFG['url']}/api/v1/system/status", "headers": {"X-Api-Key": PROWLARR_CFG['key']}, "timeout": 3},
-            {"name": "NzbDAV", "url": f"{NZBDAV_URL}?mode=get_cats&output=json{nzbdav_key}", "timeout": 3},
-            {"name": "Overseerr", "url": "http://seerr:5055/api/v1/status", "timeout": 3},
-            {"name": "Control Panel", "url": "http://localhost:8420/healthz", "timeout": 2},
-            {"name": "Metacache", "url": "http://metacache:8765/healthz", "timeout": 2},
-            {"name": "Watchstate", "url": "http://watchstate:8080/", "timeout": 3},
-            {"name": "Cleanuparr", "url": "http://cleanuparr:11011/health", "timeout": 2},
-            {"name": "Grafana", "url": "http://grafana:3000/api/health", "timeout": 2},
-            {"name": "Prometheus", "url": "http://prometheus:9090/-/healthy", "timeout": 2},
-            {"name": "arr-dashboard", "url": "http://arr-dashboard:3000/health", "timeout": 3},
-            # --- services added to cover all 22 landing-page cards ---
-            {"name": "Traefik", "url": "http://traefik:80/", "timeout": 2},
-            {"name": "Loki", "url": "http://loki:3100/ready", "timeout": 2},
-            {"name": "Node Exporter", "url": "http://host.docker.internal:9100/metrics", "timeout": 2},
-            {"name": "cAdvisor", "url": "http://cadvisor:8080/healthz", "timeout": 2},
-            {"name": "NzbDAV Exporter", "url": "http://nzbdav-exporter:9200/metrics", "timeout": 2},
-            {"name": "Landing Page", "url": "http://landing-page:80/healthz", "timeout": 2},
-        ]
-
-        # Services without HTTP health endpoints — check via Docker container state
-        docker_services = [
-            {"name": "Unpackerr", "container": "unpackerr"},
-            {"name": "Promtail", "container": "promtail"},
-            {"name": "NzbDAV Rclone", "container": "nzbdav_rclone"},
-        ]
+        services_to_check, docker_services = build_health_check_list()
 
         def check_one(svc):
             try:
@@ -404,7 +370,7 @@ class HealthCheckView(EnvelopeAPIView):
 
         # Docker container checks for services without HTTP health endpoints
         try:
-            from core.docker_client import docker_client, project_containers
+            from core.docker_client import project_containers
             _, containers = project_containers()
             container_map = {c.name: c for c in containers}
             for svc in docker_services:
