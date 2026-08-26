@@ -4,6 +4,8 @@
 # ============================================================================
 # Verifies the full request pipeline:
 #   Seerr → Radarr/Sonarr → InfiniDysk → rclone mount → Plex
+#   plus TLS: the served cert is mkcert-signed and validates against the
+#   local CA (no browser warning).
 #
 # Usage:
 #   ./tests/integration/test_pipeline.sh           # Run full test
@@ -156,6 +158,52 @@ test_plex_library() {
         log_warning "Plex library appears empty"
     fi
     
+    return 0
+}
+
+test_tls_certificate() {
+    log_info "Testing TLS certificate (mkcert-signed, no browser warning)..."
+
+    # The local CA that devices install to trust the stack. Missing means the
+    # CA setup never ran — and then browsers genuinely would warn.
+    local ca_file="config/ca/rootCA.pem"
+    local host_ip="${HOST_IP:-192.168.4.20}"
+    local sni="bearcave.${host_ip}.nip.io"
+
+    if [ ! -f "$ca_file" ]; then
+        log_error "Local CA not found at $ca_file — run scripts/trust-ca.sh first"
+        return 1
+    fi
+    if ! command -v openssl >/dev/null 2>&1; then
+        log_error "openssl not found on the test host"
+        return 1
+    fi
+
+    # 1. The served cert must be signed by the local CA — never Traefik's
+    #    built-in "TRAEFIK DEFAULT CERT" fallback (the pre-CA state).
+    local issuer
+    issuer=$(echo | openssl s_client -connect "${host_ip}:443" \
+        -servername "$sni" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null || echo "")
+
+    if [[ "$issuer" == *"TRAEFIK DEFAULT CERT"* ]]; then
+        log_error "Traefik is serving its self-signed default cert — the mkcert CA is not wired (check config/traefik/dynamic/tls.yml)"
+        return 1
+    fi
+    if [[ "$issuer" != *"mkcert"* ]]; then
+        log_error "Unexpected certificate issuer: ${issuer:-<none>} (expected the mkcert local CA)"
+        return 1
+    fi
+    log_success "Served certificate issuer is the mkcert local CA"
+
+    # 2. The chain must validate against rootCA.pem — that is what decides
+    #    whether a browser shows a warning. -verify_return_error makes s_client
+    #    exit non-zero on any verification failure (e.g. ERR_CERT_AUTHORITY_INVALID).
+    if ! echo | openssl s_client -connect "${host_ip}:443" \
+        -servername "$sni" -CAfile "$ca_file" -verify_return_error >/dev/null 2>&1; then
+        log_error "Certificate chain does not validate against the local CA — devices would get a browser warning"
+        return 1
+    fi
+    log_success "Certificate chain validates against rootCA.pem — no browser warning"
     return 0
 }
 
@@ -335,6 +383,7 @@ main() {
         return 0
     fi
     
+    test_tls_certificate || failed=$((failed + 1))
     test_rclone_mount || failed=$((failed + 1))
     test_plex_library || failed=$((failed + 1))
     test_radarr_root_folders || failed=$((failed + 1))
