@@ -290,14 +290,16 @@ GET  /metrics/prometheus   — Prometheus scrape endpoint
 
 ### Security
 - **Trivy** — CVE scanning (nightly CI + weekly schedule)
-- **Dependabot** — NuGet, Docker, pip, GitHub Actions updates (weekly)
+- **Dependabot** — NuGet, Docker, pip updates (weekly); GitHub Actions are SHA-pinned so action upgrades are manual (see docs/ci-cd.md)
 - **CodeQL** — Code scanning for Python and C#
 - **ShellCheck** — Shell script linting
 - **Ruff** — Python linting
 
 ### CI/CD
-- **GitHub Actions** — 11 workflows
-  - `validate.yml` — compose validation, env coverage, shellcheck, ruff, Django tests
+- **GitHub Actions** — 11 workflows; full policy in [docs/ci-cd.md](docs/ci-cd.md)
+  - **All third-party actions are SHA-pinned** (immutable supply chain); the `# tag` comment records the version. Upgrade path: `gh api repos/{owner}/{repo}/commits/{tag} --jq .sha`, then update SHA + comment. Dependabot cannot auto-bump SHA pins.
+  - **actionlint gates every workflow change** in `validate.yml` — syntax, expressions, action refs, and shellcheck on `run:` blocks. Replicate locally: download the pinned actionlint release binary and run `actionlint .github/workflows/*.yml`.
+  - `validate.yml` — compose validation, env coverage, shellcheck, ruff, actionlint, Django tests
   - `release-please.yml` — automated release management
   - `trivy-scan.yml` — CVE scan all 22 images, IaC config scan, baseline report
   - `dotnet-ci.yml` — .NET build/format/test/coverage/NuGet CVE audit for metacache

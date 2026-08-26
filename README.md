@@ -116,6 +116,7 @@ Plex runs on host network for GDM/DLNA/remote access. Access directly at `http:/
 | [Operations](docs/operations/backup-restore.md) | Backup, restore, DR checklist |
 | [Operations](docs/operations/troubleshooting.md) | Symptom-driven playbooks |
 | [Security](docs/security.md) | Secrets model, exposure, tradeoffs, incident response |
+| [CI/CD](docs/ci-cd.md) | Workflows, pinned-actions policy, actionlint gate, release automation |
 | [Testing](docs/testing.md) | Health checks, integration pipeline, live tests |
 | [Migration](docs/migration/) | from-media-stack / from-metacacharr guides |
 | [AGENTS.md](AGENTS.md) | Full system reference for AI agents |
