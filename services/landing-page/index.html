@@ -325,8 +325,21 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     🐻 The Bear Cave · <a href="https://github.com/WhispersOfJ/thebearcave">GitHub</a>
   </footer>
 
-  <!-- Mermaid.js for the ecosystem graph -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <!-- Mermaid.js: lazy-loaded when graph scrolls into view -->
+  <script>
+    function loadMermaid() {
+      if (typeof mermaid !== 'undefined') return;
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+      s.onload = () => { if (typeof renderGraph === 'function') renderGraph(); };
+      document.head.appendChild(s);
+    }
+    // Load when graph section is visible
+    const graphObs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) { loadMermaid(); graphObs.disconnect(); }
+    }, { rootMargin: '200px' });
+    graphObs.observe(document.getElementById('ecosystem-graph'));
+  </script>
 
   <script>
     // ══════════════════════════════════════════════════════════
