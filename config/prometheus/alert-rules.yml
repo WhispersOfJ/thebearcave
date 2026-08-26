@@ -1,0 +1,135 @@
+groups:
+  - name: bearcave-alerts
+    rules:
+      # Container down for more than 2 minutes
+      - alert: ContainerDown
+        expr: |
+          absent(container_last_seen{name=~".+"})
+          or (time() - container_last_seen{name=~".+"}) > 120
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container {{ $labels.name }} is down"
+          description: "{{ $labels.name }} has been down for more than 2 minutes."
+
+      # Container restarting frequently
+      - alert: ContainerRestarting
+        expr: increase(container_restart_count{name=~".+"}[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} restarting frequently"
+          description: "{{ $labels.name }} has restarted {{ $value }} times in the last hour."
+
+      # Container memory usage > 90% of limit
+      - alert: ContainerHighMemory
+        expr: |
+          container_memory_usage_bytes{name=~".+"}
+          / container_spec_memory_limit_bytes{name=~".+"} > 0.9
+          and container_spec_memory_limit_bytes{name=~".+"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} memory > 90% of limit"
+          description: "{{ $labels.name }} is using {{ $value | humanizePercentage }} of its memory limit."
+
+      # Container CPU usage > 90%
+      - alert: ContainerHighCPU
+        expr: |
+          rate(container_cpu_usage_seconds_total{name=~".+"}[5m]) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} CPU > 90%"
+          description: "{{ $labels.name }} CPU usage is {{ $value | printf \"%.1f\" }}%."
+
+      # Host disk usage > 85%
+      - alert: HostDiskHigh
+        expr: |
+          (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host disk usage > 85%"
+          description: "Root filesystem is {{ $value | printf \"%.1f\" }}% full."
+
+      # Host disk usage > 95% (imminent)
+      - alert: HostDiskCritical
+        expr: |
+          (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 95
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "Host disk usage > 95% — IMMINENT"
+          description: "Root filesystem is {{ $value | printf \"%.1f\" }}% full. Action required immediately."
+
+      # Host memory usage > 90%
+      - alert: HostHighMemory
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host memory usage > 90%"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}%."
+
+      # FUSE mount stale (no I/O for 10+ minutes on a mount that should be active)
+      - alert: FUSEMountStale
+        expr: |
+          node_filesystem_read_bytes_total{mountpoint=~"/data/.*"} == 0
+          and node_filesystem_files_free < 1000000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FUSE mount may be stale"
+          description: "No read activity on {{ $labels.mountpoint }} for 10+ minutes. The FUSE mount may have dropped."
+
+      # Prometheus target down
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus target {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} ({{ $labels.job }}) has been down for 2+ minutes."
+
+      # NZBDAV queue depth high
+      - alert: NZBDAVQueueHigh
+        expr: nzbdav_queue_depth > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NZBDAV queue depth > 20"
+          description: "NZBDAV has {{ $value }} items queued. Queue may be stalled."
+
+      # High log volume (proxy for error storms — Loki not in Prometheus)
+      # This alert fires when any container's log output spikes, indicating possible error loops.
+      - alert: HighContainerLogRate
+        expr: |
+          sum(rate(container_tasks_state{state="stopped"}[5m])) by (name) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High task churn in {{ $labels.name }}"
+          description: "{{ $labels.name }} is restarting tasks frequently. Possible crash loop."
+
+      # Node exporter unreachable
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node exporter is down"
+          description: "Host metrics collection has stopped. Check node-exporter."

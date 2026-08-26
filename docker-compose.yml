@@ -712,6 +712,7 @@ services:
     volumes:
       - *ca-mount
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml
       - ./data/prometheus:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"

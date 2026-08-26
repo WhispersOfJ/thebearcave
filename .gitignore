@@ -16,6 +16,8 @@ archive/metacacharr/monitoring/.env
 # tracked; the mkcert private key under config/traefik/certs/ must never be.
 config/*/
 !config/traefik/
+!config/grafana/
+!config/prometheus/
 config/traefik/certs/
 config/nzbdav-rclone/cache/
 config/nzbdav-rclone/rclone.conf
