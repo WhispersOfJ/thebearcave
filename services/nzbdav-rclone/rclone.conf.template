@@ -1,0 +1,6 @@
+[nzbdav]
+type = webdav
+url = http://nzbdav:3000/
+vendor = other
+user = usenet
+pass = REPLACE_WITH_RCLONE_ENCODED_PASSWORD

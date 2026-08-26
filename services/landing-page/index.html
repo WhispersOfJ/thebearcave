@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Stack</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e4e6f0;
+      --text-dim: #8b8fa3;
+      --accent: #6c5ce7;
+      --green: #00d68f;
+      --red: #ff6b6b;
+      --yellow: #ffd93d;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 2rem 2rem 1rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+      font-size: 0.9rem;
+    }
+    .status-bar {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 1rem;
+      font-size: 0.8rem;
+    }
+    .status-bar .stat { display: flex; align-items: center; gap: 0.4rem; }
+    .status-bar .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 2.5rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.2s, transform 0.15s;
+      position: relative;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .card .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card .card-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .card .card-status {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-dim);
+      transition: background 0.3s;
+    }
+    .card .card-status.up { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .card .card-status.down { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .card .card-desc {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+    .card .card-port {
+      font-size: 0.72rem;
+      color: var(--accent);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      margin-top: auto;
+      padding-top: 0.3rem;
+    }
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.75rem;
+    }
+    .doc-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .doc-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .doc-card .doc-title { font-weight: 600; font-size: 0.9rem; }
+    .doc-card .doc-desc {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+      line-height: 1.4;
+    }
+    .cve-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .cve-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .cve-stat {
+      flex: 1 1 100px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      text-align: center;
+    }
+    .cve-stat .cve-count {
+      display: block;
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .cve-stat .cve-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+    }
+    .cve-critical .cve-count { color: var(--red); }
+    .cve-high .cve-count { color: #ff9f43; }
+    .cve-medium .cve-count { color: var(--yellow); }
+    .cve-low .cve-count { color: var(--text-dim); }
+    .cve-total .cve-count { color: var(--accent); }
+    .cve-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .cve-foot a { color: var(--accent); text-decoration: none; }
+    .cve-foot a:hover { text-decoration: underline; }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .docs-grid { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📦 Media Stack</h1>
+    <p>Unified control plane for your media infrastructure</p>
+    <div class="status-bar">
+      <span class="stat"><span class="dot green" id="online-count-dot"></span> <span id="online-count">0</span> online</span>
+      <span class="stat"><span class="dot red" id="offline-count-dot"></span> <span id="offline-count">0</span> offline</span>
+      <span class="stat" style="color:var(--text-dim)">Last checked: <span id="last-checked">—</span></span>
+    </div>
+  </header>
+  <main>
+    <h2>Services</h2>
+    <div class="grid" id="services-grid"></div>
+
+    <h2>Security &middot; CVE Baseline</h2>
+    <div class="cve-card">
+      <div class="cve-stats">
+        <div class="cve-stat cve-critical"><span class="cve-label">CRITICAL</span><span class="cve-count" id="cve-critical">—</span></div>
+        <div class="cve-stat cve-high"><span class="cve-label">HIGH</span><span class="cve-count" id="cve-high">—</span></div>
+        <div class="cve-stat cve-medium"><span class="cve-label">MEDIUM</span><span class="cve-count" id="cve-medium">—</span></div>
+        <div class="cve-stat cve-low"><span class="cve-label">LOW</span><span class="cve-count" id="cve-low">—</span></div>
+        <div class="cve-stat cve-total"><span class="cve-label">TOTAL</span><span class="cve-count" id="cve-total">—</span></div>
+      </div>
+      <div class="cve-foot">
+        <span id="cve-meta">Loading baseline&hellip;</span>
+        <a href="https://github.com/WhispersOfJ/media-stack/blob/main/STAGE-4-CVE-BASELINE.md" target="_blank">View baseline &nearr;</a>
+      </div>
+    </div>
+
+    <h2>Documentation</h2>
+    <div class="docs-grid">
+      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack" target="_blank">
+        <div class="doc-title">📖 README</div>
+        <div class="doc-desc">Full setup guide, architecture overview, and commands reference</div>
+      </a>
+      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack/blob/main/AGENTS.md" target="_blank">
+        <div class="doc-title">🤖 AGENTS.md</div>
+        <div class="doc-desc">AI agent context — technologies, APIs, service map, and coding conventions</div>
+      </a>
+      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack/blob/main/BUG-SMASHED.md" target="_blank">
+        <div class="doc-title">🐛 Bug History</div>
+        <div class="doc-desc">Graphical history of resolved issues across the stack</div>
+      </a>
+      <a class="doc-card" href="https://github.com/WhispersOfJ/media-stack/actions" target="_blank">
+        <div class="doc-title">⚙️ CI/CD</div>
+        <div class="doc-desc">GitHub Actions workflows — build, test, and deploy status</div>
+      </a>
+      <a class="doc-card" id="grafana-link" href="#" target="_blank">
+        <div class="doc-title">📊 Grafana Dashboards</div>
+        <div class="doc-desc">Live metrics, logs, and monitoring dashboards</div>
+      </a>
+      <a class="doc-card" id="prometheus-link" href="#" target="_blank">
+        <div class="doc-title">🔥 Prometheus</div>
+        <div class="doc-desc">Raw metrics and alerting rules</div>
+      </a>
+    </div>
+  </main>
+  <footer>
+    Media Stack &middot; <a href="https://github.com/WhispersOfJ/media-stack">GitHub</a>
+  </footer>
+
+  <script>
+    const SERVICES = [
+      { name: "Plex",           desc: "Media server & streaming",          port: 32400 },
+      { name: "Radarr",         desc: "Movie management & downloads",      port: 7878 },
+      { name: "Sonarr",         desc: "TV show management & downloads",    port: 8989 },
+      { name: "Prowlarr",       desc: "Indexer management & search",       port: 9696 },
+      { name: "NzbDAV",         desc: "Usenet queue & WebDAV mount",       port: 3000 },
+      { name: "Overseerr",      desc: "Request management & discovery",    port: 5055 },
+      { name: "Control Panel",  desc: "Stack operations & fish CLI",       port: 8420 },
+      { name: "arr-dashboard",  desc: "Queue, calendar & TRaSH Guides",    port: 41789 },
+      { name: "Metacache",      desc: "Plex metadata cache & matching",    port: 8765 },
+      { name: "Watchstate",     desc: "Watch history sync",                port: 8705 },
+      { name: "Cleanuparr",     desc: "Stale download cleanup",            port: 11011 },
+      { name: "Grafana",        desc: "Metrics dashboards & visualization", port: 3001 },
+      { name: "Prometheus",     desc: "Metrics collection & alerting",     port: 9090 },
+    ];
+
+    const BASE = location.hostname;
+    const CP_PORT = 8420;
+
+    function renderServices() {
+      const grid = document.getElementById("services-grid");
+      grid.innerHTML = SERVICES.map(s => `
+        <a class="card" href="http://${BASE}:${s.port}" target="_blank" data-port="${s.port}" data-name="${s.name}">
+          <div class="card-header">
+            <span class="card-title">${s.name}</span>
+            <span class="card-status" id="status-${s.port}"></span>
+          </div>
+          <div class="card-desc">${s.desc}</div>
+          <div class="card-port">:${s.port}</div>
+        </a>
+      `).join("");
+    }
+
+    async function checkAll() {
+      const cards = document.querySelectorAll(".card[data-port]");
+      // Reset all to pending (gray)
+      cards.forEach(c => { document.getElementById(`status-${c.dataset.port}`).className = "card-status"; });
+      try {
+        // 10s cap: the proxy checks 13 services with up to 3s timeouts each,
+        // so a 5s client abort fired on slow polls and flashed everything red.
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 10000);
+        const r = await fetch(`http://${BASE}:${CP_PORT}/api/v2/host/health`, { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        const svc = data.services || {};
+        let up = 0;
+        cards.forEach(c => {
+          const name = c.dataset.name;
+          const el = document.getElementById(`status-${c.dataset.port}`);
+          if (svc[name]) {
+            el.className = svc[name].status === "up" ? "card-status up" : "card-status down";
+            if (svc[name].status === "up") up++;
+          } else {
+            el.className = "card-status down";
+          }
+        });
+        document.getElementById("online-count").textContent = up;
+        document.getElementById("offline-count").textContent = cards.length - up;
+      } catch (e) {
+        cards.forEach(c => {
+          document.getElementById(`status-${c.dataset.port}`).className = "card-status down";
+        });
+        document.getElementById("online-count").textContent = 0;
+        document.getElementById("offline-count").textContent = cards.length;
+      }
+      document.getElementById("last-checked").textContent = new Date().toLocaleTimeString();
+    }
+
+    renderServices();
+    // Docs cards link to the live services; relative /grafana/ would resolve
+    // against the landing page itself (nginx serves index.html for any path).
+    document.getElementById("grafana-link").href = `http://${BASE}:3001`;
+    document.getElementById("prometheus-link").href = `http://${BASE}:9090`;
+
+    // CVE baseline card - parses the summary table in STAGE-4-CVE-BASELINE.md
+    // from the public repo. Refreshes every 5 minutes; degrades gracefully
+    // when GitHub is unreachable.
+    const BASELINE_URL = "https://raw.githubusercontent.com/WhispersOfJ/media-stack/main/STAGE-4-CVE-BASELINE.md";
+    async function loadCveBaseline() {
+      try {
+        const r = await fetch(BASELINE_URL, { cache: "no-store" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const md = await r.text();
+        let total = 0;
+        for (const sev of ["CRITICAL", "HIGH", "MEDIUM", "LOW"]) {
+          const m = md.match(new RegExp(`\\|\\s*${sev}\\s*\\|\\s*(\\d+|—)`));
+          const n = m ? (m[1] === "—" ? 0 : parseInt(m[1], 10)) : 0;
+          total += n;
+          document.getElementById(`cve-${sev.toLowerCase()}`).textContent = n;
+        }
+        document.getElementById("cve-total").textContent = total;
+        const crit = parseInt(document.getElementById("cve-critical").textContent, 10);
+        document.getElementById("cve-meta").textContent =
+          crit > 0
+            ? "Baseline from main \u00b7 CRITICALs block merge until cleared"
+            : "Baseline from main \u00b7 no CRITICAL CVEs";
+      } catch (e) {
+        document.getElementById("cve-meta").textContent = "Baseline unavailable \u2014 cannot reach GitHub";
+        for (const sev of ["critical", "high", "medium", "low", "total"]) {
+          document.getElementById(`cve-${sev}`).textContent = "\u2014";
+        }
+      }
+    }
+    loadCveBaseline();
+    setInterval(loadCveBaseline, 300000);
+
+    checkAll();
+    setInterval(checkAll, 15000);
+  </script>
+</body>
+</html>

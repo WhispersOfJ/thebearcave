@@ -1,0 +1,239 @@
+"""UI shell views — the browser-facing Django template + htmx pages.
+
+Every view here calls services.py functions directly server-side
+(never re-fetching /api/v2/* from the browser).  The spec made
+services.py framework-agnostic precisely for this.
+
+Phase 3 pages (built in later tasks):
+  - Overview (home) — Task 1
+  - Settings — Task 8
+  - Reference — Task 8
+  - Activity Log — Task 8
+
+Cross-app page views live in their respective apps' views.py files:
+  - Host page → host/views.py (Task 2)
+"""
+
+import logging
+
+from django.shortcuts import render
+from django.utils import timezone
+
+from core.decorators import login_required
+
+logger = logging.getLogger(__name__)
+
+
+def _overview_context():
+    """Gather cross-app data for the overview cards + partial.
+
+    Runs service calls in parallel via threads to minimize latency.
+    Each call is wrapped in a try/except so one unreachable service
+    doesn't blank the whole page.
+
+    Note: Plex and Arr data are now served by arr-dashboard (:41789).
+    This panel only shows infrastructure metrics (queue, host resources).
+    """
+    ctx: dict = {}
+
+    def _fetch_queue():
+        try:
+            from queue_app.services import aggregate_queue_status
+            qstatus = aggregate_queue_status()
+            downloading = queued = importing = 0
+            for data in qstatus.values():
+                if isinstance(data, dict) and "error" not in data:
+                    downloading += len(data.get("downloading", []))
+                    queued += len(data.get("queued", []))
+                    importing += len(data.get("importing", []))
+            return {"q_downloading": downloading, "q_queued": queued, "q_importing": importing}
+        except Exception:
+            logger.warning("overview: queue aggregate failed", exc_info=True)
+            return {}
+
+    def _fetch_host():
+        try:
+            from host.services import host_resources
+            hr = host_resources()
+            return {
+                "cpu_percent": hr.get("cpu_percent"),
+                "mem_percent": hr.get("mem_percent"),
+                "mem_used": hr.get("mem_used"),
+                "mem_total": hr.get("mem_total"),
+            }
+        except Exception:
+            logger.warning("overview: host resources failed", exc_info=True)
+            return {}
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {
+            pool.submit(_fetch_queue): "queue",
+            pool.submit(_fetch_host): "host",
+        }
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                ctx.update(future.result())
+            except Exception:
+                logger.warning("overview: %s failed", futures[future], exc_info=True)
+
+    return ctx
+
+
+@login_required
+def overview_cards_partial(request):
+    """Returns the overview card grid fragment for htmx polling."""
+    return render(request, "ui/partials/overview_cards.html", _overview_context())
+
+
+@login_required
+def home(request):
+    """Overview page — the root / route, finally giving auth_app.login_view's
+    redirect('/') a real target (it 404s today without this)."""
+    ctx = _overview_context()
+    ctx["page"] = "overview"
+    ctx["page_title"] = "Overview"
+    return render(request, "ui/overview.html", ctx)
+
+
+@login_required
+def settings_page(request):
+    """Settings page — connection config, auth, display, notifications."""
+    ctx = {"page": "settings", "page_title": "Settings"}
+    ctx["theme"] = request.session.get("theme", "dark")
+    return render(request, "ui/settings.html", ctx)
+
+
+@login_required
+def reference_page(request):
+    """Reference page — links to all services and documentation."""
+    import os
+    host_ip = os.environ.get("HOST_IP", "localhost")
+    ctx = {
+        "page": "reference",
+        "page_title": "Reference",
+        "nzbdav_host": host_ip,
+        "watchstate_host": host_ip,
+        "grafana_host": host_ip,
+        "arr_dashboard_host": host_ip,
+        "arr_dashboard_port": 41789,
+    }
+    return render(request, "ui/reference.html", ctx)
+
+
+@login_required
+def activity_log_page(request):
+    """Activity Log — searchable audit trail."""
+    from core.models import AuditLog
+    activities = AuditLog.objects.order_by("-created_at")[:100]
+    return render(request, "ui/activity.html", {
+        "page": "activity",
+        "page_title": "Activity Log",
+        "activities": activities,
+    })
+
+
+@login_required
+def logs_page(request):
+    """Log Viewer — centralized container log streaming."""
+    from host.services import list_containers
+    containers = []
+    try:
+        containers = [c["name"] for c in list_containers()]
+    except Exception:
+        pass
+    selected = request.GET.get("container", "")
+    return render(request, "ui/logs.html", {
+        "page": "logs",
+        "page_title": "Log Viewer",
+        "containers": containers,
+        "selected_container": selected,
+    })
+
+
+# ─── htmx partial swap targets ───────────────────────────────────────
+
+
+@login_required
+def status_dot_partial(request):
+    """Returns just the status-dot + clock fragment for htmx swap."""
+    return render(request, "ui/partials/status_dot.html", {
+        "now": timezone.now(),
+    })
+
+
+@login_required
+def log_strip_partial(request):
+    """Returns the log-strip fragment for htmx polling."""
+    return render(request, "ui/partials/log_strip.html", {
+        "recent_activity": [],
+    })
+
+
+@login_required
+def activity_timeline_partial(request):
+    """Returns the activity timeline fragment for htmx polling."""
+    from core.models import AuditLog
+    activities = AuditLog.objects.order_by("-created_at")[:20]
+    return render(request, "ui/partials/activity_timeline.html", {
+        "activities": activities,
+    })
+
+
+@login_required
+def log_stream_partial(request):
+    """Returns log lines from a container for htmx polling."""
+    container = request.GET.get("container", "")
+    log_lines = []
+    if container:
+        client = None
+        try:
+            import docker
+            client = docker.from_env()
+            c = client.containers.get(container)
+            raw = c.logs(tail=200, timestamps=True).decode(errors="replace")
+            log_lines = [line.rstrip() for line in raw.splitlines() if line.strip()]
+        except Exception:
+            log_lines = [f"Error: could not read logs for {container}"]
+        finally:
+            if client:
+                client.close()
+    return render(request, "ui/partials/log_stream.html", {
+        "log_lines": log_lines,
+        "container": container,
+    })
+
+
+@login_required
+def log_stream_sse(request):
+    """SSE endpoint that streams live container logs."""
+    from django.http import StreamingHttpResponse
+    container = request.GET.get("container", "")
+    if not container:
+        return StreamingHttpResponse(
+            iter(['data: {"error": "No container specified"}\n\n']),
+            content_type="text/event-stream",
+        )
+
+    def generate():
+        import json
+        client = None
+        try:
+            import docker
+            client = docker.from_env()
+            c = client.containers.get(container)
+            for line in c.logs(stream=True, follow=True, tail=50, timestamps=True):
+                text = line.decode(errors="replace").rstrip()
+                if text:
+                    yield f"data: {json.dumps({'line': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            if client:
+                client.close()
+        yield "data: [DONE]\n\n"
+
+    response = StreamingHttpResponse(generate(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response

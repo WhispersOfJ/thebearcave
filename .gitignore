@@ -1,0 +1,76 @@
+# ============================================================================
+# The Bear Cave — .gitignore
+# ============================================================================
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+secrets/
+archive/metacacharr/monitoring/.env
+
+# Service configuration (contains sensitive data)
+services/*/config/
+services/nzbdav-rclone/cache/
+services/nzbdav-rclone/rclone.conf
+services/plex/config/
+services/plex/transcode/
+
+# Persistent data volumes
+data/
+logs/
+
+# Media symlinks (populated by rclone)
+media/movies/*
+media/shows/*
+media/anime-movies/*
+media/anime-shows/*
+!media/movies/.gitkeep
+!media/shows/.gitkeep
+!media/anime-movies/.gitkeep
+!media/anime-shows/.gitkeep
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+
+# .NET (metacache)
+services/metacache/bin/
+services/metacache/obj/
+services/metacache/**/bin/
+services/metacache/**/obj/
+archive/metacacharr/**/bin/
+archive/metacacharr/**/obj/
+archive/metacacharr/**/*.dll
+archive/metacacharr/**/*.pdb
+archive/metacacharr/**/*.exe
+archive/metacacharr/**/project.assets.json
+archive/metacacharr/**/TestResults/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
