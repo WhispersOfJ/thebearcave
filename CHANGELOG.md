@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.4.1...v1.5.0) (2026-08-26)
+
+
+### Features
+
+* ecosystem improvements — full health coverage, live Mermaid colors, registry as single source ([346cd14](https://github.com/WhispersOfJ/thebearcave/commit/346cd144cfc70d5fb08169e5500120ed8a1b4a2c))
+
 ## [1.4.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.4.0...v1.4.1) (2026-08-26)
 
 
