@@ -14,14 +14,14 @@ call_host_helper().
 
 Bearer token auth: send Authorization: Bearer <CONTROL_PANEL_SERVICE_API_KEY>
 instead of X-Api-Key for these endpoints."""
-from core.api_base import EnvelopeAPIView, ServiceError
+from core.api_base import ConfirmMixin, EnvelopeAPIView, ServiceError
 from core.authentication import BearerTokenAuthentication, SessionOrApiKeyAuthentication
 from core.permissions import IsAuthenticatedSessionOrBearer
 from host_actions import services
 from host_actions.api.serializers import ConfirmRequestSerializer
 
 
-class _ConfirmedActionView(EnvelopeAPIView):
+class _ConfirmedActionView(ConfirmMixin, EnvelopeAPIView):
     authentication_classes = [SessionOrApiKeyAuthentication, BearerTokenAuthentication]
     permission_classes = [IsAuthenticatedSessionOrBearer]
     label = None
@@ -30,13 +30,7 @@ class _ConfirmedActionView(EnvelopeAPIView):
         raise NotImplementedError
 
     def post(self, request):
-        body = ConfirmRequestSerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-        if not body.validated_data["confirm"]:
-            raise ServiceError(
-                f"Set confirm=true to {self.label.lower()} - this is a real host-level action.",
-                status=400,
-            )
+        self.check_confirm(request, ConfirmRequestSerializer)
         result = self.call_action()
         if not result.get("ok"):
             raise ServiceError(f"{self.label} failed: {result.get('message', 'unknown error')}", status=502)

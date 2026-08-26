@@ -10,7 +10,7 @@ calling into services - matching host_actions' _ConfirmedActionView
 pattern (see host_actions/api/views.py) and Task 7's review-fixed
 landmine around it.
 """
-from core.api_base import EnvelopeAPIView, ServiceError
+from core.api_base import ConfirmMixin, EnvelopeAPIView
 from core.permissions import IsAuthenticatedSessionOnly
 from catalog import services
 from catalog.api.serializers import InstallRequestSerializer, RemoveRequestSerializer
@@ -29,28 +29,19 @@ class CatalogStatusView(EnvelopeAPIView):
         return self.ok(result["message"], **extra)
 
 
-class CatalogInstallView(EnvelopeAPIView):
+class CatalogInstallView(ConfirmMixin, EnvelopeAPIView):
     permission_classes = [IsAuthenticatedSessionOnly]
 
     def post(self, request, catalog_id):
-        body = InstallRequestSerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-        if not body.validated_data["confirm"]:
-            raise ServiceError(
-                "Set confirm=true to install - this pulls an image and starts a real container.",
-                status=400,
-            )
+        self.check_confirm(request, InstallRequestSerializer)
         result = services.install(catalog_id)
         return self.ok(result["message"], ports=result["ports"])
 
 
-class CatalogRemoveView(EnvelopeAPIView):
+class CatalogRemoveView(ConfirmMixin, EnvelopeAPIView):
     permission_classes = [IsAuthenticatedSessionOnly]
 
     def post(self, request, catalog_id):
-        body = RemoveRequestSerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-        if not body.validated_data["confirm"]:
-            raise ServiceError("Set confirm=true to remove.", status=400)
-        result = services.remove(catalog_id, remove_volumes=body.validated_data["remove_volumes"])
+        data = self.check_confirm(request, RemoveRequestSerializer)
+        result = services.remove(catalog_id, remove_volumes=data["remove_volumes"])
         return self.ok(result["message"])

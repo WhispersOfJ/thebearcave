@@ -39,6 +39,28 @@ def envelope_exception_handler(exc, context):
     return Response({"ok": False, "message": str(exc.detail)}, status=exc.status_code)
 
 
+class ConfirmMixin:
+    """Mixin that gates a POST on confirm=true in the request body.
+
+    Subclasses pass a serializer with a BooleanField('confirm') to
+    check_confirm(), which raises ServiceError(400) if not confirmed.
+    Shared by host_actions and catalog views to avoid inlining the
+    same pattern in every mutating endpoint.
+    """
+
+    def check_confirm(self, request, serializer_class) -> dict:
+        """Validate request body and enforce confirm=true. Returns
+        validated_data on success."""
+        body = serializer_class(data=request.data)
+        body.is_valid(raise_exception=True)
+        if not body.validated_data["confirm"]:
+            raise ServiceError(
+                "Set confirm=true to proceed - this is a real action.",
+                status=400,
+            )
+        return body.validated_data
+
+
 class EnvelopeAPIView(APIView):
     authentication_classes = [SessionOrApiKeyAuthentication]
     permission_classes = [IsAuthenticatedOrServiceKey]

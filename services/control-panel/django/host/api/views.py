@@ -23,7 +23,7 @@ import ssl
 
 from rest_framework.views import APIView
 
-from core.api_base import EnvelopeAPIView, ServiceError
+from core.api_base import ConfirmMixin, EnvelopeAPIView, ServiceError
 from core.permissions import IsAuthenticatedOrServiceKey, IsAuthenticatedSessionOnly
 from host import services
 from host.api.serializers import (
@@ -148,7 +148,7 @@ class DiskHealthView(EnvelopeAPIView):
         return self.ok(message, **result)
 
 
-class PruneDiskView(EnvelopeAPIView):
+class PruneDiskView(ConfirmMixin, EnvelopeAPIView):
     """POST /api/v2/host/disk-health/prune - session-only (admin action),
     requires confirm=true in the body (checked before services is called,
     matching the FastAPI-era router's payload.confirm gate)."""
@@ -156,13 +156,7 @@ class PruneDiskView(EnvelopeAPIView):
     permission_classes = [IsAuthenticatedSessionOnly]
 
     def post(self, request):
-        body = PruneRequestSerializer(data=request.data)
-        body.is_valid(raise_exception=True)
-        if not body.validated_data["confirm"]:
-            raise ServiceError(
-                "Set confirm=true to prune - this deletes dangling images and unused volumes.",
-                status=400,
-            )
+        self.check_confirm(request, PruneRequestSerializer)
         message = services.prune_disk()
         return self.ok(message)
 
