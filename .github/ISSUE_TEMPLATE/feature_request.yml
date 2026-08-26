@@ -1,0 +1,52 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feature Request
+
+        Describe the feature you'd like to see added to The Bear Cave.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you'd like.
+      placeholder: How should this work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or workarounds you've considered.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Which area does this affect?
+      options:
+        - New service integration
+        - Existing service configuration
+        - Documentation
+        - CI/CD
+        - Testing
+        - Security
+        - Performance
+        - Other
+    validations:
+      required: true

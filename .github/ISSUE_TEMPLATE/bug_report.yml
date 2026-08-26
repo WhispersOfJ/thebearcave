@@ -1,0 +1,89 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "fix: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+
+        Thanks for reporting a bug! Please fill out the sections below.
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Affected Service
+      description: Which service is experiencing the issue?
+      options:
+        - Plex
+        - Metacache
+        - InfiniDysk (nzbdav)
+        - Radarr
+        - Sonarr
+        - Prowlarr
+        - Seerr
+        - Control Panel
+        - Traefik
+        - WatchState
+        - Unpackerr
+        - Cleanuparr
+        - Monitoring (Grafana/Prometheus/Loki)
+        - Docker Compose / Startup
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear description of what the bug is.
+      placeholder: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant container logs or error messages.
+      render: shell
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your deployment environment.
+      placeholder: |
+        - OS: (e.g., Arch Linux, Ubuntu 24.04)
+        - Docker version:
+        - Docker Compose version:
+        - The Bear Cave version/commit:
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How impactful is this bug?
+      options:
+        - Low (cosmetic/minor)
+        - Medium (degraded but functional)
+        - High (service down/broken)
+        - Critical (data loss/security)
+    validations:
+      required: true

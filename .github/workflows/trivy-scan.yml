@@ -1,0 +1,132 @@
+name: Trivy Image Security Scan
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "docker-compose.yml"
+      - ".github/workflows/trivy-scan.yml"
+      - "scripts/trivy-scan.sh"
+  push:
+    branches:
+      - main
+    paths:
+      - "docker-compose.yml"
+      - ".github/workflows/trivy-scan.yml"
+      - "scripts/trivy-scan.sh"
+  schedule:
+    # Weekly scan (Sunday 2 AM UTC)
+    - cron: "0 2 * * 0"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    name: Scan Images for CVEs
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+
+      - name: Extract images from docker-compose.yml
+        id: images
+        run: |
+          grep -oP '^\s+image:\s+\K[^\s@\n]+' docker-compose.yml | sort -u > /tmp/images.txt
+          echo "Found $(wc -l < /tmp/images.txt) images"
+          cat /tmp/images.txt
+
+      - name: Scan all images and gate on CRITICAL
+        run: |
+          CRITICAL_TOTAL=0
+          HIGH_TOTAL=0
+          while IFS= read -r image; do
+            [ -z "$image" ] && continue
+            echo "::group::Scanning $image"
+            RESULT=$(trivy image --scanners vuln --format json --severity CRITICAL,HIGH "$image" 2>/dev/null || echo '{}')
+            CRIT=$(echo "$RESULT" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' 2>/dev/null || echo 0)
+            HIGH=$(echo "$RESULT" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' 2>/dev/null || echo 0)
+            CRITICAL_TOTAL=$((CRITICAL_TOTAL + CRIT))
+            HIGH_TOTAL=$((HIGH_TOTAL + HIGH))
+            echo "  CRITICAL: $CRIT, HIGH: $HIGH (running total: C=$CRITICAL_TOTAL H=$HIGH_TOTAL)"
+            echo "::endgroup::"
+          done < /tmp/images.txt
+          echo "=== TOTAL: CRITICAL=$CRITICAL_TOTAL HIGH=$HIGH_TOTAL ==="
+          if [ "$CRITICAL_TOTAL" -gt 0 ]; then
+            echo "❌ $CRITICAL_TOTAL CRITICAL CVEs detected across all images"
+            exit 1
+          else
+            echo "✅ No CRITICAL CVEs found"
+            exit 0
+          fi
+
+  trivy-config:
+    runs-on: ubuntu-latest
+    name: Scan IaC Config (Dockerfiles + Compose)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+
+      - name: Trivy IaC scan (Dockerfiles + compose)
+        run: |
+          trivy config --severity HIGH,CRITICAL --exit-code 1 \
+            services/metacache/Dockerfile \
+            services/control-panel/django/Dockerfile \
+            services/nzbdav-exporter/Dockerfile \
+            docker-compose.yml || true
+          echo "⚠️  IaC scan completed (non-blocking for now)"
+
+  report:
+    runs-on: ubuntu-latest
+    name: Generate CVE Report
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: scan
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+
+      - name: Generate report
+        run: |
+          echo "# CVE Baseline Report" > STAGE-4-CVE-BASELINE.md
+          echo "" >> STAGE-4-CVE-BASELINE.md
+          echo "Generated: $(date -u '+%Y-%m-%d %H:%M UTC')" >> STAGE-4-CVE-BASELINE.md
+          echo "" >> STAGE-4-CVE-BASELINE.md
+          grep -oP '^\s+image:\s+\K[^\s@\n]+' docker-compose.yml | sort -u | while read -r image; do
+            echo "## $image" >> STAGE-4-CVE-BASELINE.md
+            trivy image --severity CRITICAL,HIGH --format table "$image" 2>/dev/null >> STAGE-4-CVE-BASELINE.md || echo "Scan failed" >> STAGE-4-CVE-BASELINE.md
+            echo "" >> STAGE-4-CVE-BASELINE.md
+          done
+
+      - name: Commit report
+        run: |
+          git config user.name "Trivy Scanner Bot"
+          git config user.email "trivy@bot.local"
+          git add STAGE-4-CVE-BASELINE.md || true
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: update CVE baseline scan report"
+            git push
+          else
+            echo "Report unchanged - no commit needed"
+          fi

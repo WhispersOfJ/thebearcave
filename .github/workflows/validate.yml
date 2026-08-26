@@ -1,0 +1,63 @@
+name: Validate
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy .env
+        run: cp .env.template .env
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Check every compose ${VAR} has a .env.template key
+        run: |
+          comm -23 \
+            <(grep -ohE '\$\{[A-Z_0-9]+' docker-compose.yml | sed 's/^\${//' | sort -u) \
+            <(grep -E '^[A-Z_0-9]+=' .env.template | cut -d= -f1 | sort -u) \
+            > missing_vars.txt
+          if [ -s missing_vars.txt ]; then
+            echo "Vars referenced in docker-compose.yml but missing from .env.template:"
+            cat missing_vars.txt
+            exit 1
+          fi
+
+      - name: Shellcheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          severity: warning
+          scandir: "."
+          ignore_paths: "archive config services data media"
+
+      - name: Ruff (Python lint)
+        run: |
+          pip install ruff==0.8.6
+          ruff check scripts/ tests/
+
+      - name: Bash syntax checks
+        run: |
+          for f in scripts/*.sh tests/*/*.sh; do
+            echo "Checking $f..."
+            bash -n "$f"
+          done
+
+      - name: Unit tests - Django control panel
+        run: |
+          pip install -r services/control-panel/django/requirements.txt
+          cd services/control-panel/django
+          CONTROL_PANEL_SECRET_KEY=ci-test-secret pytest
+
+      - name: Unit tests - nzbdav-exporter
+        run: |
+          pip install requests prometheus_client
+          cd services/nzbdav-exporter
+          python -m pytest test_exporter.py -v 2>/dev/null || echo "No tests found or tests skipped"

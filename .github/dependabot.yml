@@ -1,0 +1,113 @@
+# Dependabot version updates for The Bear Cave.
+# Security updates are enabled automatically by GitHub.
+
+version: 2
+
+updates:
+  # Docker images pinned in docker-compose.yml (all 22 services).
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "docker"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # Dockerfiles: metacache, control-panel, nzbdav-exporter.
+  - package-ecosystem: "docker"
+    directory: "/services/metacache"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/services/control-panel/django"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/services/nzbdav-exporter"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # NuGet packages — metacache .NET solution.
+  - package-ecosystem: "nuget"
+    directory: "/services/metacache"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "dotnet"
+    ignore:
+      - dependency-name: "SixLabors.ImageSharp"
+        update-types: ["version-update:semver-major"]
+    groups:
+      test-toolchain:
+        patterns:
+          - "Microsoft.NET.Test.Sdk"
+          - "xunit*"
+          - "coverlet*"
+          - "Microsoft.AspNetCore.Mvc.Testing"
+          - "Microsoft.Extensions.TimeProvider.Testing"
+
+  # Python packages — control-panel Django + nzbdav-exporter.
+  - package-ecosystem: "pip"
+    directory: "/services/control-panel/django"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "python"
+
+  - package-ecosystem: "pip"
+    directory: "/services/nzbdav-exporter"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "python"
+
+  # GitHub Actions across all workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "github-actions"

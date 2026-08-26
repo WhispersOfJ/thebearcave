@@ -1,0 +1,111 @@
+name: Nightly Health Check
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # daily at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-validate:
+    name: Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy .env
+        run: cp .env.template .env
+
+      - name: Validate compose
+        run: docker compose config --quiet
+
+      - name: Verify all referenced config files exist
+        run: |
+          MISSING=0
+          # Check that every bind-mounted path in compose actually exists
+          grep -oP '\./[^\s:]+' docker-compose.yml | sort -u | while read -r path; do
+            # Skip paths that are only created at runtime
+            case "$path" in
+              ./media/*|./data/*|./logs/*|./services/*/config) continue ;;
+            esac
+            if [ ! -e "$path" ]; then
+              echo "MISSING: $path"
+              MISSING=$((MISSING + 1))
+            fi
+          done
+          if [ "$MISSING" -gt 0 ]; then
+            echo "❌ $MISSING referenced paths missing"
+            exit 1
+          fi
+
+  dockerfile-validate:
+    name: Dockerfile Build Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        context:
+          - services/metacache
+          - services/control-panel/django
+          - services/nzbdav-exporter
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.context }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          load: true
+          tags: ${{ matrix.context }}:nightly-check
+          cache-from: type=gha
+
+  script-syntax:
+    name: Script Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax check
+        run: |
+          for f in scripts/*.sh tests/*/*.sh; do
+            echo "Checking $f..."
+            bash -n "$f"
+          done
+
+      - name: YAML lint
+        run: |
+          pip install yamllint
+          yamllint -d relaxed \
+            docker-compose.yml \
+            .github/workflows/*.yml \
+            .github/dependabot.yml \
+            config/traefik/traefik.yml \
+            services/loki/loki-config.yaml \
+            services/promtail/promtail-config.yaml \
+            services/prometheus/prometheus.yml
+
+  env-coverage:
+    name: Env Var Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy .env
+        run: cp .env.template .env
+
+      - name: Check every compose ${VAR} has a .env.template key
+        run: |
+          MISSING=$(comm -23 \
+            <(grep -ohE '\$\{[A-Z_0-9:-]+' docker-compose.yml | sed 's/^\${//' | sed 's/:-.*//' | sort -u) \
+            <(grep -E '^[A-Z_0-9]+=' .env.template | cut -d= -f1 | sort -u))
+          if [ -n "$MISSING" ]; then
+            echo "❌ Vars referenced in docker-compose.yml but missing from .env.template:"
+            echo "$MISSING"
+            exit 1
+          fi
+          echo "✅ All compose vars covered in .env.template"
