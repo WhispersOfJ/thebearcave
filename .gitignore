@@ -86,3 +86,6 @@ logs/
 tmp/
 temp/
 *.tmp
+
+# Freebuff client workspace state (lives inside the repo via the symlink at ~/Projects/The Bear Cave)
+.freebuff/
