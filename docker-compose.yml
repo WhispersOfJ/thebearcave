@@ -44,7 +44,7 @@ services:
   # Reverse Proxy — Traefik
   # ==========================================================================
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.7
     container_name: traefik
     restart: unless-stopped
     logging: *common-logging
