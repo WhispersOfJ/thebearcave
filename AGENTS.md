@@ -7,21 +7,26 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A private, self-hosted media-acquisition-and-serving stack. 21 Docker Compose services,
-55 fish CLI functions, a Django control panel, an arr-dashboard, Prometheus/Grafana monitoring,
-and CI/CD via GitHub Actions. Hosted on Arch Linux at `192.0.2.1`.
+A unified media-acquisition-and-serving stack. 22 Docker Compose services, a Django
+control panel, an arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
+and CI/CD via GitHub Actions. Hosted on Linux.
 
-**This repo has no public mirror.** Do not create one. `StackMaster`/`Stackalicious`/`StackScripts`
-were deleted deliberately. The public profile README at `github.com/WhispersOfJ/WhispersOfJ`
-is a summary page, not a code mirror.
+Merged from two repos: `media-stack` (Usenet + Plex + *arr apps) and `metacacharr`
+(TMDB/TVDB metadata cache). Legacy files from both are preserved in `archive/`.
 
 ---
 
 ## Architecture
 
 ```
+                    ┌──────────────────────────────┐
+                    │         Traefik :80/:443      │
+                    │    (reverse proxy, HTTPS)     │
+                    └──────────────┬───────────────┘
+                                   │ routes to everything
+                                   ▼
 Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──▶ FUSE mount ──▶ Plex
-                              │
+                              │                                         (host network)
                     ┌─────────┴─────────┐
                     │                   │
           Control Panel :8420    arr-dashboard :41789
@@ -29,6 +34,25 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
                     │                   │
               Prometheus :9090    Grafana :3001
 ```
+
+### Service Categories
+
+| Category | Services |
+|----------|----------|
+| **Reverse proxy** | Traefik (ports 80/443) |
+| **Indexing** | Prowlarr |
+| **\*arr apps** | Radarr (movies), Sonarr (TV) |
+| **Usenet** | InfiniDysk/nzbdav + nzbdav_rclone sidecar |
+| **Requests** | Seerr |
+| **Media server** | Plex (host network, VAAPI transcoding) |
+| **Metadata** | Metacache (built from source, TMDB/TVDB cache) |
+| **Dashboard** | Control Panel (Django) |
+| **Queue mgmt** | Unpackerr, Cleanuparr |
+| **Watch state** | WatchState |
+| **Logging** | Loki, Promtail, Grafana |
+| **Metrics** | Prometheus, Node Exporter, cAdvisor, nzbdav-exporter |
+| **ARR dashboard** | arr-dashboard |
+| **Landing page** | Nginx |
 
 ### Two Dashboard Surfaces
 
@@ -41,47 +65,61 @@ They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
 
 - **Content flow:** Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mount → Plex serves
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
-- **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests syslog + Docker logs via Promtail. Grafana queries both.
+- **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Control:** Django dashboard at :8420 for infrastructure ops. arr-dashboard at :41789 for media ops.
+- **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
 
 ---
 
-## Services (21 containers)
+## Services (22 containers)
 
-| # | Service | Purpose | Port |
-|---|---------|---------|------|
-| 1 | `plex` | Media server | — |
-| 2 | `radarr` | Movie management | 7878 |
-| 3 | `sonarr` | TV show management | 8989 |
-| 4 | `prowlarr` | Indexer manager | 9696 |
-| 5 | `seerr` | Request manager (Jellyseerr) | 5055 |
-| 6 | `nzbdav` | Usenet download client + WebDAV | 3000 |
-| 7 | `nzbdav_rclone` | FUSE mount sidecar (streams on demand) | — |
-| 8 | `unpackerr` | Auto-extracts downloads | — |
-| 9 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 |
-| 10 | `watchstate` | Tracks what you've watched | 8705 |
-| 11 | `control-panel` | Django infrastructure dashboard | 8420 |
-| 12 | `arr-dashboard` | Next.js media operations dashboard | 41789 |
-| 13 | `metacache` | Metadata cache proxy for Plex | 8765 |
-| 14 | `prometheus` | Metrics collection | 9090 |
-| 15 | `grafana` | Dashboards + alerting | 3001 |
-| 16 | `loki` | Log aggregation | 3100 |
-| 17 | `promtail` | Log shipping to Loki | — |
-| 18 | `cadvisor` | Container resource metrics | 8080 |
-| 19 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 |
-| 20 | `nzbdav-exporter` | NzbDAV config/queue metrics | 1011 |
-| 21 | `watchtower` | Auto-updates channel-tagged images | — |
+| # | Service | Purpose | Port | Network |
+|---|---------|---------|------|---------|
+| 1 | `traefik` | Reverse proxy with automatic HTTPS | 80, 443 | bearcave, traefik |
+| 2 | `prowlarr` | Indexer manager | 9696 | bearcave |
+| 3 | `radarr` | Movie management | 7878 | bearcave |
+| 4 | `sonarr` | TV show management | 8989 | bearcave |
+| 5 | `nzbdav` | Usenet download client + WebDAV | 3000 | bearcave |
+| 6 | `nzbdav_rclone` | FUSE mount sidecar (streams on demand) | — | bearcave |
+| 7 | `seerr` | Request manager | 5055 | bearcave |
+| 8 | `plex` | Media server | — | host |
+| 9 | `metacache` | Metadata cache proxy for Plex | 8765 | bearcave |
+| 10 | `control-panel` | Django infrastructure dashboard | 8420 | bearcave |
+| 11 | `arr-dashboard` | Next.js media operations dashboard | 41789 | bearcave |
+| 12 | `unpackerr` | Auto-extracts downloads | — | bearcave |
+| 13 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 | bearcave |
+| 14 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
+| 15 | `loki` | Log aggregation | 3100 | bearcave |
+| 16 | `promtail` | Log shipping to Loki | — | bearcave |
+| 17 | `grafana` | Dashboards + alerting | 3001 | bearcave |
+| 18 | `nzbdav-exporter` | NzbDAV config/queue metrics | 9200 | bearcave |
+| 19 | `prometheus` | Metrics collection | 9090 | bearcave |
+| 20 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 | host |
+| 21 | `cadvisor` | Container resource metrics | 8080 | bearcave |
+| 22 | `landing-page` | Nginx service portal | 8000 | bearcave |
+
+### Network Topology
+
+- **bearcave** — main bridge network for all Traefik-fronted services
+- **traefik** — separate network for Traefik service discovery
+- **host** — Plex (GDM/DLNA/remote access) and node-exporter (host metrics) use host networking
+
+Plex is the only service on host network — it cannot be behind Traefik because GDM,
+DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networking.
 
 ---
 
 ## Port Map
 
 ```
+80    Traefik (HTTP → HTTPS redirect)
+443   Traefik (HTTPS)
 3000  nzbdav (WebDAV)
 3001  Grafana
 3100  Loki
 5055  Seerr (requests)
 7878  Radarr
+8000  Landing page
 8080  cadvisor
 8420  Control Panel (Django)
 8705  Watchstate
@@ -89,125 +127,11 @@ They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
 8989  Sonarr
 9090  Prometheus
 9100  node-exporter
+9200  nzbdav-exporter
 9696  Prowlarr
-1011  nzbdav-exporter
 11011 Cleanuparr
 41789 arr-dashboard (Next.js)
 ```
-
----
-
-## Fish Functions (55 `stack-*` commands)
-
-All functions live in `fish-functions/` and are symlinked to `~/.config/fish/functions/` by
-`scripts/fish-functions-install.py`. Naming convention: `stack-<domain>-<verb>`.
-
-**Media operations (queue, library, calendar, Plex, Seerr, ratings, TRaSH Guides) are now
-handled by arr-dashboard at :41789.** The remaining fish functions handle infrastructure only.
-
-### NzbDAV (Usenet)
-
-| Command | What it does |
-|---------|-------------|
-| `stack-nzbdav-dedup-check` | Check for duplicate downloads |
-| `stack-nzbdav-delete-failures` | Delete failed downloads |
-| `stack-nzbdav-history` | Show download history |
-| `stack-nzbdav-queue` | Show download queue |
-| `stack-nzbdav-stats` | Show download statistics |
-
-### System / Host
-
-| Command | What it does |
-|---------|-------------|
-| `stack-status` | Overall stack status |
-| `stack-top` | Top containers by resource usage |
-| `stack-version` | Show stack version |
-| `stack-help` | Show help for all commands |
-| `stack-container <name> <action>` | Container lifecycle (start, stop, restart, logs) |
-| `stack-restart-all` | Restart all containers in correct order |
-| `stack-reboot-check` | Check if reboot is needed |
-| `stack-resource-check` | Check host resources |
-| `stack-disk-free` | Show disk free space |
-| `stack-disk-health` | Check disk SMART health |
-| `stack-disk-config-sizes` | Show config directory sizes |
-| `stack-docker-disk-usage` | Docker disk usage breakdown |
-| `stack-mem-pressure` | Check memory pressure |
-| `stack-oom-check` | Check for OOM kills |
-| `stack-zombie-check` | Check for zombie processes |
-| `stack-firewall-status` | Show firewall rules |
-| `stack-ssh-doctor` | Check SSH setup health |
-| `stack-kernel-check` | Check kernel version |
-| `stack-mount-health` | Check FUSE mount health |
-| `stack-perms-check` | Check file permissions |
-| `stack-image-check` | Check Docker image versions |
-
-### Package Management
-
-| Command | What it does |
-|---------|-------------|
-| `stack-pkg-update` | Update packages |
-| `stack-pkg-updates` | List pending updates |
-| `stack-pkg-history` | Package install history |
-| `stack-pkg-orphans` | List orphaned packages |
-| `stack-pkg-cleanup` | Remove orphaned packages |
-| `stack-pkg-clean-cache` | Clean package cache |
-| `stack-aur-audit` | Audit AUR packages |
-| `stack-flatpak-updates` | Check Flatpak updates |
-
-### Queue / Import Management
-
-| Command | What it does |
-|---------|-------------|
-| `stack-queue-status` | Show queue status |
-| `stack-arr-import-backlog` | Show items waiting on import |
-| `stack-command-queue-summary` | Show command queue summary |
-
-### Cleanuparr
-
-| Command | What it does |
-|---------|-------------|
-| `stack-cleanuparr-instances` | Manage Cleanuparr instances |
-| `stack-cleanuparr-strikes` | Show cleanup strikes |
-
-### Watchstate
-
-| Command | What it does |
-|---------|-------------|
-| `stack-watchstate-status` | Show watch state |
-| `stack-watchstate-history` | Show watch history |
-| `stack-watchstate-import-now` | Import watch state now |
-
-### Monitoring / Logging
-
-| Command | What it does |
-|---------|-------------|
-| `stack-log-levels` | Show/set log levels |
-| `stack-journal-errors` | Show journal errors |
-| `stack-journal-size` | Show journal disk usage |
-| `stack-notify-test` | Test notification delivery |
-| `stack-service-failed` | Show failed systemd services |
-| `stack-timer-status` | Show timer status |
-| `stack-cron-list` | List cron jobs |
-
-### Other
-
-| Command | What it does |
-|---------|-------------|
-| `stack-file-backup` | Create .bak copy of a file |
-| `stack-claude-home` | Launch Claude in ~/Claude workspace |
-| `stack-claude-full-backup` | Full ~/Claude tar.zst backup to Dropbox |
-| `stack-alacritty-theme` | Switch Alacritty theme |
-| `stack-git-status-all` | Git status across all repos |
-| `stack-uptime-report` | Show uptime report |
-| `stack-tmdb-audit` | Audit TMDB links in Plex libraries |
-
-### Private Helpers (not user-facing)
-
-| File | Purpose |
-|------|---------|
-| `__stack_api.fish` | Call Control Panel HTTP API |
-| `__stack_arr_app.fish` | Resolve app name to API path |
-| `__stack_containers.fish` | Container name resolution |
 
 ---
 
@@ -301,34 +225,33 @@ POST /api/v2/catalog/<id>/remove        — Remove catalog item
 
 ---
 
-## arr-dashboard (`:41789`)
+## Metacache
 
-Next.js 22 frontend that talks directly to Radarr/Sonarr/Prowlarr/Plex/Seerr APIs.
-Handles all media operations that the control panel no longer provides.
+Built from source at `services/metacache/`. C#/.NET 10 ASP.NET Core service that caches
+TMDB/TVDB metadata locally so Plex refreshes hit LAN instead of internet.
+
+### Key endpoints
+
+```
+GET  /movie                — Movie provider definition (Plex registration)
+GET  /tv                   — TV provider definition (Plex registration)
+POST /library/metadata/matches — Search/match (Plex sends this)
+GET  /library/metadata/{ratingKey} — Full metadata
+GET  /library/metadata/{ratingKey}/children — Seasons/episodes
+GET  /img/{hash}           — Served artwork (local cache)
+POST /warm/movies          — Warm cache from Radarr
+POST /warm/shows           — Warm cache from Sonarr
+GET  /healthz              — Liveness check
+GET  /dashboard            — Interactive dashboard
+GET  /metrics/prometheus   — Prometheus scrape endpoint
+```
 
 ### First-run setup
 
-1. Visit `http://192.0.2.1:41789`
-2. Create admin account
-3. Add Radarr/Sonarr/Prowlarr instances in Settings
-4. Optionally connect Plex via OAuth
-
-### Features provided
-
-- **Unified Dashboard:** Queue, calendar, history, statistics across all Arr instances
-- **Library Management:** Browse, filter, manage movies, TV shows
-- **Global Search:** Search across all indexers via Prowlarr
-- **Plex Integration:** Now playing, on deck, recently added, watch history, statistics
-- **Seerr Integration:** Requests, users, issues
-- **TMDB Discovery:** Trending, popular, upcoming content
-- **TRaSH Guides:** Quality profiles, custom formats, naming schemes, auto-sync
-- **Library Cleanup:** Rule-based with 20+ condition types
-- **Auto-Hunting:** Missing content search with per-instance config
-- **Queue Cleaner:** Automated queue management with strike system
-- **Auto-Tagger:** Criteria-based tagging with 50+ rule types
-- **Notifications:** Discord, Telegram, Email, Pushover, Gotify, Ntfy, Pushbullet, Browser Push
-- **Security:** OIDC, passkeys, AES-256-GCM encrypted storage
-- **Backup/Restore:** Automated encrypted backups
+1. Visit `http://HOST_IP:8765/dashboard`
+2. Warm cache: `POST /warm/all`
+3. In Plex: Settings → Metadata Agents → Add Provider → `http://HOST_IP:8765/movie` (and `/tv`)
+4. Create agent, set as primary for library
 
 ---
 
@@ -350,10 +273,11 @@ Handles all media operations that the control panel no longer provides.
 
 ### Infrastructure
 - **Docker Compose** — Service orchestration
+- **Traefik v3** — Reverse proxy with automatic HTTPS (Let's Encrypt)
 - **rclone** — FUSE mount for streaming content
-- **NzbDAV** — Usenet download client + WebDAV server
+- **InfiniDysk** — Usenet download client + WebDAV server (formerly nzbdav)
 - **Plex** — Media server with hardware transcoding (VAAPI)
-- **Metacache** — C#/.NET metadata cache proxy (TMDB/TVDB)
+- **Metacache** — C#/.NET 10 metadata cache proxy (TMDB/TVDB)
 
 ### Monitoring
 - **Prometheus** — Metrics collection + alerting rules
@@ -365,25 +289,32 @@ Handles all media operations that the control panel no longer provides.
 - **nzbdav-exporter** — NzbDAV config/queue metrics
 
 ### Security
-- **Trivy** — CVE scanning (nightly CI + pre-commit)
-- **Dependabot** — NuGet + Docker base image updates
-- **CodeQL** — Code scanning (v4)
+- **Trivy** — CVE scanning (nightly CI + weekly schedule)
+- **Dependabot** — NuGet, Docker, pip, GitHub Actions updates (weekly)
+- **CodeQL** — Code scanning for Python and C#
 - **ShellCheck** — Shell script linting
 - **Ruff** — Python linting
 
 ### CI/CD
-- **GitHub Actions** — 5 workflows
-  - `validate.yml` — shellcheck, ruff, compose validation, 291 script/fish tests, 292 Django tests, installer build
-  - `docker.yml` — Build + publish Metacacharr to GHCR
-  - `trivy-scan.yml` — Nightly CVE scan of all images
-  - `release-please` — Automated release management
+- **GitHub Actions** — 11 workflows
+  - `validate.yml` — compose validation, env coverage, shellcheck, ruff, Django tests
+  - `release-please.yml` — automated release management
+  - `trivy-scan.yml` — CVE scan all 22 images, IaC config scan, baseline report
+  - `dotnet-ci.yml` — .NET build/format/test/coverage/NuGet CVE audit for metacache
+  - `docker-publish.yml` — build+push metacache to GHCR, nightly Trivy rescan
+  - `codeql.yml` — CodeQL security analysis (Python + C#)
+  - `nightly-healthcheck.yml` — daily compose/Dockerfile/script/config validation
+  - `pr-labeler.yml` — auto-label PRs by size and file paths
+  - `pr-lint.yml` — enforce Conventional Commits in PR titles
+  - `stale.yml` — auto-close stale issues and PRs
+  - `dependabot.yml` — automated dependency updates
 
 ### Languages
-- **Fish shell** — 55 CLI functions
-- **Python** — Control panel + 30+ scripts
+- **Python** — Control panel + scripts
 - **Bash** — System scripts, CI steps
-- **C# / .NET** — Metacache metadata cache proxy
+- **C# / .NET 10** — Metacache metadata cache proxy
 - **TypeScript** — arr-dashboard (Next.js)
+- **YAML** — Docker Compose, CI/CD workflows
 
 ---
 
@@ -391,7 +322,8 @@ Handles all media operations that the control panel no longer provides.
 
 ### Environment Variables
 
-All secrets live in `.env` (never committed). Key groups:
+All secrets live in `.env` (never committed). See `.env.template` for the full list.
+Key groups:
 
 | Variable | Purpose |
 |----------|---------|
@@ -399,46 +331,46 @@ All secrets live in `.env` (never committed). Key groups:
 | `SONARR_API_KEY` | Sonarr API authentication |
 | `PROWLARR_API_KEY` | Prowlarr API authentication |
 | `PLEX_TOKEN` | Plex authentication |
-| `PLEX_URL` | Plex server URL |
 | `TMDB_KEY` | TMDB API key (read access token) |
 | `TVDB_KEY` | TVDB API key |
-| `FANART_KEY` | Fanart.tv API key |
-| `MDBLIST_KEY` | MDBList API key |
-| `OMDB_KEY` | OMDb API key |
-| `NZBDAV_API_KEY` | NzbDAV API key |
+| `NZBDAV_WEBDAV_USER/PASS` | WebDAV authentication |
+| `NZBDAV_RCLONE_RC_PASS` | rclone remote control password |
 | `WS_API_KEY` | Watchstate API key |
 | `METACACHE_API_KEY` | Metacache API key |
 | `CONTROL_PANEL_SECRET_KEY` | Django secret key |
-| `CONTROL_PANEL_SERVICE_API_KEY` | Service-to-service auth key |
-| `CONTROL_PANEL_ADMIN_USERNAME` | Admin username |
-| `CONTROL_PANEL_ADMIN_PASSWORD` | Admin password |
-| `DISCORD_WEBHOOK_URL` | Discord notification webhook |
-| `GRAFANA_ADMIN_USER` | Grafana admin user |
-| `GRAFANA_ADMIN_PASSWORD` | Grafana admin password |
-| `HOST_IP` | Host IP address |
-| `PLEX_UID` / `PLEX_GID` | Plex user/group ID |
+| `TRAEFIK_DASHBOARD_AUTH` | Traefik dashboard basic auth |
+| `HOST_IP` | Host IP address (used for Traefik routing) |
+
+### Docker Secrets
+
+Sensitive values should be stored in `secrets/` directory (gitignored).
+Run `./scripts/setup.sh` to generate secrets.
+
+### Platform Constraints
+
+- **Linux only** — `host.docker.internal` used for Prometheus→node-exporter scraping
+- **Port 8080** — cAdvisor uses this; ensure no conflicts
+- **FUSE mounts** — nzbdav_rclone requires `/dev/fuse` and `SYS_ADMIN` capability
 
 ---
 
 ## Historical Issues and Landmines
 
-See `docs/landmines.md` for active issues and `docs/incidents.md` for dated incident history.
-
 ### Critical Landmines (affect operations today)
 
 1. **FUSE mount fragility** — Mount-owner restart breaks all dependents. Never `sudo umount` a FUSE mountpoint. Restart the owner, then all dependents in order.
 
-2. **Plex FSEventLibraryUpdatesEnabled disabled** — New content takes up to 6h to appear. Use arr-dashboard or Plex API for immediate scan.
+2. **Plex `stop_grace_period: 90s` required** — Without it, Docker's 10s default SIGKILL fires mid-shutdown, producing a genuine unkillable D-state hang.
 
 3. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching.
 
 4. **Control Panel reads .env at create time only** — `restart` doesn't pick up .env changes. Use `--force-recreate`.
 
-5. **Cleanuparr doesn't auto-register** — Discovers Arr apps but needs explicit instance registration in its `arr_instances` table.
+5. **Traefik + Plex separation** — Plex runs on host network and cannot be behind Traefik. Access directly at `http://HOST_IP:32400`.
 
-6. **Watchtower doesn't auto-update all images** — Only channel-tagged images auto-update. Digest-pinned and manually-versioned are excluded by design.
+6. **rclone.conf requires `rclone obscure`** — Passwords in rclone.conf must be rclone-obfuscated, not plaintext.
 
-7. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, Control Panel, fish functions, content-routing groups.
+7. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, Control Panel, traefik labels.
 
 ---
 
@@ -447,23 +379,31 @@ See `docs/landmines.md` for active issues and `docs/incidents.md` for dated inci
 ### Before Making Changes
 
 1. Read `CLAUDE.md` for work style rules
-2. Read `docs/landmines.md` for active issues
-3. Read `docs/architecture.md` for service inventory
-4. Check `docker compose ps` for current state
+2. Check `docker compose ps` for current state
+3. Read `docs/` for service documentation
 
 ### After Making Changes
 
-1. Run tests: `python3 -m pytest tests/ -x -q` (291 tests) and `cd control-panel-django && CONTROL_PANEL_SECRET_KEY=test pytest -x -q` (292 tests)
-2. Run fish function linter: `python3 -m pytest tests/test_fish_naming.py`
-3. If fish functions changed: `python3 scripts/fish-functions-install.py`
-4. If completions changed: `python3 scripts/fish-completions-generate.py`
-5. If Django templates changed: `docker compose build control-panel && docker compose up -d --force-recreate control-panel`
+1. Run validation: `docker compose config --quiet`
+2. Run bash syntax checks: `bash -n scripts/*.sh tests/*/*.sh`
+3. Run health checks: `./tests/health/run-all.sh`
+4. Run integration tests: `./tests/integration/test_pipeline.sh`
 
 ### Safety Rules
 
 - Never commit `.env` or secrets
 - Never run destructive operations without confirmation
-- Never create a public mirror of this repo
 - Always restart dependents after mount-owner changes
 - Always confirm NzbDAV queue is empty before container operations
 - Use `--force-recreate` when .env changes need to take effect
+- Plex config directory contains the full library metadata — back up before changes
+
+---
+
+## Archive
+
+Legacy files from the source repos are preserved in `archive/`:
+- `archive/media-stack/` — 133+ fish functions, scripts, systemd units, CLAUDE.md, STACK.md
+- `archive/metacacharr/` — DESIGN.md, tests, monitoring configs
+
+These are reference material only — not part of the active stack.
