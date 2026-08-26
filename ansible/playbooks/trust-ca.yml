@@ -1,0 +1,196 @@
+# ============================================================================
+# The Bear Cave — Trust the local CA on LAN devices (Ansible)
+# ============================================================================
+# Installs the mkcert root CA into each device's system trust store so every
+# *.nip.io hostname validates without a browser warning. Idempotent: re-running
+# is a no-op once every device trusts the CA.
+#
+# Run from the server (control node), which must hold the CA file and have
+# SSH (Linux/macOS) or WinRM (Windows) access to the targets:
+#
+#   ./scripts/ansible-trust-ca.sh
+#   # or directly:
+#   ansible-playbook -i ansible/hosts.yml ansible/playbooks/trust-ca.yml
+#
+# Overrides:
+#   -e ca_src=/path/to/rootCA.pem        CA file on the control node
+#   -e install_firefox_nss=true          also import into Firefox NSS stores
+#
+# See ansible/README.md for per-OS prerequisites.
+# ============================================================================
+- name: Trust The Bear Cave local CA on LAN devices
+  hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    # Default path on the control node; override with -e ca_src=/path (extra
+    # vars take precedence over play vars).
+    ca_src: "~/.local/share/mkcert/rootCA.pem"
+    ca_short_name: "mkcert"
+    ca_nss_nickname: "The Bear Cave mkcert root CA"
+    install_firefox_nss: false
+
+  tasks:
+    - name: Locate the CA file on the control node
+      ansible.builtin.stat:
+        path: "{{ ca_src }}"
+      delegate_to: localhost
+      run_once: true
+      register: ca_stat
+
+    - name: Abort when the CA file is missing
+      ansible.builtin.fail:
+        msg: >-
+          rootCA.pem not found at {{ ca_src }} on the control node.
+          Generate it first: mkcert -install  (see docs/tls.md)
+      run_once: true
+      when: not ca_stat.stat.exists
+
+    # ------------------------------------------------------------ Linux (Debian/Ubuntu)
+    - name: Copy CA into the Debian/Ubuntu trust store
+      ansible.builtin.copy:
+        src: "{{ ca_src }}"
+        dest: /usr/local/share/ca-certificates/mkcert-rootCA.crt
+        owner: root
+        group: root
+        mode: "0644"
+      when: ansible_facts['os_family'] == 'Debian'
+      register: deb_copy
+
+    - name: Refresh the Debian CA bundle
+      ansible.builtin.command: update-ca-certificates
+      when:
+        - ansible_facts['os_family'] == 'Debian'
+        - deb_copy.changed
+
+    - name: Confirm the CA hash link exists in the Debian bundle
+      ansible.builtin.shell: >-
+        hash=$(openssl x509 -hash -noout -in /usr/local/share/ca-certificates/mkcert-rootCA.crt) &&
+        test -L "/etc/ssl/certs/${hash}.0"
+      when: ansible_facts['os_family'] == 'Debian'
+
+    # ------------------------------------------------------------ Linux (RHEL/Fedora)
+    - name: Copy CA into the RHEL/Fedora trust store
+      ansible.builtin.copy:
+        src: "{{ ca_src }}"
+        dest: /etc/pki/ca-trust/source/anchors/mkcert-rootCA.crt
+        owner: root
+        group: root
+        mode: "0644"
+      when: ansible_facts['os_family'] == 'RedHat'
+      register: rh_copy
+
+    - name: Refresh the RHEL CA bundle
+      ansible.builtin.command: update-ca-trust
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - rh_copy.changed
+
+    - name: Confirm the CA hash link exists in the RHEL bundle
+      ansible.builtin.shell: >-
+        hash=$(openssl x509 -hash -noout -in /etc/pki/ca-trust/source/anchors/mkcert-rootCA.crt) &&
+        test -L "/etc/pki/tls/certs/${hash}.0"
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    # ------------------------------------------------------------ Linux (Archlinux)
+    - name: Copy CA into the Archlinux trust store
+      ansible.builtin.copy:
+        src: "{{ ca_src }}"
+        dest: /etc/ca-certificates/trust-source/anchors/mkcert-rootCA.crt
+        owner: root
+        group: root
+        mode: "0644"
+      when: ansible_facts['os_family'] == 'Archlinux'
+      register: arch_copy
+
+    - name: Refresh the Archlinux CA bundle
+      ansible.builtin.command: update-ca-trust
+      when:
+        - ansible_facts['os_family'] == 'Archlinux'
+        - arch_copy.changed
+
+    - name: Confirm the CA hash link exists in the Archlinux bundle
+      ansible.builtin.shell: >-
+        hash=$(openssl x509 -hash -noout -in /etc/ca-certificates/trust-source/anchors/mkcert-rootCA.crt) &&
+        test -L "/etc/ssl/certs/${hash}.0"
+      when: ansible_facts['os_family'] == 'Archlinux'
+
+    # ------------------------------------------------------------ macOS
+    - name: Stage the CA on macOS
+      ansible.builtin.copy:
+        src: "{{ ca_src }}"
+        dest: /tmp/mkcert-rootCA.pem
+        mode: "0644"
+      when: ansible_facts['os_family'] == 'Darwin'
+      register: mac_copy
+
+    - name: Add the CA to the macOS system keychain
+      ansible.builtin.command: >-
+        security add-trusted-cert -d -r trustRoot
+        -k /Library/Keychains/System.keychain /tmp/mkcert-rootCA.pem
+      when:
+        - ansible_facts['os_family'] == 'Darwin'
+        - mac_copy.changed
+      register: mac_add
+      # Tolerate "certificate already exists" on re-runs.
+      failed_when: mac_add.rc != 0 and 'already' not in mac_add.stderr | lower
+      changed_when: mac_add.rc == 0
+
+    - name: Confirm the CA is in the macOS keychain
+      ansible.builtin.command: >-
+        security find-certificate -c "{{ ca_short_name }}"
+        /Library/Keychains/System.keychain
+      when: ansible_facts['os_family'] == 'Darwin'
+
+    # ------------------------------------------------------------ Windows
+    - name: Stage the CA on Windows
+      ansible.windows.win_copy:
+        src: "{{ ca_src }}"
+        dest: C:\Windows\Temp\mkcert-rootCA.pem
+      when: ansible_facts['os_family'] == 'Windows'
+      register: win_copy
+
+    - name: Add the CA to the Windows Root store
+      ansible.windows.win_command: certutil -addstore -f ROOT C:\Windows\Temp\mkcert-rootCA.pem
+      when:
+        - ansible_facts['os_family'] == 'Windows'
+        - win_copy.changed
+
+    - name: Confirm the CA is in the Windows Root store
+      ansible.windows.win_command: certutil -store ROOT "{{ ca_short_name }}"
+      when: ansible_facts['os_family'] == 'Windows'
+
+    # ------------------------------------------------------------ Optional: Firefox NSS
+    - name: Stage the CA for the Firefox NSS import
+      ansible.builtin.copy:
+        src: "{{ ca_src }}"
+        dest: /tmp/mkcert-rootCA.pem
+        mode: "0644"
+      when:
+        - install_firefox_nss | bool
+        - ansible_facts['os_family'] in ['Debian', 'RedHat', 'Darwin']
+
+    - name: Import the CA into Firefox NSS stores (optional)
+      ansible.builtin.shell: |
+        set +e
+        command -v certutil >/dev/null 2>&1 || { echo "certutil not found (install libnss3-tools / nss-tools)"; exit 0; }
+        status=0
+        for profile in "$HOME/.mozilla/firefox"/*/; do
+          [ -d "$profile" ] || continue
+          certutil -D -n "{{ ca_nss_nickname }}" -d "sql:$profile" >/dev/null 2>&1
+          certutil -A -n "{{ ca_nss_nickname }}" -t "C,," -d "sql:$profile" -i /tmp/mkcert-rootCA.pem
+          status=$((status + $?))
+        done
+        exit $status
+      become: false
+      when:
+        - install_firefox_nss | bool
+        - ansible_facts['os_family'] in ['Debian', 'RedHat', 'Darwin']
+
+    # ------------------------------------------------------------ Unsupported OS
+    - name: Report unsupported OS family
+      ansible.builtin.debug:
+        msg: >-
+          No automated trust step for OS family {{ ansible_facts['os_family'] }}.
+          Install rootCA.pem manually — see docs/tls.md.
+      when: ansible_facts['os_family'] not in ['Debian', 'RedHat', 'Archlinux', 'Darwin', 'Windows']

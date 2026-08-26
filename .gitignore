@@ -40,6 +40,11 @@ media/anime-shows/*
 # Docker
 docker-compose.override.yml
 
+# Ansible (local inventory names your LAN devices)
+ansible/hosts.yml
+ansible/hosts.ini
+ansible/hosts
+
 # IDE
 .vscode/
 .idea/

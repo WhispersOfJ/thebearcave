@@ -78,12 +78,29 @@ certificate is served — never the key.
 certificates for your domains. Only the server holds the key — devices get the
 certificate alone, which is safe to share over the LAN.
 
+## Automating device trust (Ansible)
+
+For fleets of devices, an [Ansible playbook](../ansible/playbooks/trust-ca.yml)
+installs the CA into each device's system store automatically — Linux
+(Debian/RHEL), macOS keychain, and Windows Root store, with an optional Firefox
+NSS import. The playbook verifies each store actually trusts the CA and is
+idempotent, so re-running after everything is green is a no-op.
+
+```bash
+cp ansible/hosts.example.yml ansible/hosts.yml   # list your devices
+./scripts/ansible-trust-ca.sh                    # wrapper: prereqs + run
+```
+
+See [ansible/README.md](../ansible/README.md) for prerequisites (SSH keys,
+WinRM, collections) and per-OS notes.
+
 ## Renewal
 
 The leaf is valid ~2.5 years. Regenerate with the mkcert command above —
 Traefik's file provider (`watch=true`) hot-reloads the new cert, no restart.
 The CA itself is valid ~10 years; when it expires, repeat the full setup and
-re-install the new `rootCA.pem` on every device.
+re-install the new `rootCA.pem` on every device (the Ansible playbook makes
+this a one-liner).
 
 ## Going back to self-signed (or real public certs)
 
