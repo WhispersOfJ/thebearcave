@@ -102,6 +102,20 @@ back to the self-signed default cert (see git history: `ef2ab3c`).
 - Real public certificates require a public domain pointing at this host with 80/443
   forwarded, then a working `ACME_EMAIL`. Full model in [docs/tls.md](tls.md).
 
+### 14. metadata-action tags separator changes on release pushes
+
+`docker/metadata-action` joins its `tags` output with **commas** on branch/PR pushes
+but **newlines** on release tag pushes (when `type=semver` rules fire: `1.3.0`/`1.3`/
+`latest`). Any step that splits `steps.meta.outputs.tags` on commas only (e.g.
+`cut -d, -f1`) silently breaks on every release push — `docker tag` receives the
+whole newline-joined string and fails. This reddened `docker-publish.yml`'s
+"Tag for scanning" step on the v1.3.0 tag push.
+
+- The fix (`c257e7b`) normalizes first: `printf '%s' "$tags" | tr '\n' ',' | cut -d, -f1`.
+  Don't "simplify" it back to a bare `cut -d, -f1` — the release push will break again.
+- The build step (`build-push-action`) handles newline-joined tags natively, so only
+  manual parsing of the output is affected.
+
 ---
 
 ## Diagnostics
@@ -114,3 +128,4 @@ back to the self-signed default cert (see git history: `ef2ab3c`).
 | Everything unhealthy | `.env` placeholders? `grep changeme .env` |
 | Browser shows certificate warning | CA not installed on that device — `scripts/trust-ca.sh` |
 | Metacache "Fix Match" spam | Cache warm status: `curl localhost:8765/warm/status` |
+| Docker Publish red on a release tag push | `steps.meta.outputs.tags` newline separator — see landmine 14 |
