@@ -8,7 +8,7 @@ TV show management — tracks close to 300,000 episode records across the librar
 | **Port** | 8989 |
 | **Network** | `bearcave` |
 | **Healthcheck** | `curl -sf http://localhost:8989/ping` |
-| **Config** | `services/sonarr/config/` (gitignored) |
+| **Config** | `config/sonarr/` (gitignored) |
 | **Depends on** | `nzbdav_rclone` healthy (restart cascade) |
 
 ## Role
@@ -21,7 +21,7 @@ TV show management — tracks close to 300,000 episode records across the librar
 
 | Host path | Container path | Purpose |
 |-----------|----------------|---------|
-| `services/sonarr/config/` | `/config` | App state |
+| `config/sonarr/` | `/config` | App state |
 | `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` (rslave) | FUSE mount |
 | `media/shows/` | `/data/shows` | TV root folder |
 | `media/anime-shows/` | `/data/anime-shows` | Anime TV root folder |

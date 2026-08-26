@@ -8,7 +8,7 @@ Queue cleanup automation — strikes, malware blocking, stalled-cleanup.
 | **Port** | 11011 |
 | **Network** | `bearcave` |
 | **Healthcheck** | `curl -sf http://localhost:11011/` |
-| **Config** | `services/cleanuparr/config/` (gitignored) |
+| **Config** | `config/cleanuparr/` (gitignored) |
 | **Depends on** | `nzbdav_rclone` healthy |
 
 ## Role

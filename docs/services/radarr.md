@@ -8,7 +8,7 @@ Movie management — the movie half of the *arr pair.
 | **Port** | 7878 |
 | **Network** | `bearcave` |
 | **Healthcheck** | `curl -sf http://localhost:7878/ping` |
-| **Config** | `services/radarr/config/` (gitignored) |
+| **Config** | `config/radarr/` (gitignored) |
 | **Depends on** | `nzbdav_rclone` healthy (restart cascade) |
 
 ## Role
@@ -22,7 +22,7 @@ Movie management — the movie half of the *arr pair.
 
 | Host path | Container path | Purpose |
 |-----------|----------------|---------|
-| `services/radarr/config/` | `/config` | App state |
+| `config/radarr/` | `/config` | App state |
 | `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` (rslave) | FUSE mount for symlink imports |
 | `media/movies/` | `/data/movies` | Movie root folder |
 | `media/anime-movies/` | `/data/anime-movies` | Anime movie root folder |

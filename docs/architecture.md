@@ -295,7 +295,7 @@ flowchart TB
 ```
 TheBearCave/
 ├── services/<app>/config/     ← app state (gitignored, contains secrets)
-├── services/plex/config/      ← full Plex library DB (~33 GB)
+├── config/plex/      ← full Plex library DB (~33 GB)
 ├── media/{movies,shows,...}   ← symlinks into FUSE mount (gitignored content)
 ├── data/                      ← loki, prometheus, grafana, metacache DBs
 ├── logs/control-panel/        ← control panel rotating logs

@@ -9,7 +9,7 @@ fed from Plex by a scheduled import plus a webhook.
 | **Port** | 8705 (host) → 8080 (container) |
 | **Network** | `bearcave` |
 | **Healthcheck** | `curl -sf -H "X-apikey: $WS_API_KEY" http://localhost:8080/v1/api/system/healthcheck` |
-| **Config** | `services/watchstate/config/` (gitignored) |
+| **Config** | `config/watchstate/` (gitignored) |
 | **User** | `${PUID}:${PGID}` (image is rootless — the `user:` line is load-bearing) |
 
 ## Role

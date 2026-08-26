@@ -48,10 +48,10 @@ cp -a "$SRC/logs" "$DST/logs" 2>/dev/null || true
 
 ```bash
 # media-stack also kept Plex at ./config/plex. Copy the whole tree:
-cp -a "$SRC/config/plex" "$DST/services/plex/config"
+cp -a "$SRC/config/plex" "$DST/config/plex"
 
 # Ownership must stay 955:955 (the image runs as PLEX_UID/PLEX_GID)
-chown -R 955:955 "$DST/services/plex/config"
+chown -R 955:955 "$DST/config/plex"
 chown -R 955:955 "$DST/services/plex/transcode" 2>/dev/null || true
 ```
 
@@ -62,7 +62,7 @@ so Plex boots with the same library, watch history, users, and settings.
 
 ```bash
 # The old stack's rclone.conf already has the obscure-encoded password:
-cp "$SRC/config/nzbdav-rclone/rclone.conf" "$DST/services/nzbdav-rclone/rclone.conf"
+cp "$SRC/config/nzbdav-rclone/rclone.conf" "$DST/config/nzbdav-rclone/rclone.conf"
 ```
 
 If you only have the plaintext WebDAV password: `rclone obscure "password"` and put the

@@ -9,7 +9,7 @@ nothing is ever written to local disk.
 | **Port** | 3000 |
 | **Network** | `bearcave` |
 | **Healthcheck** | `curl -fsSL http://localhost:3000/healthz` |
-| **Config** | `services/nzbdav/config/` (gitignored) |
+| **Config** | `config/nzbdav/` (gitignored) |
 | **Depends on** | `prowlarr` healthy |
 
 ## Role

@@ -10,7 +10,7 @@ tree at `/mnt/remote/nzbdav` and every media consumer reads through it.
 | **Ports** | none published; RC API on container `:5572` |
 | **Network** | `bearcave` |
 | **Healthcheck** | `mountpoint -q /mnt/remote/nzbdav` |
-| **Config** | `services/nzbdav-rclone/rclone.conf` (gitignored) + `cache/` |
+| **Config** | `config/nzbdav-rclone/rclone.conf` (gitignored) + `cache/` |
 | **Depends on** | `nzbdav` healthy (restart cascade) |
 | **Privileges** | `/dev/fuse`, `SYS_ADMIN` |
 
@@ -39,7 +39,7 @@ rclone refuses to remount ("directory already mounted") and loops forever.
 
 ## rclone.conf
 
-Gitignored. Template at `services/nzbdav-rclone/rclone.conf.template`:
+Gitignored. Template at `config/nzbdav-rclone/rclone.conf.template`:
 
 ```ini
 [nzbdav]

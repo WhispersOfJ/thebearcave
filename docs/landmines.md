@@ -56,7 +56,7 @@ a half-removed service.
 
 ### 8. rclone.conf needs `rclone obscure`
 
-The WebDAV password in `services/nzbdav-rclone/rclone.conf` must be rclone-obfuscated
+The WebDAV password in `config/nzbdav-rclone/rclone.conf` must be rclone-obfuscated
 (`rclone obscure "pass"`), not plaintext. The file is gitignored — the committed
 `rclone.conf.template` is the only thing that ships.
 

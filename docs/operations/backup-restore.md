@@ -8,11 +8,11 @@ Everything you need to survive hardware failure, bad config edits, or a botched 
 
 | Data | Location | Criticality |
 |------|----------|-------------|
-| Plex library DB + metadata | `services/plex/config/` (~33 GB) | **Highest** — irreplaceable watch history |
+| Plex library DB + metadata | `config/plex/` (~33 GB) | **Highest** — irreplaceable watch history |
 | *arr DBs | `services/{radarr,sonarr,prowlarr,seerr,cleanuparr}/config/` | High — easily rebuilt but tedious |
-| InfiniDysk DB + queue | `services/nzbdav/config/` | High — **queue is not persistent across recreate** |
+| InfiniDysk DB + queue | `config/nzbdav/` | High — **queue is not persistent across recreate** |
 | Control Panel DB | `data/control-panel/` | Medium |
-| WatchState DB | `services/watchstate/config/` | Medium — redundant with Plex |
+| WatchState DB | `config/watchstate/` | Medium — redundant with Plex |
 | Metacache DB + images | `data/metacache/` | Low — regenerable via warm |
 | Grafana/Prometheus/Loki | `data/{grafana,prometheus,loki}/` | Low — regenerable |
 | Secrets | `secrets/` + `.env` | **Critical** — losing these is losing access |
@@ -41,7 +41,7 @@ Produces `backups/bearcave_backup_<YYYYMMDD_HHMMSS>/` with:
 ## InfiniDysk note
 
 InfiniDysk has its **own daily backup** (02:00 local, 7 retained) inside its config —
-that's in `services/nzbdav/config/`. The queue itself is ephemeral: **confirm the queue
+that's in `config/nzbdav/`. The queue itself is ephemeral: **confirm the queue
 is empty before any container operation that recreates it.**
 
 ---
@@ -66,14 +66,14 @@ cp backups/bearcave_backup_<ts>/.env .env    # if restoring secrets too
 
 ```bash
 # Plex must be stopped (stack is down, so it is)
-rm -rf services/plex/config
+rm -rf config/plex
 cp -r backups/bearcave_backup_<ts>/plex-metadata/plex-metadata.tar.gz /tmp/
 tar -xzf /tmp/plex-metadata.tar.gz -C services/plex/   # restores config/
 ```
 
 Verify ownership: Plex runs as UID/GID **955** — the files must be owned by 955:
 ```bash
-chown -R 955:955 services/plex/config
+chown -R 955:955 config/plex
 ```
 
 ### 4. Restore secrets

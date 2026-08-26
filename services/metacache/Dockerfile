@@ -6,6 +6,8 @@ RUN dotnet publish src/Metacache.Host/Metacache.Host.csproj -c Release -o /app/p
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+# curl for the compose healthcheck (matches the media-stack metacache image)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish .
 # Run non-root (container-escape hardening — Trivy AVD-DS-0002 wants a USER). The
 # aspnet base image defines APP_UID (1654). /app/data must pre-exist owned by that

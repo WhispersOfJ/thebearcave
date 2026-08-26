@@ -8,7 +8,7 @@ Indexer manager — the single source of indexers for Radarr, Sonarr, and Infini
 | **Port** | 9696 |
 | **Network** | `bearcave` |
 | **Healthcheck** | `curl -sf http://localhost:9696/ping` |
-| **Config** | `services/prowlarr/config/` (gitignored) |
+| **Config** | `config/prowlarr/` (gitignored) |
 
 ## Role
 

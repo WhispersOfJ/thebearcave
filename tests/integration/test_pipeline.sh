@@ -68,10 +68,10 @@ test_infra_ready() {
     
     local failed=0
     check_prerequisite "Docker running" "docker info" || failed=$((failed + 1))
-    check_prerequisite "Plex container running" "docker ps | grep -q plex" || failed=$((failed + 1))
-    check_prerequisite "Radarr container running" "docker ps | grep -q radarr" || failed=$((failed + 1))
-    check_prerequisite "Sonarr container running" "docker ps | grep -q sonarr" || failed=$((failed + 1))
-    check_prerequisite "InfiniDysk container running" "docker ps | grep -q nzbdav" || failed=$((failed + 1))
+    check_prerequisite "Plex container running" "docker ps --filter name=^/plex$ --format '{{.Names}}' | grep -qx plex" || failed=$((failed + 1))
+    check_prerequisite "Radarr container running" "docker ps --filter name=^/radarr$ --format '{{.Names}}' | grep -qx radarr" || failed=$((failed + 1))
+    check_prerequisite "Sonarr container running" "docker ps --filter name=^/sonarr$ --format '{{.Names}}' | grep -qx sonarr" || failed=$((failed + 1))
+    check_prerequisite "InfiniDysk container running" "docker ps --filter name=^/nzbdav$ --format '{{.Names}}' | grep -qx nzbdav" || failed=$((failed + 1))
     check_prerequisite "rclone mount active" "docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav" || failed=$((failed + 1))
     check_prerequisite "Plex responding" "curl -sf http://localhost:32400/identity" || failed=$((failed + 1))
     check_prerequisite "Radarr responding" "curl -sf http://localhost:7878/ping" || failed=$((failed + 1))
@@ -106,8 +106,16 @@ test_rclone_mount() {
         log_success "rclone mount has content: $file_count items"
     fi
     
-    # Check rclone RC is accessible
-    if docker exec nzbdav_rclone wget -q -O /dev/null http://localhost:5572/core/stats; then
+    # Check rclone RC is accessible. The RC endpoint requires POST + HTTP
+    # Basic auth; busybox wget in the container has no --user/--password
+    # flags, so build the Basic header from the .env RC user/pass.
+    local rc_basic
+    rc_basic=$(docker exec nzbdav_rclone sh -c \
+        "echo -n 'rclone:${NZBDAV_RCLONE_RC_PASS}' | base64" 2>/dev/null)
+    if [ -n "$rc_basic" ] && docker exec nzbdav_rclone wget -q -O /dev/null \
+        --post-data='{}' \
+        --header="Authorization: Basic $rc_basic" \
+        http://localhost:5572/rc/noop; then
         log_success "rclone RC endpoint responding"
     else
         log_warning "rclone RC endpoint not responding"
@@ -243,7 +251,7 @@ test_metacache() {
 }
 
 test_symlink_integrity() {
-    log_info "Testing symlink integrity..."
+    log_info "Testing symlink integrity (sampled — full scan resolves 30k+ links through the FUSE mount)..."
     
     local media_dirs=(
         "/home/bear/TheBearCave/media/movies"
@@ -254,16 +262,24 @@ test_symlink_integrity() {
     
     local total_symlinks=0
     local broken_symlinks=0
+    local checked=0
     
     for dir in "${media_dirs[@]}"; do
         if [ -d "$dir" ]; then
             local symlinks
             symlinks=$(find "$dir" -type l 2>/dev/null | wc -l)
-            local broken
-            broken=$(find "$dir" -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l)
-            
             total_symlinks=$((total_symlinks + symlinks))
-            broken_symlinks=$((broken_symlinks + broken))
+            
+            # Sample up to 50 symlinks per dir — each `test -e` resolves
+            # through the rclone FUSE mount (WebDAV), so a full scan of
+            # 30k+ links can take hours.
+            while IFS= read -r link; do
+                checked=$((checked + 1))
+                if [ ! -e "$link" ]; then
+                    broken_symlinks=$((broken_symlinks + 1))
+                    log_warning "Broken: $link"
+                fi
+            done < <(find "$dir" -type l 2>/dev/null | head -50)
         fi
     done
     
@@ -273,9 +289,9 @@ test_symlink_integrity() {
     fi
     
     if [ $broken_symlinks -eq 0 ]; then
-        log_success "All $total_symlinks symlinks are valid"
+        log_success "All $checked sampled symlinks valid (of $total_symlinks total)"
     else
-        log_error "Found $broken_symlinks broken symlinks out of $total_symlinks total"
+        log_error "Found $broken_symlinks broken symlinks in $checked sampled"
         return 1
     fi
     

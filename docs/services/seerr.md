@@ -8,7 +8,7 @@ Request manager — the "I want this" front door for your household.
 | **Port** | 5055 |
 | **Network** | `bearcave` |
 | **Healthcheck** | `wget -qO- http://localhost:5055/api/v1/status` |
-| **Config** | `services/seerr/config/` (gitignored) |
+| **Config** | `config/seerr/` (gitignored) |
 
 ## Role
 

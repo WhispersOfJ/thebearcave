@@ -8,7 +8,7 @@ The media server. **The one service not behind Traefik** — it runs on the host
 | **Port** | 32400 (host network) |
 | **Network** | `host` (deliberate — see below) |
 | **Healthcheck** | `curl -sf http://localhost:32400/identity` |
-| **Config** | `services/plex/config/` (~33 GB library, gitignored) |
+| **Config** | `config/plex/` (~33 GB library, gitignored) |
 | **Transcode** | `services/plex/transcode/` |
 | **Depends on** | `nzbdav_rclone` healthy (restart cascade) |
 | **Hardware** | `/dev/dri` (whole device, for VAAPI) |
@@ -24,7 +24,7 @@ Plex via `host.docker.internal`.
 
 | Host path | Container path | Purpose |
 |-----------|----------------|---------|
-| `services/plex/config/` | `/config` | Full library: DB, metadata, settings |
+| `config/plex/` | `/config` | Full library: DB, metadata, settings |
 | `services/plex/transcode/` | `/transcode` | Transcode scratch space |
 | `media/movies/` | `/data/movies` | Library root |
 | `media/shows/` | `/data/shows` | Library root |

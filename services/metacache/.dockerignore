@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/data/
+.git/
+.gitignore
+.dockerignore
+monitoring/
+tests/
+*.db
+*.db-shm
+*.db-wal

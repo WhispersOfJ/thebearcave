@@ -9,16 +9,23 @@
 secrets/
 archive/metacacharr/monitoring/.env
 
-# Service configuration (contains sensitive data)
-services/*/config/
-services/nzbdav-rclone/cache/
-services/nzbdav-rclone/rclone.conf
-services/plex/config/
-services/plex/transcode/
+# Service configuration (contains sensitive data). After the Phase 4
+# migration every app's live config lives under config/<app>/ (Plex library,
+# *arr DBs + API keys, WebDAV creds, control-panel.db) — none of it is
+# trackable. Only config/traefik/ (static config + dynamic TLS routing) is
+# tracked; the mkcert private key under config/traefik/certs/ must never be.
+config/*/
+!config/traefik/
+config/traefik/certs/
+config/nzbdav-rclone/cache/
+config/nzbdav-rclone/rclone.conf
 
 # Persistent data volumes
 data/
 logs/
+
+# Unpackerr download staging
+usenet/
 
 # Media symlinks (populated by rclone)
 media/movies/*
