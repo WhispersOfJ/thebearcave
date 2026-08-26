@@ -1,0 +1,91 @@
+name: Pin Drift Check
+# Pinned actions policy: third-party actions are pinned to full commit SHAs
+# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
+# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
+# update the SHA and the "# tag" comment on its uses: line.
+
+on:
+  schedule:
+    # Weekly Monday 06:00 UTC, matching dependabot's schedule.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Check action pins
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/check_action_pins.py --json > /tmp/pins.json
+
+      - name: Open, update, or close the drift issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Render the issue body from the JSON report.
+          python3 - <<'PY' > /tmp/issue-body.md
+          import json
+
+          report = json.load(open("/tmp/pins.json"))
+          lines = ["## Action pin drift detected", ""]
+          lines.append(
+              "Checked **%d** pinned action reference(s) across `.github/workflows/`."
+              % report["checked"]
+          )
+          if report["drifts"]:
+              lines += ["", "| Action | Tag | Pinned | Current |", "|---|---|---|---|"]
+              for drift in report["drifts"]:
+                  lines.append(
+                      "| `%s` | %s | `%s` | `%s` |"
+                      % (drift["ref"], drift["tag"], drift["pinned"], drift["current"])
+                  )
+          if report["unpinned"]:
+              lines += ["", "**Unpinned — policy violation (mutable tag instead of SHA):**"]
+              for item in report["unpinned"]:
+                  lines.append(
+                      "- `%s@%s` (%s:%d)" % (item["ref"], item["tag"], item["file"], item["line"])
+                  )
+          if report["errors"]:
+              lines += ["", "**Could not resolve:**"]
+              for error in report["errors"]:
+                  lines.append("- `%s` — %s" % (error["ref"], error["error"]))
+          lines += [
+              "",
+              "To fix, resolve each tag's current SHA with "
+              "`gh api repos/{owner}/{repo}/commits/{tag} --jq .sha` and update the "
+              "`uses:` lines (see docs/ci-cd.md).",
+              "",
+              "_Maintained by the Pin Drift Check workflow — refreshed weekly._",
+          ]
+          print("\n".join(lines))
+          PY
+
+          TOTAL=$(( $(jq '.drifts | length' /tmp/pins.json) \
+                  + $(jq '.unpinned | length' /tmp/pins.json) \
+                  + $(jq '.errors | length' /tmp/pins.json) ))
+          TITLE="Action pin drift detected"
+          gh label create pin-drift --force >/dev/null 2>&1 || true
+          EXISTING=$(gh issue list --state open --label pin-drift \
+            --json number --jq '.[0].number // empty')
+
+          if [ "$TOTAL" -gt 0 ]; then
+            if [ -n "$EXISTING" ]; then
+              gh issue edit "$EXISTING" --title "$TITLE" --body-file /tmp/issue-body.md
+            else
+              gh issue create --title "$TITLE" --body-file /tmp/issue-body.md \
+                --label pin-drift
+            fi
+          elif [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --comment \
+              "All action pins are current as of $(date -u +'%Y-%m-%d')."
+          fi
