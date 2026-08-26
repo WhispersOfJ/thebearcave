@@ -190,6 +190,83 @@
     }
     .cve-foot a { color: var(--accent); text-decoration: none; }
     .cve-foot a:hover { text-decoration: underline; }
+    .cert-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.2rem;
+      margin-bottom: 2.5rem;
+    }
+    .cert-intro {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.8rem;
+    }
+    .cert-intro strong { font-size: 1rem; }
+    .cert-intro p {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+      line-height: 1.4;
+      max-width: 62ch;
+    }
+    .cert-download {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: filter 0.2s;
+    }
+    .cert-download:hover { filter: brightness(1.15); }
+    details.cert-step {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      background: rgba(255,255,255,0.02);
+    }
+    details.cert-step summary {
+      cursor: pointer;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      user-select: none;
+    }
+    details.cert-step summary:hover { color: var(--accent); }
+    details.cert-step[open] summary { border-bottom: 1px solid var(--border); }
+    details.cert-step pre {
+      margin: 0;
+      padding: 0.7rem 0.9rem;
+      overflow-x: auto;
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    details.cert-step code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: var(--green);
+    }
+    details.cert-step ol {
+      margin: 0;
+      padding: 0.7rem 0.9rem 0.7rem 2.2rem;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    details.cert-step ol code { color: var(--green); }
+    .cert-note {
+      margin-top: 0.8rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+    .cert-note code { font-family: 'SF Mono', 'Fira Code', monospace; }
     footer {
       text-align: center;
       padding: 2rem;
@@ -233,6 +310,75 @@
         <span id="cve-meta">Loading baseline&hellip;</span>
         <a href="https://github.com/WhispersOfJ/media-stack/blob/main/STAGE-4-CVE-BASELINE.md" target="_blank">View baseline &nearr;</a>
       </div>
+    </div>
+
+    <h2>Certificate setup</h2>
+    <div class="cert-card">
+      <div class="cert-intro">
+        <div>
+          <strong>Trust the HTTPS certificate on this device</strong>
+          <p>Every service is served over HTTPS with a certificate signed by this stack's own local CA. Install the CA once per device and the browser warning disappears.</p>
+        </div>
+        <a class="cert-download" href="/rootCA.pem" download>⬇ Download rootCA.pem</a>
+      </div>
+
+      <details class="cert-step" open>
+        <summary>Linux &middot; Debian / Ubuntu</summary>
+        <pre><code>curl -kO https://__HOST__/rootCA.pem
+sudo cp rootCA.pem /usr/local/share/ca-certificates/mkcert-rootCA.crt
+sudo update-ca-certificates</code></pre>
+      </details>
+
+      <details class="cert-step">
+        <summary>Linux &middot; Fedora / RHEL</summary>
+        <pre><code>curl -kO https://__HOST__/rootCA.pem
+sudo cp rootCA.pem /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust</code></pre>
+      </details>
+
+      <details class="cert-step">
+        <summary>Linux &middot; Arch</summary>
+        <pre><code>curl -kO https://__HOST__/rootCA.pem
+sudo cp rootCA.pem /etc/ca-certificates/trust-source/anchors/
+sudo update-ca-trust</code></pre>
+      </details>
+
+      <details class="cert-step">
+        <summary>macOS</summary>
+        <pre><code>curl -kO https://__HOST__/rootCA.pem
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain rootCA.pem</code></pre>
+      </details>
+
+      <details class="cert-step">
+        <summary>Windows</summary>
+        <pre><code>curl.exe -k -O https://__HOST__/rootCA.pem
+certutil -addstore -f "ROOT" rootCA.pem</code></pre>
+      </details>
+
+      <details class="cert-step">
+        <summary>iOS / iPadOS</summary>
+        <ol>
+          <li>In Safari, open <code>https://__HOST__/rootCA.pem</code> and allow the download</li>
+          <li>Settings &rarr; General &rarr; VPN &amp; Device Management &rarr; install the profile</li>
+          <li>Settings &rarr; General &rarr; About &rarr; Certificate Trust Settings &rarr; enable <strong>full trust</strong> for the CA</li>
+        </ol>
+      </details>
+
+      <details class="cert-step">
+        <summary>Android</summary>
+        <ol>
+          <li>In Chrome, open <code>https://__HOST__/rootCA.pem</code> and download it</li>
+          <li>Settings &rarr; Security &rarr; Encryption &amp; credentials &rarr; Install a certificate &rarr; CA certificate</li>
+          <li>Select the downloaded file &mdash; done</li>
+        </ol>
+      </details>
+
+      <p class="cert-note">
+        Firefox (Linux/macOS) doesn't read the system store: open Settings &rarr; Privacy &amp; Security &rarr;
+        Certificates &rarr; View &rarr; Authorities &rarr; Import and pick <code>rootCA.pem</code>.
+        <code>rootCA.pem</code> is the public certificate &mdash; the private key never leaves the server.
+        Once installed, this page should show a valid padlock.
+      </p>
     </div>
 
     <h2>Documentation</h2>
@@ -343,6 +489,15 @@
     // against the landing page itself (nginx serves index.html for any path).
     document.getElementById("grafana-link").href = `http://${BASE}:3001`;
     document.getElementById("prometheus-link").href = `http://${BASE}:9090`;
+
+    // Certificate section: substitute the real hostname into the copy-paste
+    // commands (fall back to the canonical nip.io name off-LAN/localhost).
+    const CA_HOST = location.hostname.includes("nip.io")
+      ? location.hostname
+      : "bearcave.192.168.4.20.nip.io";
+    document.querySelectorAll(".cert-card code").forEach(el => {
+      el.textContent = el.textContent.split("__HOST__").join(CA_HOST);
+    });
 
     // CVE baseline card - parses the summary table in STAGE-4-CVE-BASELINE.md
     // from the public repo. Refreshes every 5 minutes; degrades gracefully
