@@ -83,6 +83,6 @@ jobs:
 
       - name: Unit tests - nzbdav-exporter
         run: |
-          pip install requests prometheus_client
+          pip install pytest requests prometheus_client
           cd services/nzbdav-exporter
           python -m pytest test_exporter.py -v
