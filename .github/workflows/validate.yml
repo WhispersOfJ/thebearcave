@@ -8,8 +8,18 @@ name: Validate
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "archive/**"
+      - "config/**"
   pull_request:
     branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "archive/**"
+      - "config/**"
   workflow_dispatch:
     inputs:
       skip_actionlint:
@@ -52,7 +62,7 @@ jobs:
       - name: Ruff (Python lint)
         run: |
           pip install ruff==0.8.6
-          ruff check scripts/ tests/
+          ruff check . --exclude archive/ --exclude "**/migrations"
 
       - name: Bash syntax checks
         run: |
@@ -75,4 +85,4 @@ jobs:
         run: |
           pip install requests prometheus_client
           cd services/nzbdav-exporter
-          python -m pytest test_exporter.py -v 2>/dev/null || echo "No tests found or tests skipped"
+          python -m pytest test_exporter.py -v
