@@ -11,7 +11,6 @@
 # - Requests: Seerr
 # - Media server: Plex (host network, VAAPI)
 # - Metadata: Metacache (custom Plex metadata provider)
-# - Dashboard: Control Panel (Django)
 # - Queue mgmt: Unpackerr, Cleanuparr
 # - Watch state: WatchState
 # - Logging: Loki, Promtail, Grafana
@@ -443,68 +442,7 @@ services:
       - "traefik.http.routers.metacache.tls=true"
 
   # ==========================================================================
-  # Dashboard — Control Panel (Django)
   # ==========================================================================
-  control-panel:
-    build: ./services/control-panel/django
-    restart: unless-stopped
-    logging: *common-logging
-    container_name: control-panel
-    networks: [bearcave]
-    pid: host
-    healthcheck:
-      test: ["CMD", "python3", "/app/healthcheck.py"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      PLEX_URL: http://host.docker.internal:32400
-      PLEX_TOKEN: ${PLEX_TOKEN}
-      RADARR_API_KEY: ${RADARR_API_KEY}
-      SONARR_API_KEY: ${SONARR_API_KEY}
-      FRONTEND_BACKEND_API_KEY: ${FRONTEND_BACKEND_API_KEY}
-      PROWLARR_API_KEY: ${PROWLARR_API_KEY}
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
-      HOST_IP: ${HOST_IP}
-      TMDB_KEY: ${TMDB_KEY}
-      FANART_KEY: ${FANART_KEY}
-      TVDB_KEY: ${TVDB_KEY}
-      OMDB_KEY: ${OMDB_KEY}
-      MDBLIST_KEY: ${MDBLIST_KEY}
-      WS_API_KEY: ${WS_API_KEY}
-      CONTROL_PANEL_SERVICE_API_KEY: ${CONTROL_PANEL_SERVICE_API_KEY}
-      CONTROL_PANEL_SECRET_KEY: ${CONTROL_PANEL_SECRET_KEY}
-      CONTROL_PANEL_ADMIN_USERNAME: ${CONTROL_PANEL_ADMIN_USERNAME}
-      CONTROL_PANEL_ADMIN_PASSWORD: ${CONTROL_PANEL_ADMIN_PASSWORD}
-      CONTROL_PANEL_SECURE_COOKIE: ${CONTROL_PANEL_SECURE_COOKIE:-}
-      CONTROL_PANEL_DB_PATH: /data/control-panel.db
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    volumes:
-      - *ca-mount
-      # Read-only Docker socket: container can inspect/list/stats but NOT
-      # start/stop/restart/pull/prune/run. All write ops go through the
-      # host helper daemon (/run/controlpanel-helper.sock). See item #1.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /mnt:/mnt
-      - ./config:/host-config
-      - /proc:/host-proc
-      - /sys/fs/fuse:/host-sys-fuse
-      - ./README.md:/host-README.md
-      - ./config/control-panel:/data
-      - ./logs/control-panel:/logs
-      - /run/controlpanel-helper.sock:/host-helper.sock
-    ports:
-      - "8420:8420"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.control-panel.rule=Host(`panel.${HOST_IP}.nip.io`)"
-      - "traefik.http.services.control-panel.loadbalancer.server.port=8420"
-      - "traefik.http.routers.control-panel.tls=true"
-
   # ==========================================================================
   # Queue Management
   # ==========================================================================

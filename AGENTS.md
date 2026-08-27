@@ -8,7 +8,7 @@ work style and non-negotiable rules — this file covers the system itself.
 ## What This Repo Is
 
 A unified media-acquisition-and-serving stack. 22 Docker Compose services, a Django
-control panel, an arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
+arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
 and CI/CD via GitHub Actions. Hosted on Linux.
 
 Merged from two repos: `media-stack` (Usenet + Plex + *arr apps) and `metacacharr`
@@ -29,7 +29,6 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
                               │                                         (host network)
                     ┌─────────┴─────────┐
                     │                   │
-          Control Panel :8420    arr-dashboard :41789
           (Infrastructure)       (Media Operations)
                     │                   │
               Prometheus :9090    Grafana :3001
@@ -46,7 +45,6 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
 | **Requests** | Seerr |
 | **Media server** | Plex (host network, VAAPI transcoding) |
 | **Metadata** | Metacache (built from source, TMDB/TVDB cache) |
-| **Dashboard** | Control Panel (Django) |
 | **Queue mgmt** | Unpackerr, Cleanuparr |
 | **Watch state** | WatchState |
 | **Logging** | Loki, Promtail, Grafana |
@@ -58,7 +56,6 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
 
 | Panel | Port | Technology | Responsibilities |
 |-------|------|------------|-----------------|
-| **Control Panel** | 8420 | Django + htmx | Container lifecycle, host operations, NzbDAV, Watchstate, FUSE mounts, queue aggregation |
 | **arr-dashboard** | 41789 | Next.js (Node 22) | Multi-instance queue/calendar/history, TRaSH Guides, library cleanup, auto-hunting, Plex analytics, notifications, statistics |
 
 They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
@@ -66,8 +63,6 @@ They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
 - **Content flow:** Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mount → Plex serves
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
-- **Control:** Django dashboard at :8420 for infrastructure ops. arr-dashboard at :41789 for media ops.
-- **Health checks diverge:** The control panel's `HealthCheckView` (Django backend) checks a hardcoded list of services. The landing page's JS runs its own independent health checks against a different list. The two may disagree — the landing page is more complete (19 services).
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
 - **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 22 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
 
@@ -86,7 +81,6 @@ They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
 | 7 | `seerr` | Request manager | 5055 | bearcave |
 | 8 | `plex` | Media server | — | host |
 | 9 | `metacache` | Metadata cache proxy for Plex | 8765 | bearcave |
-| 10 | `control-panel` | Django infrastructure dashboard | 8420 | bearcave |
 | 11 | `arr-dashboard` | Next.js media operations dashboard | 41789 | bearcave |
 | 12 | `unpackerr` | Auto-extracts downloads | — | bearcave |
 | 13 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 | bearcave |
@@ -123,7 +117,6 @@ DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networ
 7878  Radarr
 8000  Landing page
 8080  cadvisor
-8420  Control Panel (Django)
 8705  Watchstate
 8765  Metacache
 8989  Sonarr
@@ -133,96 +126,6 @@ DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networ
 9696  Prowlarr
 11011 Cleanuparr
 41789 arr-dashboard (Next.js)
-```
-
----
-
-## Control Panel API (`:8420/api/v2/`)
-
-Django REST framework endpoints. Auth: session cookie or `Authorization: Bearer <key>` for
-destructive endpoints (`/api/v2/host/*`). CSRF Origin validation on all POST/PUT/DELETE.
-
-### Host Operations (`/api/v2/host/`)
-
-```
-GET  /api/v2/host/status                 — Container status
-GET  /api/v2/host/containers             — List all containers
-POST /api/v2/host/container/<name>/restart — Restart container
-POST /api/v2/host/container/<name>/start   — Start container
-POST /api/v2/host/container/<name>/stop    — Stop container
-GET  /api/v2/host/container/<name>/logs/stream — Stream logs (SSE)
-POST /api/v2/host/stack/restart-all      — Restart all in correct order
-GET  /api/v2/host/settings               — Get settings
-PATCH /api/v2/host/settings              — Update settings
-GET  /api/v2/host/resource-check         — Host resources
-GET  /api/v2/host/disk-health            — Disk SMART health
-POST /api/v2/host/disk-health/prune      — Prune disk health data
-GET  /api/v2/host/host-resources         — CPU/RAM usage
-GET  /api/v2/host/log-levels             — Get log levels
-POST /api/v2/host/log-levels/reset       — Reset log levels
-GET  /api/v2/host/oom-check              — Check OOM kills
-GET  /api/v2/host/disk-usage             — Disk usage
-GET  /api/v2/host/mount-health           — FUSE mount health
-GET  /api/v2/host/perms-check            — File permissions
-GET  /api/v2/host/image-check            — Docker image versions
-GET  /api/v2/host/version                — Stack version
-GET  /api/v2/host/docs/readme            — README content
-POST /api/v2/host/notify/test            — Test notifications
-GET  /api/v2/host/top                    — Top containers
-POST /api/v2/host/reboot                 — Reboot host (requires bearer auth)
-POST /api/v2/host/pacman-sync            — Sync pacman databases
-POST /api/v2/host/pacman-upgrade         — Upgrade packages
-```
-
-### NzbDAV (`/api/v2/nzbdav/`)
-
-```
-GET  /api/v2/nzbdav/queue               — Download queue
-GET  /api/v2/nzbdav/history             — Download history
-GET  /api/v2/nzbdav/dedup-config-check  — Dedup config check
-GET  /api/v2/nzbdav/stats               — Download statistics
-POST /api/v2/nzbdav/delete-failures     — Delete failed downloads
-```
-
-### Cleanuparr (`/api/v2/cleanuparr/`)
-
-```
-GET  /api/v2/cleanuparr/instances       — List instances
-GET  /api/v2/cleanuparr/strikes         — Show strikes
-```
-
-### Watchstate (`/api/v2/watchstate/`)
-
-```
-GET  /api/v2/watchstate/status          — Watch state status
-POST /api/v2/watchstate/import          — Import watch state
-GET  /api/v2/watchstate/history         — Watch history
-```
-
-### Queue (`/api/v2/queue/`)
-
-```
-GET  /api/v2/queue/status               — Aggregate queue status (Arr + NzbDAV)
-```
-
-### Catalog (`/api/v2/catalog/`)
-
-```
-GET  /api/v2/catalog/                   — Software catalog
-GET  /api/v2/catalog/<id>/status        — Catalog item status
-POST /api/v2/catalog/<id>/install       — Install catalog item
-POST /api/v2/catalog/<id>/remove        — Remove catalog item
-```
-
-### UI Routes (HTMX)
-
-```
-/                       — Dashboard overview (infrastructure only)
-/host/                  — Container management
-/logs/                  — Log viewer with SSE streaming
-/settings/              — Settings page
-/reference/             — Reference links
-/activity/              — Activity log
 ```
 
 ---
@@ -343,7 +246,6 @@ Key groups:
 | `NZBDAV_RCLONE_RC_PASS` | rclone remote control password |
 | `WS_API_KEY` | Watchstate API key |
 | `METACACHE_API_KEY` | Metacache API key |
-| `CONTROL_PANEL_SECRET_KEY` | Django secret key |
 | `TRAEFIK_DASHBOARD_AUTH` | Traefik dashboard basic auth |
 | `HOST_IP` | Host IP address (used for Traefik routing) |
 | `RELEASE_PLEASE_TOKEN` | PAT for release-please to create release PRs and push tags (required for automated releases) |
@@ -373,13 +275,12 @@ Run `./scripts/setup.sh` to generate secrets.
 
 5. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching.
 
-6. **Control Panel reads .env at create time only** — `restart` doesn't pick up .env changes. Use `--force-recreate`.
 
 7. **Traefik + Plex separation** — Plex runs on host network and cannot be behind Traefik. Access directly at `http://HOST_IP:32400`.
 
 8. **rclone.conf requires `rclone obscure`** — Passwords in rclone.conf must be rclone-obfuscated, not plaintext.
 
-9. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, Control Panel, traefik labels.
+9. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, traefik labels.
 
 ---
 

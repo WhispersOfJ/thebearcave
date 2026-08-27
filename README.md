@@ -1,19 +1,12 @@
 # The Bear Cave
 
-**A unified media infrastructure stack — 22 containers, one `docker compose up -d`.**
+**A unified media infrastructure stack — 21 containers, one `docker compose up -d`.**
 
 Combines all services from media-stack and metacacharr into a single, cohesive deployment. Usenet-only, FUSE-streamed, Plex-served, with a custom metadata cache for fast local updates.
 
 ## Architecture
 
 ```
-                         ┌──────────────────────────────────────────┐
-                         │              Control Panel                │
-                         │        (Django, port 8420, LAN)          │
-                         │    status · logs · restart · queue ops   │
-                         └────────────┬─────────────────────────────┘
-                                      │ talks to everything
-                                      ▼
 ┌──────────┐   indexes   ┌──────────────────────────────┐   serves   ┌──────┐
 │ Prowlarr │────────────▶│       Radarr  +  Sonarr      │───────────▶│ Plex │
 │  :9696   │             │    :7878/:7879  :8989/:8990  │            │ host │
@@ -55,7 +48,6 @@ Combines all services from media-stack and metacacharr into a single, cohesive d
 | **Seerr** | 5055 | Request management |
 | **Plex** | 32400 | Media server (host network) |
 | **Metacache** | 8765 | Custom metadata provider |
-| **Control Panel** | 8420 | Dashboard & operations |
 | **WatchState** | 8705 | Watch state sync |
 | **Grafana** | 3001 | Dashboards & monitoring |
 | **Prometheus** | 9090 | Metrics storage |
@@ -141,7 +133,6 @@ Plex runs on host network for GDM/DLNA/remote access. Access directly at `http:/
 
 ## Roadmap
 
-- [Control Panel Removal Plan](docs/control-panel-removal-plan.html) — migrating the Django backend to direct fish function calls
 
 ## Contributing
 
