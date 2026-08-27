@@ -60,7 +60,9 @@ jobs:
           echo "Current usage: ${USAGE_PCT}%"
           echo "Threshold: ${{ env.THRESHOLD }}%"
 
-          if [ "$USAGE_PCT" -ge "${{ env.THRESHOLD }}" ]; then
+          THRESHOLD="${{ env.THRESHOLD }}"
+          THRESHOLD=${THRESHOLD:-80}
+          if [ "$USAGE_PCT" -ge "$THRESHOLD" ]; then
             echo "above_threshold=true" >> "$GITHUB_OUTPUT"
             echo "⚠️ Disk usage above threshold — cleanup needed"
           else
@@ -167,7 +169,7 @@ jobs:
           USAGE="${{ steps.disk.outputs.usage_pct }}"
           THRESHOLD="${{ env.THRESHOLD }}"
           DRY_RUN="${{ inputs.dry_run }}"
-          RECLAIMED="${{ steps.pruning.outputs.reclaimed_mb || echo 'N/A' }}"
+          RECLAIMED="${{ steps.pruning.outputs.reclaimed_mb || 'N/A' }}"
 
           if [ "$DRY_RUN" = "true" ]; then
             TITLE="🧹 Disk Cleanup — Dry Run"
@@ -213,16 +215,18 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## Disk Cleanup" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Current Usage | ${{ steps.disk.outputs.usage_pct }}% |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Threshold | ${{ env.THRESHOLD }}% |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Above Threshold | ${{ steps.disk.outputs.above_threshold }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Dry Run | ${{ inputs.dry_run }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Reclaimed | ${{ steps.pruning.outputs.reclaimed_mb || 'N/A' }} MB |" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cat /tmp/disk-before.txt >> "$GITHUB_STEP_SUMMARY" || true
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Disk Cleanup"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Current Usage | ${{ steps.disk.outputs.usage_pct }}% |"
+            echo "| Threshold | ${{ env.THRESHOLD }}% |"
+            echo "| Above Threshold | ${{ steps.disk.outputs.above_threshold }} |"
+            echo "| Dry Run | ${{ inputs.dry_run }} |"
+            echo "| Reclaimed | ${{ steps.pruning.outputs.reclaimed_mb || 'N/A' }} MB |"
+            echo ""
+            echo '```'
+            cat /tmp/disk-before.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

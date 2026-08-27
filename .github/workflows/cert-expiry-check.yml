@@ -55,8 +55,7 @@ jobs:
             2>/dev/null | openssl x509 -outform PEM > "$CERT_FILE" 2>/dev/null || true
 
           if [ ! -s "$CERT_FILE" ]; then
-            echo "status=error" >> "$GITHUB_OUTPUT"
-            echo "message=Could not probe certificate from $HOST_URL" >> "$GITHUB_OUTPUT"
+            { echo "status=error"; echo "message=Could not probe certificate from $HOST_URL"; } >> "\$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -81,19 +80,14 @@ jobs:
           echo "  SANs: $SAN"
 
           if [ "$DAYS_LEFT" -le 0 ]; then
-            echo "status=expired" >> "$GITHUB_OUTPUT"
-            echo "message=🔴 CERTIFICATE EXPIRED $((DAYS_LEFT * -1)) days ago" >> "$GITHUB_OUTPUT"
+            { echo "status=expired"; echo "message=🔴 CERTIFICATE EXPIRED $((DAYS_LEFT * -1)) days ago"; } >> "\$GITHUB_OUTPUT"
           elif [ "$DAYS_LEFT" -le "$WARNING_DAYS" ]; then
-            echo "status=warning" >> "$GITHUB_OUTPUT"
-            echo "message=⚠️ Certificate expires in $DAYS_LEFT days ($EXPIRY_DATE)" >> "$GITHUB_OUTPUT"
+            { echo "status=warning"; echo "message=⚠️ Certificate expires in $DAYS_LEFT days ($EXPIRY_DATE)"; } >> "\$GITHUB_OUTPUT"
           else
-            echo "status=ok" >> "$GITHUB_OUTPUT"
-            echo "message=✅ Certificate valid for $DAYS_LEFT days (expires $EXPIRY_DATE)" >> "$GITHUB_OUTPUT"
+            { echo "status=ok"; echo "message=✅ Certificate valid for $DAYS_LEFT days (expires $EXPIRY_DATE)"; } >> "\$GITHUB_OUTPUT"
           fi
 
-          echo "days_left=$DAYS_LEFT" >> "$GITHUB_OUTPUT"
-          echo "expiry_date=$EXPIRY_DATE" >> "$GITHUB_OUTPUT"
-          echo "issuer=$ISSUER" >> "$GITHUB_OUTPUT"
+          { echo "days_left=$DAYS_LEFT"; echo "expiry_date=$EXPIRY_DATE"; echo "issuer=$ISSUER"; } >> "\$GITHUB_OUTPUT"
 
       - name: Send Discord alert
         if: steps.check.outputs.status != 'ok' && steps.check.outputs.status != ''
@@ -144,20 +138,20 @@ jobs:
 
       - name: Summary
         run: |
-          STATUS="${{ steps.check.outputs.status }}"
-          MESSAGE="${{ steps.check.outputs.message }}"
-          echo "## Certificate Check" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "$MESSAGE" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Status | $STATUS |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Days Left | ${{ steps.check.outputs.days_left }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Expiry | ${{ steps.check.outputs.expiry_date }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Issuer | ${{ steps.check.outputs.issuer }} |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Certificate Check"
+            echo ""
+            echo "${{ steps.check.outputs.message }}"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Status | ${{ steps.check.outputs.status }} |"
+            echo "| Days Left | ${{ steps.check.outputs.days_left }} |"
+            echo "| Expiry | ${{ steps.check.outputs.expiry_date }} |"
+            echo "| Issuer | ${{ steps.check.outputs.issuer }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "$STATUS" = "expired" ]; then
+          if [ "${{ steps.check.outputs.status }}" = "expired" ]; then
             echo "::error::Certificate has expired! Renew immediately."
             exit 1
           elif [ "$STATUS" = "warning" ]; then
