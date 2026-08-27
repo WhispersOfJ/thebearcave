@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.7.0...v1.8.0) (2026-08-27)
+
+
+### Features
+
+* **fish:** Phase 1 — direct service API helpers, bypass control panel ([a78c8bf](https://github.com/WhispersOfJ/thebearcave/commit/a78c8bf0258b9777727d5a3c78ab123315e2cd1e))
+
+
+### Bug Fixes
+
+* **helper:** fix image/command order, input validation, error handling ([aef7108](https://github.com/WhispersOfJ/thebearcave/commit/aef71084143fb9c824d32bba31fda73daa3ddc9a))
+* **security:** remove writable Docker socket from control-panel (item [#1](https://github.com/WhispersOfJ/thebearcave/issues/1)) ([4fe6321](https://github.com/WhispersOfJ/thebearcave/commit/4fe6321f1766d5d811ed65d0eae2fd65a34ccd83))
+
 ## [1.7.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.6.0...v1.7.0) (2026-08-27)
 
 
