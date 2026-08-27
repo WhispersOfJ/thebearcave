@@ -139,6 +139,10 @@ Plex runs on host network for GDM/DLNA/remote access. Access directly at `http:/
 - **Port 8080:** cAdvisor binds to host port 8080. Ensure no other service on the host uses this port.
 - **FUSE mounts:** The nzbdav_rclone sidecar requires `/dev/fuse` and `SYS_ADMIN` capability. Ensure your Docker runtime supports FUSE passthrough.
 
+## Roadmap
+
+- [Control Panel Removal Plan](docs/control-panel-removal-plan.html) — migrating the Django backend to direct fish function calls
+
 ## Contributing
 
 See [CLAUDE.md](CLAUDE.md) for development guidelines.
