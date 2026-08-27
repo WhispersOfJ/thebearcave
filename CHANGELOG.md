@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.6.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.5.0...v1.6.0) (2026-08-27)
+
+
+### Features
+
+* Alertmanager with Discord notifications + Cleanuparr setup docs ([18861dc](https://github.com/WhispersOfJ/thebearcave/commit/18861dcd321cf5956908b8bce84c5328378eb419))
+* **cli:** add /api/v2/cli/ endpoints for fish functions ([32f475c](https://github.com/WhispersOfJ/thebearcave/commit/32f475c04655daff966bbd2d9904673c6d8ba1a7))
+* **fish:** complete rewrite of all fish functions — 95 API-backed + 23 host tools ([979d769](https://github.com/WhispersOfJ/thebearcave/commit/979d76935df5b9429476d7250145237fc03dac25))
+* monitoring stack — Grafana dashboards, Prometheus alert rules, landing page integration test ([edb6c5c](https://github.com/WhispersOfJ/thebearcave/commit/edb6c5ca418a9d2f669577481b8cf097cb845be8))
+* **security:** add login rate limiting and failed-attempt logging ([523d840](https://github.com/WhispersOfJ/thebearcave/commit/523d84087a9cec78bc9c51e626925efe5e7f7465))
+
+
+### Bug Fixes
+
+* **catalog:** change network constant from 'stacknet' to 'bearcave' ([d16248e](https://github.com/WhispersOfJ/thebearcave/commit/d16248e50364f8cf6f9f6ab1367db558f621d549))
+* **test:** use temp file to avoid pipefail issue with large HTML pages ([94defd8](https://github.com/WhispersOfJ/thebearcave/commit/94defd8ace62ec3c79a4a3d517307b974b29bd73))
+
+
+### Performance Improvements
+
+* gzip compression + lazy-load Mermaid for landing page ([ea70f4d](https://github.com/WhispersOfJ/thebearcave/commit/ea70f4d57ad1b2d72d3b3045c7e7d1d494b1e015))
+
 ## [1.5.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.4.1...v1.5.0) (2026-08-26)
 
 
