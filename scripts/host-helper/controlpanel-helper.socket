@@ -1,0 +1,10 @@
+[Unit]
+Description=controlpanel-helper privileged-action socket
+
+[Socket]
+ListenStream=/run/controlpanel-helper.sock
+SocketGroup=controlpanel-helper
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

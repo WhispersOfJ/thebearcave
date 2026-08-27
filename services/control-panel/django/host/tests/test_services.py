@@ -182,8 +182,8 @@ def test_restart_container_requires_activated_for_plex(monkeypatch):
 def test_restart_container_with_activated_restarts_plex(monkeypatch):
     containers = [_FakeContainer("plex")]
     _fake_project(monkeypatch, containers)
+    monkeypatch.setattr("host.services.container.helper_restart", lambda name: "restarted")
     message = services.restart_container("plex", activated=True)
-    assert containers[0].restart_calls == 1
     assert "restarted" in message
 
 
@@ -205,8 +205,8 @@ def test_stop_container_skips_when_not_running(monkeypatch):
 def test_stop_container_stops_running(monkeypatch):
     containers = [_FakeContainer("radarr")]
     _fake_project(monkeypatch, containers)
+    monkeypatch.setattr("host.services.container.helper_stop", lambda name, timeout=30: "stopped")
     message = services.stop_container("radarr")
-    assert containers[0].stop_calls == 1
     assert "stopped" in message
 
 
@@ -221,8 +221,8 @@ def test_start_container_skips_when_running(monkeypatch):
 def test_start_container_starts_stopped(monkeypatch):
     containers = [_FakeContainer("radarr", status="exited")]
     _fake_project(monkeypatch, containers)
+    monkeypatch.setattr("host.services.container.helper_start", lambda name: "started")
     message = services.start_container("radarr")
-    assert containers[0].start_calls == 1
     assert "started" in message
 
 
@@ -249,6 +249,8 @@ def test_restart_all_returns_names_and_runs_worker(monkeypatch):
     # wait_for_healthy sleeps in a loop - stub it so the worker thread
     # finishes quickly and deterministically.
     monkeypatch.setattr("host.services.container.wait_for_healthy", lambda c, timeout=60: None)
+    # helper_restart goes through the host helper daemon
+    monkeypatch.setattr("host.services.container.helper_restart", lambda name: "restarted")
 
     message = services.restart_all()
     assert "radarr" in message and "sonarr" in message
@@ -313,11 +315,13 @@ def test_disk_health_reports_mount_and_reclaimable(monkeypatch, tmp_path):
 
 
 def test_prune_disk_reports_reclaimed(monkeypatch):
+    monkeypatch.setattr("host.services.maintenance.helper_prune_images", lambda: {"ok": True, "message": "Total reclaimed space: 100 B"})
+    monkeypatch.setattr("host.services.maintenance.helper_prune_volumes", lambda: {"ok": True, "message": "Total reclaimed space: 200 B"})
     result = services.prune_disk()
-    assert "Reclaimed" in result
-    assert "1 image(s)" in result
-    assert "1 volume(s)" in result
-    assert "300 B" in result
+    assert "Image prune:" in result
+    assert "Volume prune:" in result
+    assert "100 B" in result
+    assert "200 B" in result
 
 
 def test_host_resources_reads_host_proc(monkeypatch, tmp_path):

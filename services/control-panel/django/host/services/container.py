@@ -1,7 +1,11 @@
 """Container lifecycle operations — list, restart, stop, start, logs, restart-all.
 
-Extracted from host/services.py. Handles all Docker container management
+Extracted from host/services.py. Handles Docker container management
 operations for the compose project.
+
+Write operations (restart/stop/start) route through the host helper
+daemon for security — the Docker socket is read-only.
+Read operations (list/stats/logs) use the Docker SDK directly.
 """
 import concurrent.futures
 import threading
@@ -15,6 +19,9 @@ from core.docker_client import (
     container_stats,
     docker_client,
     find_project_container,
+    helper_restart,
+    helper_start,
+    helper_stop,
     project_containers,
     wait_for_healthy,
 )
@@ -74,9 +81,10 @@ def restart_container(name: str, activated: bool = False) -> str:
             "enough (by design). Pass activated=true explicitly to restart Plex.",
             status=400,
         )
-    c = find_project_container(name, reject_self=True)
+    # Validate the container exists in the project (read-only check)
+    find_project_container(name, reject_self=True)
     try:
-        c.restart(timeout=30)
+        helper_restart(name)
     except Exception as e:
         raise ServiceError(f"Restart failed: {e}") from e
     return f"{container_label(name)} restarted."
@@ -87,7 +95,7 @@ def stop_container(name: str) -> str:
     if c.status != "running":
         return f"{container_label(name)} is already {c.status}."
     try:
-        c.stop(timeout=30)
+        helper_stop(name)
     except Exception as e:
         raise ServiceError(f"Stop failed: {e}") from e
     return f"{container_label(name)} stopped."
@@ -98,7 +106,7 @@ def start_container(name: str) -> str:
     if c.status == "running":
         return f"{container_label(name)} is already running."
     try:
-        c.start()
+        helper_start(name)
     except Exception as e:
         raise ServiceError(f"Start failed: {e}") from e
     return f"{container_label(name)} started."
@@ -135,32 +143,32 @@ def restart_all() -> str:
     def worker():
         for c in prereqs:
             try:
-                c.restart(timeout=30)
+                helper_restart(c.name)
             except Exception as e:
                 print(f"restart-all: failed to restart {c.name}: {e}")
         for c in prereqs:
             wait_for_healthy(c)
         for c in providers:
             try:
-                c.restart(timeout=30)
+                helper_restart(c.name)
             except Exception as e:
                 print(f"restart-all: failed to restart {c.name}: {e}")
         for c in providers:
             wait_for_healthy(c)
         for c in rest:
             try:
-                c.restart(timeout=30)
+                helper_restart(c.name)
             except Exception as e:
                 print(f"restart-all: failed to restart {c.name}: {e}")
         for c in dependents:
             try:
-                c.restart(timeout=30)
+                helper_restart(c.name)
             except Exception as e:
                 print(f"restart-all: failed to restart {c.name}: {e}")
         # nzbdav bind-mounts /mnt directly too - re-restart to rebind
         for c in prereqs:
             try:
-                c.restart(timeout=30)
+                helper_restart(c.name)
             except Exception as e:
                 print(f"restart-all: failed to restart {c.name}: {e}")
 

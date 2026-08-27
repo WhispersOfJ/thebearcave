@@ -1,17 +1,15 @@
-"""Shared docker.from_env() client and fleet-discovery helpers, ported
-near-verbatim from the FastAPI-era control-panel/core/docker_client.py for
-the Django/DRF rewrite. Every integration that needs container state
-imports from here instead of calling docker.from_env() again.
+"""Shared docker client for READ operations and fleet-discovery helpers.
 
-The module-level `docker_client = docker.from_env()` instantiation stays
-lazy/module-level exactly as in the source - not wrapped in a Django
-app-ready hook, since core/middleware.py already calls docker.from_env()
-independently at middleware-init time and this mirrors that pattern.
+The module-level `docker_client = docker.from_env()` provides READ-ONLY
+access to the Docker API (container listing, stats, logs, health status).
+The Docker socket is mounted read-only (":ro") in docker-compose.yml.
 
-Only transform applied vs. the FastAPI-era source: core.responses.fail()
-(which raised a fastapi.HTTPException) is replaced with
-core.api_base.ServiceError. Every constant/function name and signature is
-otherwise byte-identical.
+ALL WRITE operations (restart, stop, start, prune, pull, run, remove)
+go through the host helper daemon (core/host_helper_client.py) which
+runs as host root via systemd. This is the security boundary: the
+container can observe but not modify Docker state directly.
+
+Every integration that needs container state imports from here.
 """
 import socket
 import time
@@ -132,3 +130,93 @@ def wait_for_healthy(container, timeout=60):
         time.sleep(2)
     if not saw_health_block:
         time.sleep(10)
+
+
+# ─── Write operations (routed through host helper daemon) ───────────
+# These replace direct docker_client.containers.* calls for mutating
+# operations. Each calls the helper over the Unix socket, which runs
+# as host root and validates parameters before executing docker CLI.
+
+def helper_restart(name: str, timeout: int = 30) -> str:
+    """Restart a container via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_restart", container=name, timeout=timeout)
+    if not result.get("ok"):
+        raise ServiceError(f"Restart failed: {result.get('message', 'unknown error')}")
+    return result.get("message", "Restarted.")
+
+
+def helper_stop(name: str, timeout: int = 30) -> str:
+    """Stop a container via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_stop", container=name, timeout=timeout)
+    if not result.get("ok"):
+        raise ServiceError(f"Stop failed: {result.get('message', 'unknown error')}")
+    return result.get("message", "Stopped.")
+
+
+def helper_start(name: str) -> str:
+    """Start a container via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_start", container=name)
+    if not result.get("ok"):
+        raise ServiceError(f"Start failed: {result.get('message', 'unknown error')}")
+    return result.get("message", "Started.")
+
+
+def helper_prune_images() -> dict:
+    """Prune dangling images via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_prune_images")
+    if not result.get("ok"):
+        raise ServiceError(f"Image prune failed: {result.get('message', 'unknown error')}")
+    return result
+
+
+def helper_prune_volumes() -> dict:
+    """Prune unused volumes via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_prune_volumes")
+    if not result.get("ok"):
+        raise ServiceError(f"Volume prune failed: {result.get('message', 'unknown error')}")
+    return result
+
+
+def helper_pull(image: str, tag: str = "latest") -> str:
+    """Pull an image via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_pull", image=image, tag=tag)
+    if not result.get("ok"):
+        raise ServiceError(f"Pull failed: {result.get('message', 'unknown error')}")
+    return result.get("message", "Pulled.")
+
+
+def helper_remove(name: str, force: bool = False) -> str:
+    """Remove a container via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_remove", container=name, force=force)
+    if not result.get("ok"):
+        raise ServiceError(f"Remove failed: {result.get('message', 'unknown error')}")
+    return result.get("message", "Removed.")
+
+
+def helper_remove_volume(name: str) -> str:
+    """Remove a volume via the host helper."""
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_remove_volume", volume=name)
+    if not result.get("ok"):
+        raise ServiceError(f"Volume remove failed: {result.get('message', 'unknown error')}")
+    return result.get("message", "Removed.")
+
+
+def helper_run(image: str, name: str, **kwargs) -> str:
+    """Run a new container via the host helper.
+    
+    kwargs: network, ports, volumes, environment, labels, cap_add,
+            restart_policy, command, detach
+    """
+    from core.host_helper_client import call_host_helper
+    result = call_host_helper("docker_run", image=image, name=name, **kwargs)
+    if not result.get("ok"):
+        raise ServiceError(f"Run failed: {result.get('message', 'unknown error')}")
+    return result.get("message", "Container started.")

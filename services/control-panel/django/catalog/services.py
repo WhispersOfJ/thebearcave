@@ -1,23 +1,17 @@
 """Curated software catalog: install/remove/list for the vetted programs
 in registry.py. Ported from control-panel/services/catalog/router.py.
 
-Auth split (documented at the view layer, matching the FastAPI-era
-router.py docstring): list_catalog/get_status accept a session OR a
-service key (IsAuthenticatedOrServiceKey) so the catalog grid can render
-without a session hiccup, the same as other read-only panels. install/
-remove are manual UI actions with no automation caller, so they require
-a real session (IsAuthenticatedSessionOnly) - the same split
-radarr/services.py and host_actions/services.py document at their own
-top.
+All Docker write operations (pull, run, stop, remove, volume remove)
+go through the host helper daemon for security. The Docker socket is
+read-only for listing and inspection only.
 
-The `confirm` gate for install/remove lives in the view layer (matches
-host_actions' _ConfirmedActionView pattern) - these functions assume the
-caller already confirmed and never see a `confirm` argument.
+Auth split: list_catalog/get_status accept a session OR a service key.
+install/remove require a real session (IsAuthenticatedSessionOnly).
 """
 import docker
 
 from core.api_base import ServiceError
-from core.docker_client import docker_client
+from core.docker_client import docker_client, helper_pull, helper_remove, helper_remove_volume, helper_run, helper_stop
 from catalog.registry import CATALOG, CATALOG_BY_ID, CATALOG_LABEL, NETWORK
 
 
@@ -104,32 +98,39 @@ def install(catalog_id: str) -> dict:
             status=409,
         )
 
-    image_ref = f"{entry['image']}:{entry['tag']}"
+    # Pull image via host helper
     try:
-        docker_client.images.pull(entry["image"], tag=entry["tag"])
-    except docker.errors.APIError as e:
-        raise ServiceError(f"Failed to pull {image_ref}: {e}") from e
+        helper_pull(entry["image"], entry["tag"])
+    except Exception as e:
+        raise ServiceError(f"Failed to pull {entry['image']}:{entry['tag']}: {e}") from e
 
-    volumes = dict(entry["volumes"])
+    # Build volumes dict for the helper
+    volumes = []
+    for vol_name, vol_conf in entry["volumes"].items():
+        if isinstance(vol_conf, dict):
+            volumes.append({"source": vol_name, "target": vol_conf.get("bind", vol_name), "mode": vol_conf.get("mode", "rw")})
+        else:
+            volumes.append({"source": vol_name, "target": vol_conf, "mode": "rw"})
+
     if entry.get("docker_sock"):
         mode = "rw" if catalog_id == "portainer" else "ro"
-        volumes["/var/run/docker.sock"] = {"bind": "/var/run/docker.sock", "mode": mode}
+        volumes.append({"source": "/var/run/docker.sock", "target": "/var/run/docker.sock", "mode": mode})
 
+    # Run container via host helper
     try:
-        docker_client.containers.run(
-            image_ref,
+        helper_run(
+            image=f"{entry['image']}:{entry['tag']}",
             name=name,
             network=NETWORK,
             ports=entry["ports"],
             volumes=volumes,
             environment=entry["environment"],
-            cap_add=entry["cap_add"] or None,
+            cap_add=entry["cap_add"],
             command=entry.get("command"),
-            restart_policy={"Name": "unless-stopped"},
+            restart_policy="unless-stopped",
             labels={CATALOG_LABEL: catalog_id},
-            detach=True,
         )
-    except docker.errors.APIError as e:
+    except Exception as e:
         raise ServiceError(f"{entry['name']} failed to start: {e}") from e
 
     message = f"{entry['name']} installed and starting."
@@ -147,10 +148,13 @@ def remove(catalog_id: str, remove_volumes: bool = False) -> dict:
     if c is None:
         raise ServiceError(f"{entry['name']} isn't installed.", status=404)
 
+    name = _container_name(catalog_id)
+
+    # Stop and remove via host helper
     try:
-        c.stop(timeout=15)
-        c.remove(v=False)
-    except docker.errors.APIError as e:
+        helper_stop(name, timeout=15)
+        helper_remove(name)
+    except Exception as e:
         raise ServiceError(f"Failed to remove {entry['name']}: {e}") from e
 
     volume_note = ""
@@ -158,11 +162,9 @@ def remove(catalog_id: str, remove_volumes: bool = False) -> dict:
         removed, errors = [], []
         for vol_name in entry["volumes"]:
             try:
-                docker_client.volumes.get(vol_name).remove()
+                helper_remove_volume(vol_name)
                 removed.append(vol_name)
-            except docker.errors.NotFound:
-                continue
-            except docker.errors.APIError as e:
+            except Exception as e:
                 errors.append(f"{vol_name}: {e}")
         volume_note = f" Removed {len(removed)} volume(s)."
         if errors:

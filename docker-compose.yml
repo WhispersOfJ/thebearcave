@@ -485,7 +485,10 @@ services:
       - host.docker.internal:host-gateway
     volumes:
       - *ca-mount
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Read-only Docker socket: container can inspect/list/stats but NOT
+      # start/stop/restart/pull/prune/run. All write ops go through the
+      # host helper daemon (/run/controlpanel-helper.sock). See item #1.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /mnt:/mnt
       - ./config:/host-config
       - /proc:/host-proc

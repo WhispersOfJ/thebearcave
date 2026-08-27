@@ -11,7 +11,7 @@ import httpx
 from core import settings as settings_core
 from core.api_base import ServiceError
 from core.arr_client import ARR_APPS, PROWLARR_CFG
-from core.docker_client import container_stats, docker_client, project_containers
+from core.docker_client import container_stats, docker_client, helper_prune_images, helper_prune_volumes, project_containers
 from core.formatters import human_size
 
 LOG_LEVEL_APPS = {
@@ -30,16 +30,17 @@ def patch_settings(patch: dict) -> dict:
 
 
 def prune_disk() -> str:
-    """Prunes dangling images and unused volumes only."""
+    """Prunes dangling images and unused volumes via the host helper."""
     try:
-        images_result = docker_client.images.prune()
-        volumes_result = docker_client.volumes.prune()
-    except docker.errors.APIError as e:
+        images_result = helper_prune_images()
+        volumes_result = helper_prune_volumes()
+    except Exception as e:
         raise ServiceError(f"Prune failed: {e}") from e
-    reclaimed = (images_result.get("SpaceReclaimed") or 0) + (volumes_result.get("SpaceReclaimed") or 0)
-    return (f"Reclaimed {human_size(reclaimed, fallback='0 B')} "
-            f"({len(images_result.get('ImagesDeleted') or [])} image(s), "
-            f"{len(volumes_result.get('VolumesDeleted') or [])} volume(s)).")
+    # The helper returns CLI output text, not structured data.
+    # Parse the message for basic stats.
+    img_msg = images_result.get("message", "")
+    vol_msg = volumes_result.get("message", "")
+    return f"Image prune: {img_msg}\nVolume prune: {vol_msg}"
 
 
 def log_levels() -> dict:

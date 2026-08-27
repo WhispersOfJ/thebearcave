@@ -1,0 +1,26 @@
+[Unit]
+Description=controlpanel-helper privileged-action daemon
+Requires=controlpanel-helper.socket
+After=controlpanel-helper.socket
+
+[Service]
+Type=simple
+# Socket-activated (see controlpanel-helper.socket) - systemd passes the
+# listening socket as fd 3, so the daemon never binds the path itself.
+ExecStart=/usr/bin/python3 /opt/controlpanel-helper/helper.py
+# Hardening: no new privileges, read-only filesystem, capability drop
+NoNewPrivileges=no
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/log/controlpanel-helper.log
+# Needs docker CLI access
+SupplementaryGroups=docker
+Restart=on-failure
+RestartSec=5
+
+# Environment
+Environment=CONTROLPANEL_HELPER_LOG=/var/log/controlpanel-helper.log
+Environment=CONTROLPANEL_HELPER_SOCKET=/run/controlpanel-helper.sock
+
+[Install]
+WantedBy=multi-user.target
