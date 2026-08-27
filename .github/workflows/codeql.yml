@@ -12,6 +12,17 @@ on:
     branches: [main]
   schedule:
     - cron: "22 3 * * 1" # Monday 03:22 UTC
+  workflow_dispatch:
+    inputs:
+      language:
+        description: "Language to scan (blank = all)"
+        required: false
+        default: ""
+        type: choice
+        options:
+          - ""
+          - python
+          - csharp
 
 permissions:
   security-events: write
@@ -25,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["python", "csharp"]
+        language: ${{ github.event.inputs.language && fromJSON(format('["{0}"]', github.event.inputs.language)) || fromJSON('["python", "csharp"]') }}
 
     steps:
       - name: Checkout repository
