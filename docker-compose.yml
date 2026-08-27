@@ -102,7 +102,7 @@ services:
   # ==========================================================================
   prowlarr:
     <<: *common
-    image: ghcr.io/hotio/prowlarr:1.33.0
+    image: ghcr.io/hotio/prowlarr:release
     container_name: prowlarr
     networks: [bearcave]
     healthcheck:
@@ -127,7 +127,7 @@ services:
   # ==========================================================================
   radarr:
     <<: *common
-    image: ghcr.io/hotio/radarr:6.3.0
+    image: ghcr.io/hotio/radarr:release
     container_name: radarr
     mem_limit: 1g
     cpus: "1.0"
@@ -158,7 +158,7 @@ services:
 
   sonarr:
     <<: *common
-    image: ghcr.io/hotio/sonarr:4.0.19
+    image: ghcr.io/hotio/sonarr:release
     container_name: sonarr
     mem_limit: 2g
     cpus: "1.0"
@@ -193,7 +193,7 @@ services:
   nzbdav:
     restart: unless-stopped
     logging: *common-logging
-    image: ghcr.io/infinidysk/infinidysk:1.4.2
+    image: ghcr.io/infinidysk/infinidysk:latest
     container_name: nzbdav
     mem_limit: 2g
     cpus: "1.0"
@@ -281,7 +281,7 @@ services:
       - "traefik.http.routers.nzbdav.tls=true"
 
   nzbdav_rclone:
-    image: rclone/rclone:1.69.1
+    image: rclone/rclone:latest
     container_name: nzbdav_rclone
     mem_limit: 1g
     cpus: "1.0"
@@ -378,7 +378,7 @@ services:
     restart: unless-stopped
     logging: *common-logging
     stop_grace_period: 90s
-    image: plexinc/pms-docker:1.41.3
+    image: plexinc/pms-docker:latest
     container_name: plex
     mem_limit: 2g
     cpus: "2.0"
@@ -526,7 +526,7 @@ services:
   watchstate:
     restart: unless-stopped
     logging: *common-logging
-    image: ghcr.io/arabcoders/watchstate:1.0.46
+    image: ghcr.io/arabcoders/watchstate:latest
     container_name: watchstate
     mem_limit: 256m
     cpus: "0.25"
@@ -692,7 +692,7 @@ services:
   prometheus:
     restart: unless-stopped
     logging: *common-logging
-    image: prom/prometheus:v3.1.0
+    image: prom/prometheus:latest
     container_name: prometheus
     mem_limit: 1g
     cpus: "1.0"
@@ -725,7 +725,7 @@ services:
   alertmanager:
     restart: unless-stopped
     logging: *common-logging
-    image: prom/alertmanager:v0.28.0
+    image: prom/alertmanager:latest
     container_name: alertmanager
     mem_limit: 128m
     cpus: "0.25"
@@ -750,7 +750,7 @@ services:
   node-exporter:
     restart: unless-stopped
     logging: *common-logging
-    image: prom/node-exporter:v1.8.2
+    image: prom/node-exporter:latest
     container_name: node-exporter
     mem_limit: 64m
     cpus: "0.1"
@@ -781,7 +781,7 @@ services:
   cadvisor:
     restart: unless-stopped
     logging: *common-logging
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
     mem_limit: 512m
     cpus: "0.5"
