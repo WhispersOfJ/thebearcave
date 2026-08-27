@@ -32,9 +32,10 @@ function __stack_api
     end
 
     # ── NzbDAV API ────────────────────────────────────────────────
+    # NzbDAV uses /api?mode=<mode>&output=json — extract mode from path
     if string match -q '/api/v2/cli/nzbdav/*' $path
-        set -l nzbdav_path (string replace '/api/v2/cli/nzbdav' '' $path)
-        __nzbdav_api $method $nzbdav_path $body
+        set -l nzbdav_mode (string replace '/api/v2/cli/nzbdav/' '' $path)
+        __nzbdav_api $method $nzbdav_mode $body
         return
     end
 
@@ -162,12 +163,17 @@ function __stack_api
 
     # Log levels
     if test "$path" = "/api/v2/cli/log-levels"
+        # Per-app config: URL + API key pairs
+        set -l apps radarr sonarr prowlarr
+        set -l urls $RADARR_URL $SONARR_URL $PROWLARR_URL
+        set -l keys $RADARR_API_KEY $SONARR_API_KEY $PROWLARR_API_KEY
         if test "$method" = "POST"
             # Reset all to info
-            for app in radarr sonarr prowlarr
-                set -l url (eval echo \$$app:toupper)_URL
+            for i in (seq (count $apps))
+                set -l app $apps[$i]
+                set -l url $urls[$i]
+                set -l key $keys[$i]
                 test -z "$url"; and continue
-                set -l key (eval echo \$$app:toupper)_API_KEY
                 set -l cfg (curl -sS "$url/api/v3/config/host" -H "X-Api-Key: $key" 2>/dev/null)
                 test -z "$cfg"; and continue
                 set -l id (echo $cfg | grep -oP '"id":\s*\K\d+')
@@ -179,10 +185,11 @@ function __stack_api
                 echo "Reset $app to info"
             end
         else
-            for app in radarr sonarr prowlarr
-                set -l url (eval echo \$$app:toupper)_URL
+            for i in (seq (count $apps))
+                set -l app $apps[$i]
+                set -l url $urls[$i]
+                set -l key $keys[$i]
                 test -z "$url"; and echo "$app: unreachable"; and continue
-                set -l key (eval echo \$$app:toupper)_API_KEY
                 set -l level (curl -sS "$url/api/v3/config/host" -H "X-Api-Key: $key" 2>/dev/null | grep -oP '"logLevel":\s*"\K[^"]+')
                 echo "  $app: $level"
             end
