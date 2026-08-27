@@ -40,6 +40,8 @@ x-common: &common
   restart: unless-stopped
   security_opt:
     - no-new-privileges:true
+  mem_limit: 256m
+  cpus: "0.5"
   environment: &common-env
     <<: *ca-env
     PUID: ${PUID}
@@ -64,6 +66,8 @@ services:
   traefik:
     image: traefik:v3.7
     container_name: traefik
+    mem_limit: 128m
+    cpus: "0.25"
     restart: unless-stopped
     logging: *common-logging
     environment:
@@ -125,6 +129,8 @@ services:
     <<: *common
     image: ghcr.io/hotio/radarr:6.3.0
     container_name: radarr
+    mem_limit: 1g
+    cpus: "1.0"
     networks: [bearcave]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:7878/ping || exit 1"]
@@ -154,6 +160,8 @@ services:
     <<: *common
     image: ghcr.io/hotio/sonarr:4.0.19
     container_name: sonarr
+    mem_limit: 2g
+    cpus: "1.0"
     networks: [bearcave]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8989/ping || exit 1"]
@@ -187,6 +195,8 @@ services:
     logging: *common-logging
     image: ghcr.io/infinidysk/infinidysk:1.4.2
     container_name: nzbdav
+    mem_limit: 2g
+    cpus: "1.0"
     networks: [bearcave]
     depends_on:
       prowlarr:
@@ -273,6 +283,8 @@ services:
   nzbdav_rclone:
     image: rclone/rclone:1.69.1
     container_name: nzbdav_rclone
+    mem_limit: 1g
+    cpus: "1.0"
     restart: unless-stopped
     logging: *common-logging
     networks: [bearcave]
@@ -336,6 +348,8 @@ services:
     logging: *common-logging
     image: ghcr.io/seerr-team/seerr
     container_name: seerr
+    mem_limit: 512m
+    cpus: "0.5"
     networks: [bearcave]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5055/api/v1/status >/dev/null 2>&1 || exit 1"]
@@ -366,6 +380,8 @@ services:
     stop_grace_period: 90s
     image: plexinc/pms-docker:1.41.3
     container_name: plex
+    mem_limit: 2g
+    cpus: "2.0"
     network_mode: host
     devices:
       - /dev/dri:/dev/dri
@@ -406,6 +422,8 @@ services:
       context: ./services/metacache
       dockerfile: Dockerfile
     container_name: metacache
+    mem_limit: 256m
+    cpus: "0.25"
     networks: [bearcave]
     restart: unless-stopped
     logging: *common-logging
@@ -453,6 +471,8 @@ services:
     logging: *common-logging
     image: golift/unpackerr
     container_name: unpackerr
+    mem_limit: 64m
+    cpus: "0.1"
     networks: [bearcave]
     healthcheck:
       test: ["CMD-SHELL", "grep -aq unpackerr /proc/[1-9]*/cmdline 2>/dev/null || exit 1"]
@@ -480,6 +500,8 @@ services:
     <<: *common
     image: ghcr.io/cleanuparr/cleanuparr:2.10.5
     container_name: cleanuparr
+    mem_limit: 128m
+    cpus: "0.25"
     networks: [bearcave]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:11011/ || exit 1"]
@@ -506,6 +528,8 @@ services:
     logging: *common-logging
     image: ghcr.io/arabcoders/watchstate:1.0.46
     container_name: watchstate
+    mem_limit: 256m
+    cpus: "0.25"
     user: "${PUID}:${PGID}"
     environment:
       <<: *ca-env
@@ -543,6 +567,8 @@ services:
     logging: *common-logging
     image: grafana/loki:3.7.6
     container_name: loki
+    mem_limit: 512m
+    cpus: "0.5"
     ports:
       - "3100:3100"
     volumes:
@@ -566,6 +592,8 @@ services:
     logging: *common-logging
     image: grafana/promtail:3.6.11
     container_name: promtail
+    mem_limit: 128m
+    cpus: "0.25"
     healthcheck:
       test: ["CMD-SHELL", "wget --spider http://localhost:9080/ready || exit 1"]
       interval: 30s
@@ -593,6 +621,8 @@ services:
     logging: *common-logging
     image: grafana/grafana:13.2.0
     container_name: grafana
+    mem_limit: 512m
+    cpus: "0.5"
     ports:
       - "3001:3000"
     volumes:
@@ -638,6 +668,8 @@ services:
     restart: unless-stopped
     logging: *common-logging
     container_name: nzbdav-exporter
+    mem_limit: 64m
+    cpus: "0.1"
     networks: [bearcave]
     environment:
       <<: *ca-env
@@ -662,6 +694,8 @@ services:
     logging: *common-logging
     image: prom/prometheus:v3.1.0
     container_name: prometheus
+    mem_limit: 1g
+    cpus: "1.0"
     ports:
       - "9090:9090"
     volumes:
@@ -693,6 +727,8 @@ services:
     logging: *common-logging
     image: prom/alertmanager:v0.28.0
     container_name: alertmanager
+    mem_limit: 128m
+    cpus: "0.25"
     ports:
       - "9093:9093"
     volumes:
@@ -716,6 +752,8 @@ services:
     logging: *common-logging
     image: prom/node-exporter:v1.8.2
     container_name: node-exporter
+    mem_limit: 64m
+    cpus: "0.1"
     pid: host
     network_mode: host
     healthcheck:
@@ -745,6 +783,8 @@ services:
     logging: *common-logging
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: cadvisor
+    mem_limit: 512m
+    cpus: "0.5"
     privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
@@ -774,6 +814,8 @@ services:
   arr-dashboard:
     image: khak1s/arr-dashboard:latest
     container_name: arr-dashboard
+    mem_limit: 512m
+    cpus: "0.5"
     restart: unless-stopped
     logging: *common-logging
     healthcheck:
@@ -806,6 +848,8 @@ services:
   landing-page:
     image: nginx:alpine
     container_name: landing-page
+    mem_limit: 64m
+    cpus: "0.1"
     restart: unless-stopped
     logging: *common-logging
     healthcheck:
