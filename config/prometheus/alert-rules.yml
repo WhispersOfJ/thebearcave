@@ -133,3 +133,36 @@ groups:
         annotations:
           summary: "Node exporter is down"
           description: "Host metrics collection has stopped. Check node-exporter."
+
+      # Backup freshness — fires if backup.sh hasn't written in 25 hours
+      - alert: BackupStale
+        expr: |
+          time() - node_filesystem_mtime_seconds{mountpoint="/",fstype!~"tmpfs|overlay"} > 90000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup may be stale"
+          description: "No backup file updated in 25+ hours. Verify backup.sh cron."
+
+      # Disk fill rate — predicts when disk will be full based on 6h trend
+      - alert: DiskFillingFast
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[6h], 24*3600) < 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk projected to fill within 24 hours"
+          description: "At current fill rate, root filesystem will be full within 24h."
+
+      # Host load average > CPU count
+      - alert: HostHighLoad
+        expr: |
+          node_load15 > count(count by (instance) (node_cpu_seconds_total{mode="idle"})) without (mode, cpu)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host load average exceeds CPU count"
+          description: "15-minute load average is {{ $value | printf \"%.1f\" }}, exceeding CPU count."
