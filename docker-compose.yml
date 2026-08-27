@@ -787,6 +787,8 @@ services:
       SONARR_API_KEY: ${SONARR_API_KEY}
       PROWLARR_API_KEY: ${PROWLARR_API_KEY}
       PLEX_TOKEN: ${PLEX_TOKEN}
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - *ca-mount
       - ./services/landing-page/index.html:/usr/share/nginx/html/index.html:ro

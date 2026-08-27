@@ -11,5 +11,15 @@ function stack-mdblist-track --description 'Register an MDBList list for nightly
         set -l next (math $idx + 1)
         set label $argv[$next]
     end
-    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
+
+    set -l tracked_file "$HOME/.config/bearcave/mdblist-tracked.txt"
+    mkdir -p (dirname "$tracked_file")
+
+    if grep -qF "$url" "$tracked_file" 2>/dev/null
+        fmt_warning "Already tracked: $url"
+        return 0
+    end
+
+    echo "$url|$label" >> "$tracked_file"
+    fmt_success "Now tracking: $url${label:+ (label: $label)}"
 end

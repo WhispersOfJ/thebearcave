@@ -100,17 +100,14 @@ server {
         proxy_read_timeout 5s;
     }
 
-    # Plex & Node Exporter (host network — not reachable from Docker bridge)
-    # These return 503 from nginx; the JS marks them as 'down' which is
-    # accurate from the container's perspective. Host-network services
-    # are checked by Prometheus/Grafana instead.
-    location = /health/plex {
-        default_type application/json;
-        return 503 '{"status":"down","note":"host network"}';
+    # Plex & Node Exporter (host network — reachable via host.docker.internal)
+    location /health/plex {
+        proxy_pass http://host.docker.internal:32400/identity;
+        proxy_read_timeout 5s;
     }
-    location = /health/node-exporter {
-        default_type application/json;
-        return 503 '{"status":"down","note":"host network"}';
+    location /health/node-exporter {
+        proxy_pass http://host.docker.internal:9100/metrics;
+        proxy_read_timeout 5s;
     }
 
     # Traefik — probe via its own port on the Docker network

@@ -11,5 +11,16 @@ function stack-letterboxd-track --description 'Register a Letterboxd list for ni
         set -l next (math $idx + 1)
         set label $argv[$next]
     end
-    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
+
+    set -l tracked_file "$HOME/.config/bearcave/letterboxd-tracked.txt"
+    mkdir -p (dirname "$tracked_file")
+
+    # Check if already tracked
+    if grep -qF "$url" "$tracked_file" 2>/dev/null
+        fmt_warning "Already tracked: $url"
+        return 0
+    end
+
+    echo "$url|$label" >> "$tracked_file"
+    fmt_success "Now tracking: $url${label:+ (label: $label)}"
 end

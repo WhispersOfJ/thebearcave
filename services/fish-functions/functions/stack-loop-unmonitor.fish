@@ -14,5 +14,29 @@ function stack-loop-unmonitor --description 'Unmonitor a confirmed looping item'
             return 1
         end
     end
-    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
+
+    set -l url (__arr_api_url $app)
+    set -l key (__arr_api_key $app)
+    set -l endpoint "movie"
+    test "$app" = "sonarr"; and set endpoint "series"
+
+    # Get current item, then update monitored=false
+    set -l item (curl -sf "$url/api/v3/$endpoint/$id" -H "X-Api-Key: $key" 2>/dev/null)
+    if test $status -ne 0
+        fmt_error "Cannot fetch item $id from $app"
+        return 1
+    end
+
+    echo "$item" | python3 -c "
+import sys, json, subprocess
+item = json.load(sys.stdin)
+item['monitored'] = False
+subprocess.run([
+    'curl', '-sf', '-X', 'PUT', '$url/api/v3/$endpoint/$id',
+    '-H', 'X-Api-Key: $key',
+    '-H', 'Content-Type: application/json',
+    '-d', json.dumps(item)
+], capture_output=True)
+print(f'  Unmonitored: {item.get(\"title\", \"?\")} on $app')
+" 2>/dev/null
 end

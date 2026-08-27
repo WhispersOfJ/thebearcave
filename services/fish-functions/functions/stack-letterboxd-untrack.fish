@@ -4,5 +4,15 @@ function stack-letterboxd-untrack --description 'Stop syncing a tracked Letterbo
         echo "Usage: stack-letterboxd-untrack <list-url>" >&2
         return 1
     end
-    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
+
+    set -l tracked_file "$HOME/.config/bearcave/letterboxd-tracked.txt"
+    if not test -f "$tracked_file"
+        fmt_warning "No lists tracked."
+        return 0
+    end
+
+    set -l tmp (mktemp)
+    grep -vF "$argv[1]" "$tracked_file" > "$tmp" 2>/dev/null
+    mv "$tmp" "$tracked_file"
+    fmt_success "Stopped tracking: $argv[1]"
 end
