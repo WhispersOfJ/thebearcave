@@ -47,10 +47,24 @@ def _validate_name(value, label="name"):
 
 def _validate_port(value):
     """Validate a port number (1-65535)."""
-    port = int(value)
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid port: {value!r} (must be an integer)")
     if not (1 <= port <= 65535):
-        raise ValueError(f"Invalid port: {port}")
+        raise ValueError(f"Invalid port: {port} (must be 1-65535)")
     return port
+
+
+def _validate_positive_int(value, label="value", max_val=3600):
+    """Validate a positive integer with an optional upper bound."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid {label}: {value!r} (must be an integer)")
+    if not (1 <= n <= max_val):
+        raise ValueError(f"Invalid {label}: {n} (must be 1-{max_val})")
+    return n
 
 def _validate_bool(value):
     """Validate a boolean-like value."""
@@ -100,13 +114,13 @@ def _docker(args, timeout=60):
 
 def _handle_docker_restart(params):
     name = _validate_name(params.get("container"), "container")
-    timeout = int(params.get("timeout", 30))
+    timeout = _validate_positive_int(params.get("timeout", 30), "timeout")
     return _docker(["restart", "-t", str(timeout), name], timeout=timeout + 10)
 
 
 def _handle_docker_stop(params):
     name = _validate_name(params.get("container"), "container")
-    timeout = int(params.get("timeout", 30))
+    timeout = _validate_positive_int(params.get("timeout", 30), "timeout")
     return _docker(["stop", "-t", str(timeout), name], timeout=timeout + 10)
 
 
@@ -216,16 +230,16 @@ def _handle_docker_run(params):
             mount_str += f":{mode}"
         cmd.extend(["-v", mount_str])
 
-    # Command
+    # Image (must come before command — Docker expects IMAGE [COMMAND])
+    cmd.append(image)
+
+    # Command (after image, not before)
     command = params.get("command")
     if command:
         if isinstance(command, list):
             cmd.extend(command)
         else:
-            cmd.extend(["/bin/sh", "-c", command])
-
-    # Image (last arg)
-    cmd.append(image)
+            cmd.extend(command.split())
 
     return _docker(cmd, timeout=120)
 
@@ -270,7 +284,7 @@ def handle_request(raw):
     if handler:
         try:
             return handler(payload), action
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             return {"ok": False, "message": f"Validation error: {e}", "returncode": None}, action
 
     return {"ok": False, "message": f"Unknown action '{action}' — not in the fixed verb set.", "returncode": None}, action
