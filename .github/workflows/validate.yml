@@ -74,10 +74,13 @@ jobs:
       - name: Actionlint (workflow lint)
         if: ${{ github.event.inputs.skip_actionlint != 'true' }}
         run: |
-          # v1.7.12 pinned — to upgrade, bump the version here (asset name is
-          # actionlint_<version>_linux_amd64.tar.gz) and re-run validate.
+          # v1.7.12 pinned — to upgrade, bump the version here and the
+          # sha256 checksum, then re-run validate.
+          ACTIONLINT_VERSION="1.7.12"
           curl -sSL -o /tmp/actionlint.tar.gz \
-            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "5b0c3f10f2a6f9f25322c03e33f19890f28d33c521a7e40ab0e87c8c0e0e3847  /tmp/actionlint.tar.gz" \
+            | sha256sum -c -
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           /tmp/actionlint -color .github/workflows/*.yml
 

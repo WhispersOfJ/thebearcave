@@ -1,0 +1,75 @@
+# Fish Functions — API-backed CLI
+
+## Purpose
+
+Terminal commands for the Bear Cave media stack. ~95 `stack-*` functions provide
+operational visibility and control from the fish shell, calling each service's
+API directly via curl.
+
+## Architecture
+
+```
+services/fish-functions/
+├── functions/
+│   ├── __arr_api.fish          # Radarr/Sonarr API helper
+│   ├── __plex_api.fish         # Plex API helper
+│   ├── __nzbdav_api.fish       # NzbDAV API helper
+│   ├── __watchstate_api.fish   # WatchState API helper
+│   ├── __cli_format.fish       # Shared formatting (colors, status dots)
+│   ├── __plex_butler.fish      # Shared Plex butler task helper
+│   ├── stack-*.fish            # One file per command
+│   └── __stack_arr_app.fish    # Validates arr instance name
+├── completions/                # Manual tab completions
+├── scripts/
+│   ├── install.sh              # Symlink functions + completions
+│   └── uninstall.sh            # Remove symlinks
+└── README.md
+```
+
+**No backend proxy.** Each function calls its target service's API directly on
+the `bearcave` Docker network. The old control-panel routing layer was removed
+in the Phase 2 migration.
+
+## Function Categories
+
+| Category | Count | Helper | Example |
+|----------|-------|--------|---------|
+| Arr operations | 19 | `__arr_api` | `stack-arr-backlog radarr` |
+| Plex operations | 25 | `__plex_api` + `__plex_butler` | `stack-plex-sessions` |
+| Docker/host | 10 | `docker ps/stats/inspect` | `stack-top --by cpu` |
+| NzbDAV | 5 | `__nzbdav_api` | `stack-nzbdav-queue` |
+| WatchState | 3 | `__watchstate_api` | `stack-watchstate-status` |
+| Seerr | 1 | direct API | `stack-seerr-requests` |
+| Cleanuparr | 2 | direct API | `stack-cleanuparr-strikes` |
+| Ratings/external | 2 | OMDb/MDBList API | `stack-rating-imdb` |
+| Letterboxd/MDBList | 10 | local file tracking | `stack-letterboxd-import` |
+| Loop detection | 3 | Arr grab history | `stack-loop-candidates` |
+
+## Setup
+
+```fish
+set -U MEDIA_STACK_HOST_IP "192.0.2.1"
+set -U MEDIA_STACK_DIR "/home/bear/TheBearCave"
+set -U MEDIA_STACK_COLOR true  # optional
+
+bash services/fish-functions/scripts/install.sh
+```
+
+## Configuration
+
+Functions read API keys from environment variables (set in `.env`):
+- `RADARR_API_KEY`, `SONARR_API_KEY`, `PROWLARR_API_KEY`
+- `PLEX_TOKEN`
+- `NZBDAV_WEBDAV_USER`, `NZBDAV_WEBDAV_PASS`
+- `WS_API_KEY`
+
+The helper functions (`__arr_api`, etc.) are prefixed with `__` so they are
+not installed as user-facing commands.
+
+## Troubleshooting
+
+- **"Connection refused"**: Service may be down. Check `stack-status`.
+- **"Unauthorized"**: API key not set or wrong. Verify `.env` values.
+- **Empty output**: Service returned no data (empty queue, no sessions).
+- **Formatting issues**: Ensure `__cli_format.fish` is installed (it provides
+  colors and status dot helpers).

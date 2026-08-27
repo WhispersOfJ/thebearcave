@@ -1,14 +1,13 @@
 # Fish Functions — API-backed CLI
 
 Terminal commands for the Bear Cave media stack. Every command calls the
-Control Panel's `/api/v2/cli/` endpoints and prints human-readable text.
+target service's API directly via curl and prints human-readable text.
 
 ## Setup
 
 1. Set fish universal variables:
 ```fish
 set -U MEDIA_STACK_HOST_IP "192.0.2.1"
-set -U MEDIA_STACK_SERVICE_KEY "<your CONTROL_PANEL_SERVICE_API_KEY>"
 set -U MEDIA_STACK_DIR "/home/bear/TheBearCave"
 set -U MEDIA_STACK_COLOR true  # optional: colored output
 ```
@@ -44,6 +43,7 @@ completions/        # Manual tab completions
 scripts/            # install.sh, uninstall.sh
 ```
 
-Each function calls `__stack_api METHOD /path` which uses curl to hit
-the Control Panel via Traefik (HTTPS). The API returns plain text;
-color is enabled via `?color=true` or `Accept: text/x-terminal`.
+Each function calls a service-specific helper (`__arr_api`, `__plex_api`,
+`__nzbdav_api`, `__watchstate_api`) which uses curl to hit the service
+API directly. No backend proxy — functions talk to services on the
+`bearcave` Docker network. Color is enabled by default.
