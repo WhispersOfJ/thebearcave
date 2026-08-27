@@ -81,10 +81,11 @@ jobs:
           docker volume ls 2>/dev/null | head -20 || true
 
       - name: Prune Docker resources
+        id: pruning
         if: steps.disk.outputs.above_threshold == 'true' && inputs.dry_run != 'true'
         run: |
           set -euo pipefail
-          RECLAIMED=0
+          RECLAIMED_MB=0
 
           # Helper: convert Docker output like "1.234GB" or "567.8MB" to MB
           to_mb() {
@@ -100,12 +101,17 @@ jobs:
             fi
           }
 
+          # Extract value after "reclaimed" — Docker outputs "Total reclaimed space: 1.5GB"
+          extract_reclaim() {
+            echo "$1" | grep -oP 'reclaimed\s+(?:space:\s+)?\K[0-9.]+[A-Za-z]*' || echo 0
+          }
+
           echo "=== Pruning dangling images ==="
           RESULT=$(docker image prune -f 2>/dev/null || echo "")
           if [ -n "$RESULT" ]; then
             echo "$RESULT"
-            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
-            RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
+            BYTES=$(extract_reclaim "$RESULT")
+            RECLAIMED_MB=$((RECLAIMED_MB + $(to_mb "$BYTES")))
           fi
 
           if [ "${{ inputs.aggressive }}" = "true" ]; then
@@ -114,8 +120,8 @@ jobs:
             RESULT=$(docker image prune -a -f --filter "until=168h" 2>/dev/null || echo "")
             if [ -n "$RESULT" ]; then
               echo "$RESULT"
-              BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
-              RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
+              BYTES=$(extract_reclaim "$RESULT")
+              RECLAIMED_MB=$((RECLAIMED_MB + $(to_mb "$BYTES")))
             fi
           fi
 
@@ -124,8 +130,8 @@ jobs:
           RESULT=$(docker volume prune -f 2>/dev/null || echo "")
           if [ -n "$RESULT" ]; then
             echo "$RESULT"
-            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
-            RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
+            BYTES=$(extract_reclaim "$RESULT")
+            RECLAIMED_MB=$((RECLAIMED_MB + $(to_mb "$BYTES")))
           fi
 
           echo ""
@@ -133,8 +139,8 @@ jobs:
           RESULT=$(docker builder prune -f --keep-storage 5GB 2>/dev/null || echo "")
           if [ -n "$RESULT" ]; then
             echo "$RESULT"
-            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
-            RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
+            BYTES=$(extract_reclaim "$RESULT")
+            RECLAIMED_MB=$((RECLAIMED_MB + $(to_mb "$BYTES")))
           fi
 
           echo ""
@@ -142,9 +148,8 @@ jobs:
           docker container prune -f 2>/dev/null || true
 
           echo ""
-          TOTAL_MB=$((RECLAIMED / 1024 / 1024))
-          echo "Total reclaimed: ${TOTAL_MB} MB"
-          echo "reclaimed_mb=$TOTAL_MB" >> "$GITHUB_OUTPUT"
+          echo "Total reclaimed: ${RECLAIMED_MB} MB"
+          echo "reclaimed_mb=$RECLAIMED_MB" >> "$GITHUB_OUTPUT"
 
       - name: Docker disk usage (after)
         if: steps.disk.outputs.above_threshold == 'true' && inputs.dry_run != 'true'
