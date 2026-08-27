@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "queue_app",
     "host",
     "ui",
+    "cli",
 ]
 
 MIDDLEWARE = [

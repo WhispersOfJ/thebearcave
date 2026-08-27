@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/v2/catalog/", include("catalog.api.urls")),
     path("api/v2/watchstate/", include("watchstate.api.urls")),
     path("api/v2/queue/", include("queue_app.api.urls")),
+    path("api/v2/cli/", include("cli.api.urls")),
     path("api/v2/host/", include("host.api.urls")),
     path("healthz", healthz),
     path("", include("ui.urls")),
