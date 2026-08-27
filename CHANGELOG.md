@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.6.0...v1.7.0) (2026-08-27)
+
+
+### Features
+
+* **security:** harden control panel + fix no-op Trivy gate ([44f97ae](https://github.com/WhispersOfJ/thebearcave/commit/44f97ae17e936bd12c58b1a9aea1e790d293d4c2))
+
 ## [1.6.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.5.0...v1.6.0) (2026-08-27)
 
 
