@@ -1,0 +1,164 @@
+name: Certificate Expiry Check
+# Pinned actions policy: third-party actions are pinned to full commit SHAs
+# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
+# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
+# update the SHA and the "# tag" comment on its uses: line.
+
+# Checks TLS certificate expiry and alerts via Discord if any cert expires
+# within the warning window. Runs weekly + on demand.
+#
+# Note: cert files are NOT in the repo (gitignored). This workflow uses
+# openssl s_client to probe the live Traefik HTTPS endpoint, so it works
+# from any runner that can reach the host. For private-LAN hosts, run on
+# a self-hosted runner or set the DISCORD_WEBHOOK_URL secret.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Monday 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      warning_days:
+        description: "Alert if cert expires within N days"
+        required: false
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  WARNING_DAYS: ${{ inputs.warning_days || '30' }}
+
+jobs:
+  check-certs:
+    name: Check Certificate Expiry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check certificate expiry
+        id: check
+        run: |
+          set -euo pipefail
+
+          # Host to probe — set HOST_URL as a repository variable or use default
+          HOST_URL="${HOST_URL:-https://bearcave.192.168.4.20.nip.io}"
+          WARNING_DAYS="${{ env.WARNING_DAYS }}"
+          CERT_FILE="/tmp/probed-cert.pem"
+
+          echo "Probing: $HOST_URL"
+          echo "Warning threshold: $WARNING_DAYS days"
+
+          # Probe the HTTPS endpoint and extract the certificate
+          echo | openssl s_client \
+            -servername "$(echo "$HOST_URL" | sed 's|https://||; s|/.*||')" \
+            -connect "$(echo "$HOST_URL" | sed 's|https://||; s|/.*||'):443" \
+            2>/dev/null | openssl x509 -outform PEM > "$CERT_FILE" 2>/dev/null || true
+
+          if [ ! -s "$CERT_FILE" ]; then
+            echo "status=error" >> "$GITHUB_OUTPUT"
+            echo "message=Could not probe certificate from $HOST_URL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Extract expiry date
+          EXPIRY_DATE=$(openssl x509 -enddate -noout -in "$CERT_FILE" | cut -d= -f2)
+          EXPIRY_EPOCH=$(date -d "$EXPIRY_DATE" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$EXPIRY_DATE" +%s 2>/dev/null)
+          NOW_EPOCH=$(date +%s)
+          DAYS_LEFT=$(( (EXPIRY_EPOCH - NOW_EPOCH) / 86400 ))
+
+          # Extract issuer
+          ISSUER=$(openssl x509 -issuer -noout -in "$CERT_FILE" | sed 's/issuer=//')
+
+          # Extract subject/SAN
+          SUBJECT=$(openssl x509 -subject -noout -in "$CERT_FILE" | sed 's/subject=//')
+          SAN=$(openssl x509 -ext subjectAltName -noout -in "$CERT_FILE" 2>/dev/null | grep -oP 'DNS:\K[^,]+' | head -3 || true)
+
+          echo "Certificate details:"
+          echo "  Expiry: $EXPIRY_DATE"
+          echo "  Days left: $DAYS_LEFT"
+          echo "  Issuer: $ISSUER"
+          echo "  Subject: $SUBJECT"
+          echo "  SANs: $SAN"
+
+          if [ "$DAYS_LEFT" -le 0 ]; then
+            echo "status=expired" >> "$GITHUB_OUTPUT"
+            echo "message=🔴 CERTIFICATE EXPIRED $((DAYS_LEFT * -1)) days ago" >> "$GITHUB_OUTPUT"
+          elif [ "$DAYS_LEFT" -le "$WARNING_DAYS" ]; then
+            echo "status=warning" >> "$GITHUB_OUTPUT"
+            echo "message=⚠️ Certificate expires in $DAYS_LEFT days ($EXPIRY_DATE)" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=ok" >> "$GITHUB_OUTPUT"
+            echo "message=✅ Certificate valid for $DAYS_LEFT days (expires $EXPIRY_DATE)" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "days_left=$DAYS_LEFT" >> "$GITHUB_OUTPUT"
+          echo "expiry_date=$EXPIRY_DATE" >> "$GITHUB_OUTPUT"
+          echo "issuer=$ISSUER" >> "$GITHUB_OUTPUT"
+
+      - name: Send Discord alert
+        if: steps.check.outputs.status != 'ok' && steps.check.outputs.status != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ steps.check.outputs.status }}"
+          MESSAGE="${{ steps.check.outputs.message }}"
+          DAYS="${{ steps.check.outputs.days_left }}"
+          EXPIRY="${{ steps.check.outputs.expiry_date }}"
+          ISSUER="${{ steps.check.outputs.issuer }}"
+
+          if [ "$STATUS" = "expired" ]; then
+            COLOR=16711680  # Red
+            EMOJI="🔴"
+          else
+            COLOR=16776960  # Yellow
+            EMOJI="⚠️"
+          fi
+
+          PAYLOAD=$(cat <<EOFPAYLOAD
+          {
+            "embeds": [{
+              "title": "${EMOJI} Certificate Expiry Alert",
+              "description": "${MESSAGE}",
+              "color": ${COLOR},
+              "fields": [
+                {"name": "Days Remaining", "value": "${DAYS}", "inline": true},
+                {"name": "Expiry Date", "value": "${EXPIRY}", "inline": true},
+                {"name": "Issuer", "value": "${ISSUER}", "inline": false}
+              ],
+              "footer": {"text": "The Bear Cave · Certificate Monitor"},
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            }]
+          }
+          EOFPAYLOAD
+          )
+
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -sf -X POST "$DISCORD_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
+            echo "Discord alert sent."
+          else
+            echo "DISCORD_WEBHOOK_URL not set — skipping Discord alert."
+            echo "Alert: $MESSAGE"
+          fi
+
+      - name: Summary
+        run: |
+          STATUS="${{ steps.check.outputs.status }}"
+          MESSAGE="${{ steps.check.outputs.message }}"
+          echo "## Certificate Check" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "$MESSAGE" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | $STATUS |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Days Left | ${{ steps.check.outputs.days_left }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Expiry | ${{ steps.check.outputs.expiry_date }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Issuer | ${{ steps.check.outputs.issuer }} |" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" = "expired" ]; then
+            echo "::error::Certificate has expired! Renew immediately."
+            exit 1
+          elif [ "$STATUS" = "warning" ]; then
+            echo "::warning::Certificate expires within ${{ env.WARNING_DAYS }} days."
+          fi
