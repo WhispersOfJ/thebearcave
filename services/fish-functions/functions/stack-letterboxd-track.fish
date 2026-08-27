@@ -11,5 +11,5 @@ function stack-letterboxd-track --description 'Register a Letterboxd list for ni
         set -l next (math $idx + 1)
         set label $argv[$next]
     end
-    __stack_api POST "/api/v2/cli/letterboxd/track?url=$url&label=$label"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

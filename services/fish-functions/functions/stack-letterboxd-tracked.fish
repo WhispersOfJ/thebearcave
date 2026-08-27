@@ -1,3 +1,3 @@
 function stack-letterboxd-tracked --description 'Every Letterboxd list currently registered'
-    __stack_api GET /api/v2/cli/letterboxd/tracked
+    echo "This function requires archived control panel logic. Not yet migrated." && return 1
 end

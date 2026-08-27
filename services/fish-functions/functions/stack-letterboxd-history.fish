@@ -1,3 +1,3 @@
 function stack-letterboxd-history --description 'Recent Letterboxd sync runs'
-    __stack_api GET /api/v2/cli/letterboxd/history
+    echo "This function requires archived control panel logic. Not yet migrated." && return 1
 end

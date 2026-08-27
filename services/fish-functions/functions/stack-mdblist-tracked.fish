@@ -1,3 +1,3 @@
 function stack-mdblist-tracked --description 'Every MDBList list currently registered'
-    __stack_api GET /api/v2/cli/mdblist/tracked
+    echo "This function requires archived control panel logic. Not yet migrated." && return 1
 end

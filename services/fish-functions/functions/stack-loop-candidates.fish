@@ -6,5 +6,5 @@ function stack-loop-candidates --description 'Titles with repeated download fail
     end
     set -l app (__stack_arr_app $argv[1])
     or begin; echo "Invalid app: $argv[1]" >&2; return 1; end
-    __stack_api GET "/api/v2/cli/loop/candidates?app=$app"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

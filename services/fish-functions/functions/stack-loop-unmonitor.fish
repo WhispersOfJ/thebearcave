@@ -14,5 +14,5 @@ function stack-loop-unmonitor --description 'Unmonitor a confirmed looping item'
             return 1
         end
     end
-    __stack_api POST "/api/v2/cli/loop/unmonitor?app=$app&id=$id"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

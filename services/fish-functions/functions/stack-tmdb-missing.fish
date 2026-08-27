@@ -1,5 +1,5 @@
 function stack-tmdb-missing --description 'Scan libraries for items with no TMDb link'
     # Custom cross-service scan logic in the control panel
-    # Preserved as __stack_api until extracted to standalone script
-    __stack_api GET /api/v2/host/oom-check
+    echo "This function requires archived control panel logic. Not yet migrated." && return 1
+    echo "This function requires archived control panel logic. Not yet migrated." && return 1
 end

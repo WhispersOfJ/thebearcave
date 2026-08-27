@@ -5,6 +5,6 @@ function stack-rating-mdblist --description 'A title MDBList score + IMDb sub-ra
         return 1
     end
     # MDBList lookup is custom logic in the control panel
-    # Preserved as __stack_api until extracted to standalone script
-    __stack_api GET "/api/v2/cli/rating/mdblist/$argv[1]"
+    echo "This function requires archived control panel logic. Not yet migrated." && return 1
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

@@ -4,5 +4,5 @@ function stack-letterboxd-untrack --description 'Stop syncing a tracked Letterbo
         echo "Usage: stack-letterboxd-untrack <list-url>" >&2
         return 1
     end
-    __stack_api DELETE "/api/v2/cli/letterboxd/track?url=$argv[1]"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

@@ -12,5 +12,5 @@ function stack-loop-exclude --description 'Add a Radarr movie to Exclusions'
             return 1
         end
     end
-    __stack_api POST "/api/v2/cli/loop/exclude?id=$id"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

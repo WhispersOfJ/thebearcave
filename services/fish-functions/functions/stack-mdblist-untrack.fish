@@ -4,5 +4,5 @@ function stack-mdblist-untrack --description 'Stop syncing a tracked MDBList lis
         echo "Usage: stack-mdblist-untrack <list-url>" >&2
         return 1
     end
-    __stack_api DELETE "/api/v2/cli/mdblist/track?url=$argv[1]"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

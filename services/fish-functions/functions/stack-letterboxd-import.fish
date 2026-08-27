@@ -21,5 +21,5 @@ function stack-letterboxd-import --description 'Import Letterboxd content to Rad
         set -l next (math $idx + 1)
         set extra_args "$extra_args&limit=$argv[$next]"
     end
-    __stack_api POST "/api/v2/cli/letterboxd/import?type=$type&url=$url$extra_args"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

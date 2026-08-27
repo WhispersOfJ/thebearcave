@@ -17,5 +17,5 @@ function stack-mdblist-import --description 'Import a public MDBList list'
         set -l next (math $idx + 1)
         set extra_args "$extra_args&limit=$argv[$next]"
     end
-    __stack_api POST "/api/v2/cli/mdblist/import?url=$url$extra_args"
+    echo "This function requires the control panel backend (archived). Not yet migrated to direct API calls." && return 1
 end

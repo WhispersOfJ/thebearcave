@@ -1,3 +1,3 @@
 function stack-mdblist-history --description 'Recent MDBList sync runs'
-    __stack_api GET /api/v2/cli/mdblist/history
+    echo "This function requires archived control panel logic. Not yet migrated." && return 1
 end
