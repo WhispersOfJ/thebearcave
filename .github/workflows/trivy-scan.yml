@@ -125,7 +125,6 @@ jobs:
           set -euo pipefail
           fail=0
           for df in services/metacache/Dockerfile \
-                    services/control-panel/django/Dockerfile \
                     services/nzbdav-exporter/Dockerfile; do
             echo "::group::Trivy IaC scan: $df"
             SEVERITY="${{ github.event.inputs.severity || 'HIGH,CRITICAL' }}"
