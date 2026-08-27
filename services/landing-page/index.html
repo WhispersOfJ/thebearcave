@@ -447,7 +447,7 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
           const key = `${dep}->${id}`;
           if (!seen.has(key) && svc[dep]) {
             seen.add(key);
-            const depName = svc[dep].name.replace(/[^a-zA-Z0-9]/g, '_');
+            const depName = dep.replace(/[^a-zA-Z0-9]/g, '_');
             const thisName = id.replace(/[^a-zA-Z0-9]/g, '_');
             edges += `    ${depName} --> ${thisName}\n`;
           }
