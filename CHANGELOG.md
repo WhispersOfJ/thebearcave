@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.9.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.8.0...v1.9.0) (2026-08-27)
+
+
+### Features
+
+* **fish:** Phase 2 — rewrite 71 fish functions to bypass control panel ([c4e12f1](https://github.com/WhispersOfJ/thebearcave/commit/c4e12f1f76c691b6382d98069d34b2a96cac8aa7))
+* **landing:** Phase 3 — replace control-panel health with direct service probes ([3efae51](https://github.com/WhispersOfJ/thebearcave/commit/3efae5188a4b9ac551b7770fa5b940e275bffd3f))
+* Phase 4 — remove control panel, archive to archive/control-panel/ ([faf4127](https://github.com/WhispersOfJ/thebearcave/commit/faf41274be6a30a610b1e812284fef526a16d338))
+
+
+### Bug Fixes
+
+* **ci:** add DISCORD_WEBHOOK_URL to secret manifest ([54dc06e](https://github.com/WhispersOfJ/thebearcave/commit/54dc06e46c8c99aaad48f1c683752e5daf788a75))
+* **ci:** add missing step id and fix reclaim accumulation in disk-cleanup ([3798e6c](https://github.com/WhispersOfJ/thebearcave/commit/3798e6c57814240ccaf8452af4309e4a81c22e20))
+* **ci:** correct step output references and unit parsing in new workflows ([b03c135](https://github.com/WhispersOfJ/thebearcave/commit/b03c135b8bdc22d7f1d43edb49900c3f553ea25e))
+* **ci:** fix actionlint errors in cert-expiry-check, disk-cleanup, codeql ([f27e200](https://github.com/WhispersOfJ/thebearcave/commit/f27e200e684c785d04fd42859473a79e140fe1d0))
+* **fish:** fix broken __stack_api calls after control panel removal ([79058dd](https://github.com/WhispersOfJ/thebearcave/commit/79058dd9fa335e675159d5fce7a6b5b453a33736))
+* **fish:** implement all 17 custom integration functions + fix Plex health ([950f925](https://github.com/WhispersOfJ/thebearcave/commit/950f925d48c3c58154a87d03f4ae0b0226947c4c))
+* **fish:** three bugs in Phase 1 direct-service routing ([37db0a8](https://github.com/WhispersOfJ/thebearcave/commit/37db0a89a23754c45e3cbfa13cd905471629761d))
+* restore FRONTEND_BACKEND_API_KEY to .env.template ([2f8fabe](https://github.com/WhispersOfJ/thebearcave/commit/2f8fabe585a8ab0be2021d6fc42feae78ab50ed4))
+
 ## [1.8.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.7.0...v1.8.0) (2026-08-27)
 
 
