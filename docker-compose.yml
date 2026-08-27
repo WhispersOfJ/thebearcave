@@ -845,11 +845,15 @@ services:
     restart: unless-stopped
     environment:
       <<: *ca-env
+      RADARR_API_KEY: ${RADARR_API_KEY}
+      SONARR_API_KEY: ${SONARR_API_KEY}
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+      PLEX_TOKEN: ${PLEX_TOKEN}
     volumes:
       - *ca-mount
       - ./services/landing-page/index.html:/usr/share/nginx/html/index.html:ro
       - ./services/landing-page/service-registry.json:/usr/share/nginx/html/service-registry.json:ro
-      - ./services/landing-page/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./services/landing-page/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       # Public root CA for device trust — exposes ONLY the cert, never the key
       - ./config/ca/rootCA.pem:/usr/share/nginx/html/rootCA.pem:ro
     ports:

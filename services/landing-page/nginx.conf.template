@@ -1,0 +1,137 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Compression
+    gzip on;
+    gzip_types text/css application/javascript application/json;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+
+    # Cache static assets
+    location ~* \.(js|css|json)$ {
+        add_header Cache-Control "public, max-age=3600";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Per-service health proxy — no control panel needed
+    # The landing page calls /health/{service} and nginx proxies to the
+    # actual service health endpoint on the Docker network.
+    # ═══════════════════════════════════════════════════════════════════
+
+    # Arr services (require API key)
+    location /health/prowlarr {
+        proxy_pass http://prowlarr:9696/api/v1/system/status;
+        proxy_set_header X-Api-Key $PROWLARR_API_KEY;
+        proxy_read_timeout 5s;
+    }
+    location /health/radarr {
+        proxy_pass http://radarr:7878/api/v3/system/status;
+        proxy_set_header X-Api-Key $RADARR_API_KEY;
+        proxy_read_timeout 5s;
+    }
+    location /health/sonarr {
+        proxy_pass http://sonarr:8989/api/v3/system/status;
+        proxy_set_header X-Api-Key $SONARR_API_KEY;
+        proxy_read_timeout 5s;
+    }
+
+    # NzbDAV
+    location /health/nzbdav {
+        proxy_pass http://nzbdav:3000/?mode=get_cats&output=json;
+        proxy_read_timeout 5s;
+    }
+
+    # Seerr
+    location /health/seerr {
+        proxy_pass http://seerr:5055/api/v1/status;
+        proxy_read_timeout 5s;
+    }
+
+    # Metacache
+    location /health/metacache {
+        proxy_pass http://metacache:8765/healthz;
+        proxy_read_timeout 5s;
+    }
+
+    # WatchState
+    location /health/watchstate {
+        proxy_pass http://watchstate:8080/;
+        proxy_read_timeout 5s;
+    }
+
+    # Cleanuparr
+    location /health/cleanuparr {
+        proxy_pass http://cleanuparr:11011/health;
+        proxy_read_timeout 5s;
+    }
+
+    # arr-dashboard
+    location /health/arr-dashboard {
+        proxy_pass http://arr-dashboard:3000/health;
+        proxy_read_timeout 5s;
+    }
+
+    # Monitoring stack
+    location /health/grafana {
+        proxy_pass http://grafana:3000/api/health;
+        proxy_read_timeout 5s;
+    }
+    location /health/prometheus {
+        proxy_pass http://prometheus:9090/-/healthy;
+        proxy_read_timeout 5s;
+    }
+    location /health/loki {
+        proxy_pass http://loki:3100/ready;
+        proxy_read_timeout 5s;
+    }
+    location /health/cadvisor {
+        proxy_pass http://cadvisor:8080/healthz;
+        proxy_read_timeout 5s;
+    }
+    location /health/nzbdav-exporter {
+        proxy_pass http://nzbdav-exporter:9200/metrics;
+        proxy_read_timeout 5s;
+    }
+
+    # Plex & Node Exporter (host network — not reachable from Docker bridge)
+    # These return 503 from nginx; the JS marks them as 'down' which is
+    # accurate from the container's perspective. Host-network services
+    # are checked by Prometheus/Grafana instead.
+    location = /health/plex {
+        default_type application/json;
+        return 503 '{"status":"down","note":"host network"}';
+    }
+    location = /health/node-exporter {
+        default_type application/json;
+        return 503 '{"status":"down","note":"host network"}';
+    }
+
+    # Traefik — probe via its own port on the Docker network
+    location = /health/traefik {
+        proxy_pass http://traefik:80/;
+        proxy_read_timeout 3s;
+    }
+    location = /health/landing-page {
+        # Self-check — always up if nginx is serving
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    # Catch-all for unknown services (prefix match, lower priority than specific locations)
+    location /health/ {
+        default_type application/json;
+        return 503 '{"status":"down","error":"unknown service"}';
+    }
+
+    location = /healthz {
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+}
