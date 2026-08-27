@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Panel Removal — Migration Plan</title>
+    <style>
+        :root {
+            --bg: #0d1117; --surface: #161b22; --border: #30363d;
+            --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+            --green: #3fb950; --red: #f85149; --yellow: #d29922; --orange: #db6d28;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.4rem; margin: 2rem 0 1rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        h3 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; color: var(--green); }
+        .subtitle { color: var(--muted); margin-bottom: 2rem; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .badge-red { background: rgba(248,81,73,0.15); color: var(--red); }
+        .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+        .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
+        .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); }
+        table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+        th { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; }
+        code { background: rgba(88,166,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+        pre { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.85rem; margin: 0.5rem 0; }
+        .phase { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1.5rem 0; }
+        .phase-risk-high { border-left-color: var(--red); }
+        .phase-risk-med { border-left-color: var(--yellow); }
+        .phase-risk-low { border-left-color: var(--green); }
+        .flow-diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; font-family: monospace; font-size: 0.85rem; white-space: pre; overflow-x: auto; line-height: 1.8; }
+        .checklist { list-style: none; }
+        .checklist li { padding: 0.3rem 0; }
+        .checklist li::before { content: "☐ "; color: var(--muted); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        .stat { text-align: center; padding: 1rem; }
+        .stat .num { font-size: 2rem; font-weight: 700; color: var(--accent); }
+        .stat .label { color: var(--muted); font-size: 0.85rem; }
+        a { color: var(--accent); }
+        .toc { columns: 2; column-gap: 2rem; }
+        .toc a { display: block; padding: 0.2rem 0; color: var(--muted); text-decoration: none; }
+        .toc a:hover { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<h1>🏗️ Control Panel Removal — Migration Plan</h1>
+<p class="subtitle">Remove the Django backend entirely. Make fish functions call services directly. Replace the web UI with a static landing page.</p>
+
+<div class="grid">
+    <div class="card stat"><div class="num">95+</div><div class="label">Fish functions to rewrite</div></div>
+    <div class="card stat"><div class="num">40+</div><div class="label">CLI API endpoints to replace</div></div>
+    <div class="card stat"><div class="num">5</div><div class="label">Major subsystems affected</div></div>
+    <div class="card stat"><div class="num">~3 weeks</div><div class="label">Estimated effort</div></div>
+</div>
+
+<h2>Table of Contents</h2>
+<div class="toc">
+    <a href="#current">1. Current Architecture</a>
+    <a href="#target">2. Target Architecture</a>
+    <a href="#dependencies">3. All Dependencies Mapped</a>
+    <a href="#fish">4. Fish Function Migration</a>
+    <a href="#landing">5. Landing Page Changes</a>
+    <a href="#host-ops">6. Host Operations</a>
+    <a href="#catalog">7. Catalog System</a>
+    <a href="#data">8. Data & State</a>
+    <a href="#phases">9. Implementation Phases</a>
+    <a href="#rollback">10. Rollback Strategy</a>
+    <a href="#risks">11. Risks & Mitigations</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="current">1. Current Architecture</h2>
+
+<div class="flow-diagram">
+┌─────────────────────────────────────────────────────────────────────┐
+│                        CURRENT DATA FLOW                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Fish Shell ──curl──▶ Traefik ──▶ Control Panel (:8420)            │
+│                                      │                              │
+│                    ┌─────────────────┼─────────────────┐            │
+│                    ▼                 ▼                 ▼            │
+│              Docker SDK        Arr APIs          Plex API           │
+│              (container        (Radarr,          (metadata,         │
+│               mgmt)            Sonarr)           sessions)          │
+│                    │                 │                 │            │
+│                    ▼                 ▼                 ▼            │
+│              Host Helper ◀──── NzbDAV API ◀── WatchState API       │
+│              (reboot,                                   │            │
+│               pacman)                                  ▼            │
+│                                                   Seerr API        │
+│                                                                     │
+│  Landing Page ──fetch──▶ /api/v2/host/health (Control Panel)       │
+│                                                                     │
+│  Host Helper ◀── Control Panel (reboot, pacman)                    │
+└─────────────────────────────────────────────────────────────────────┘</div>
+
+<p>The control panel is a <strong>central bottleneck</strong>. Every fish function, the landing page health check, and host operations all route through Django. Removing it means each consumer calls its target directly.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="target">2. Target Architecture</h2>
+
+<div class="flow-diagram">
+┌─────────────────────────────────────────────────────────────────────┐
+│                        TARGET DATA FLOW                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Fish Shell ──direct HTTP──▶ Arr APIs (Radarr, Sonarr, Prowlarr)  │
+│  Fish Shell ──direct HTTP──▶ NzbDAV API (:3000)                   │
+│  Fish Shell ──direct HTTP──▶ Plex API (:32400)                    │
+│  Fish Shell ──direct HTTP──▶ WatchState API (:8705)               │
+│  Fish Shell ──direct HTTP──▶ Seerr API (:5055)                    │
+│  Fish Shell ──direct HTTP──▶ Cleanuparr API (:11011)              │
+│  Fish Shell ──direct HTTP──▶ Metacache API (:8765)                │
+│  Fish Shell ──docker CLI──▶ Container lifecycle                    │
+│  Fish Shell ──host-helper──▶ Reboot, pacman (via helper socket)   │
+│                                                                     │
+│  Landing Page ──direct HTTP──▶ Each service's health endpoint     │
+│  Landing Page ──Docker API──▶ Container status (read-only socket) │
+│                                                                     │
+│  NO中间层。NO Django。NO Docker socket writes from containers.     │
+└─────────────────────────────────────────────────────────────────────┘</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="dependencies">3. All Dependencies Mapped</h2>
+
+<h3>3A. What the Control Panel Provides</h3>
+<table>
+    <tr><th>Subsystem</th><th>Endpoints</th><th>Consumers</th><th>Replacement</th></tr>
+    <tr>
+        <td><strong>CLI API</strong><br><span class="badge badge-red">95 fish functions</span></td>
+        <td><code>/api/v2/cli/*</code><br>40+ endpoints</td>
+        <td>Fish functions via <code>__stack_api</code></td>
+        <td>Direct HTTP calls to target services</td>
+    </tr>
+    <tr>
+        <td><strong>Host API</strong><br><span class="badge badge-yellow">Web UI</span></td>
+        <td><code>/api/v2/host/*</code><br>20+ endpoints</td>
+        <td>Web UI (htmx), landing page health</td>
+        <td>Landing page does its own health checks; host ops → fish functions or scripts</td>
+    </tr>
+    <tr>
+        <td><strong>Web UI</strong><br><span class="badge badge-blue">Browser</span></td>
+        <td>Django templates + htmx</td>
+        <td>Browser users</td>
+        <td>Removed — use individual service UIs + landing page</td>
+    </tr>
+    <tr>
+        <td><strong>Catalog</strong><br><span class="badge badge-yellow">Optional</span></td>
+        <td><code>/api/v2/catalog/*</code></td>
+        <td>Web UI</td>
+        <td>Standalone shell script or fish function</td>
+    </tr>
+    <tr>
+        <td><strong>Host Actions</strong><br><span class="badge badge-green">Low risk</span></td>
+        <td><code>/api/v2/host/reboot</code><br><code>/api/v2/host/pacman-*</code></td>
+        <td>Web UI</td>
+        <td>Direct helper socket calls from fish functions</td>
+    </tr>
+</table>
+
+<h3>3B. What Depends ON the Control Panel</h3>
+<table>
+    <tr><th>Dependent</th><th>How</th><th>Impact of Removal</th><th>Mitigation</th></tr>
+    <tr>
+        <td><strong>Landing page</strong></td>
+        <td>Fetches <code>/api/v2/host/health</code> for health dots</td>
+        <td>Health dots go dark</td>
+        <td>Landing page does its own health checks (already has this capability)</td>
+    </tr>
+    <tr>
+        <td><strong>Landing page nginx</strong></td>
+        <td>Proxies <code>/api/*</code> to control-panel:8420</td>
+        <td>Proxy returns 502</td>
+        <td>Remove the proxy location block</td>
+    </tr>
+    <tr>
+        <td><strong>95 fish functions</strong></td>
+        <td>Call <code>__stack_api</code> → Traefik → control panel</td>
+        <td>All fish functions break</td>
+        <td>Rewrite <code>__stack_api</code> to call services directly</td>
+    </tr>
+    <tr>
+        <td><strong>Backup script</strong></td>
+        <td>Backs up <code>data/control-panel/</code> (SQLite DB)</td>
+        <td>Backs up nothing (no DB)</td>
+        <td>Remove control-panel from backup list</td>
+    </tr>
+    <tr>
+        <td><strong>Setup script</strong></td>
+        <td>Creates control-panel dirs, generates secrets</td>
+        <td>Creates unnecessary dirs</td>
+        <td>Remove control-panel sections</td>
+    </tr>
+    <tr>
+        <td><strong>Docker compose</strong></td>
+        <td>Runs control-panel service + env vars</td>
+        <td>Service removed, env vars orphaned</td>
+        <td>Remove service block, clean env vars</td>
+    </tr>
+    <tr>
+        <td><strong>Prometheus</strong></td>
+        <td>❌ No dependency (verified)</td>
+        <td>None</td>
+        <td>—</td>
+    </tr>
+    <tr>
+        <td><strong>Grafana</strong></td>
+        <td>❌ No dependency (verified)</td>
+        <td>None</td>
+        <td>—</td>
+    </tr>
+    <tr>
+        <td><strong>Alertmanager</strong></td>
+        <td>❌ No dependency</td>
+        <td>None</td>
+        <td>—</td>
+    </tr>
+    <tr>
+        <td><strong>arr-dashboard</strong></td>
+        <td>❌ Independent (own Radarr/Sonarr API calls)</td>
+        <td>None</td>
+        <td>—</td>
+    </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="fish">4. Fish Function Migration</h2>
+
+<h3>4A. Current Flow</h3>
+<pre>
+# Every fish function does this:
+__stack_api GET /api/v2/cli/arr/radarr/backlog
+    ↓
+curl -sS -X GET --fail-with-body \
+    -H "X-Api-Key: $MEDIA_STACK_SERVICE_KEY" \
+    "https://bearcave.$HOST_IP.nip.io/api/v2/cli/arr/radarr/backlog"
+    ↓
+Traefik → Control Panel → core.arr_client → httpx → Radarr API
+</pre>
+
+<h3>4B. Target Flow</h3>
+<pre>
+# New __stack_api calls services directly:
+stack-arr-backlog radarr
+    ↓
+curl -sS "http://radarr:7878/api/v3/command?pageSize=50" \
+    -H "X-Api-Key: $RADARR_API_KEY"
+    ↓
+Direct to Radarr (no Django, no Traefik, no HTTPS overhead)
+</pre>
+
+<h3>4C. Migration Categories</h3>
+<table>
+    <tr><th>Category</th><th>Functions</th><th>Direct Target</th><th>Complexity</th></tr>
+    <tr>
+        <td><strong>Container lifecycle</strong></td>
+        <td><code>stack-container</code>, <code>stack-restart-all</code></td>
+        <td>Docker CLI (<code>docker restart/stop/start</code>)</td>
+        <td><span class="badge badge-green">Low</span></td>
+    </tr>
+    <tr>
+        <td><strong>Arr operations</strong></td>
+        <td><code>stack-arr</code>, <code>stack-arr-backlog</code>, <code>stack-arr-blocklist</code>, etc. (15 functions)</td>
+        <td>Radarr/Sonarr REST API directly</td>
+        <td><span class="badge badge-yellow">Medium</span></td>
+    </tr>
+    <tr>
+        <td><strong>NzbDAV</strong></td>
+        <td><code>stack-nzbdav-queue</code>, <code>stack-nzbdav-history</code>, etc. (5 functions)</td>
+        <td>NzbDAV API (:3000) directly</td>
+        <td><span class="badge badge-green">Low</span></td>
+    </tr>
+    <tr>
+        <td><strong>Plex</strong></td>
+        <td><code>stack-plex</code>, <code>stack-plex-sessions</code>, <code>stack-plex-butler</code>, etc. (20 functions)</td>
+        <td>Plex API (:32400) directly</td>
+        <td><span class="badge badge-yellow">Medium</span></td>
+    </tr>
+    <tr>
+        <td><strong>WatchState</strong></td>
+        <td><code>stack-watchstate-status</code>, <code>stack-watchstate-import-now</code>, etc. (3 functions)</td>
+        <td>WatchState API (:8705) directly</td>
+        <td><span class="badge badge-green">Low</span></td>
+    </tr>
+    <tr>
+        <td><strong>Diagnostics</strong></td>
+        <td><code>stack-status</code>, <code>stack-top</code>, <code>stack-resource-check</code>, etc. (8 functions)</td>
+        <td>Docker CLI + /proc reads</td>
+        <td><span class="badge badge-yellow">Medium</span></td>
+    </tr>
+    <tr>
+        <td><strong>Host ops</strong></td>
+        <td><code>stack-reboot</code> (new), <code>stack-pacman-*</code> (new)</td>
+        <td>Host helper socket directly</td>
+        <td><span class="badge badge-green">Low</span></td>
+    </tr>
+    <tr>
+        <td><strong>Third-party</strong></td>
+        <td><code>stack-seerr-requests</code>, <code>stack-cleanuparr-*</code>, <code>stack-notify-test</code></td>
+        <td>Seerr/Cleanuparr/Discord API directly</td>
+        <td><span class="badge badge-green">Low</span></td>
+    </tr>
+    <tr>
+        <td><strong>List imports</strong></td>
+        <td><code>stack-letterboxd-import</code>, <code>stack-mdblist-import</code></td>
+        <td>Letterboxd/MDBList scraping (currently placeholders)</td>
+        <td><span class="badge badge-red">High</span></td>
+    </tr>
+    <tr>
+        <td><strong>Loop remediation</strong></td>
+        <td><code>stack-loop-candidates</code>, <code>stack-loop-unmonitor</code>, <code>stack-loop-exclude</code></td>
+        <td>Radarr/Sonarr API + custom logic</td>
+        <td><span class="badge badge-red">High</span></td>
+    </tr>
+</table>
+
+<h3>4D. New <code>__stack_api</code> Design</h3>
+<pre>
+# BEFORE: single gateway
+function __stack_api
+    curl ... "https://bearcave.$HOST_IP.nip.io$argv[2]"
+end
+
+# AFTER: direct service calls with env-var-driven config
+function __stack_api
+    # DEPRECATED — kept for backward compat during migration
+    # New functions should call services directly
+    set -l method $argv[1]
+    set -l path $argv[2]
+    # ... parse path to determine target service ...
+    # ... call service API directly ...
+end
+
+# NEW: per-service helpers
+function __arr_api
+    set -l app $argv[1]    # radarr or sonarr
+    set -l method $argv[2]  # GET/POST
+    set -l path $argv[3]
+    set -l url "http://$app:7878"  # or 8989 for sonarr
+    set -l key (eval echo \$$app:toupper)_API_KEY
+    curl -sS -X $method "$url$path" -H "X-Api-Key: $key"
+end
+
+function __plex_api
+    set -l method $argv[1]
+    set -l path $argv[2]
+    curl -sS -X $method "http://host.docker.internal:32400$path" \
+        -H "X-Plex-Token: $PLEX_TOKEN"
+end
+
+function __nzbdav_api
+    set -l method $argv[1]
+    set -l path $argv[2]
+    curl -sS -X $method "http://nzbdav:3000$path" \
+        -H "X-Api-Key: $FRONTEND_BACKEND_API_KEY"
+end
+</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="landing">5. Landing Page Changes</h2>
+
+<h3>5A. Remove Control Panel Dependency</h3>
+<table>
+    <tr><th>File</th><th>Change</th></tr>
+    <tr>
+        <td><code>service-registry.json</code></td>
+        <td>Remove <code>control-panel</code> entry. Remove from all <code>depended_by</code> lists.</td>
+    </tr>
+    <tr>
+        <td><code>index.html</code> (inline registry)</td>
+        <td>Remove <code>control-panel</code> from inline JSON copy. Update Mermaid graph.</td>
+    </tr>
+    <tr>
+        <td><code>index.html</code> (JS)</td>
+        <td>Replace <code>/api/v2/host/health</code> fetch with direct health checks against each service.</td>
+    </tr>
+    <tr>
+        <td><code>nginx.conf</code></td>
+        <td>Remove <code>location /api/</code> proxy block.</td>
+    </tr>
+</table>
+
+<h3>5B. Health Check Replacement</h3>
+<pre>
+// BEFORE: single endpoint
+const r = await fetch('/api/v2/host/health');
+
+// AFTER: parallel checks against each service
+const services = [
+    { name: 'radarr', url: 'http://radarr:7878/api/v3/system/status' },
+    { name: 'sonarr', url: 'http://sonarr:8989/api/v3/system/status' },
+    // ... etc
+];
+const results = await Promise.allSettled(
+    services.map(s => fetch(s.url, {signal: AbortController.signal})
+        .then(r => ({name: s.name, up: r.ok}))
+        .catch(() => ({name: s.name, up: false}))
+);
+</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="host-ops">6. Host Operations</h2>
+
+<h3>6A. What Moves to Fish Functions</h3>
+<table>
+    <tr><th>Operation</th><th>Currently</th><th>After</th></tr>
+    <tr>
+        <td>Restart container</td>
+        <td>Web UI → Docker SDK → helper socket</td>
+        <td><code>docker restart &lt;name&gt;</code> (fish function, local)</td>
+    </tr>
+    <tr>
+        <td>Stop/start container</td>
+        <td>Web UI → Docker SDK → helper socket</td>
+        <td><code>docker stop/start &lt;name&gt;</code> (fish function, local)</td>
+    </tr>
+    <tr>
+        <td>Restart all</td>
+        <td>Web UI → Docker SDK → helper socket (staged)</td>
+        <td><code>stack-restart-all</code> → docker CLI (staged order)</td>
+    </tr>
+    <tr>
+        <td>View logs</td>
+        <td>Web UI → Docker SDK (SSE stream)</td>
+        <td><code>docker logs -f &lt;name&gt;</code> or <code>dozzle</code></td>
+    </tr>
+    <tr>
+        <td>Container stats</td>
+        <td>Web UI → Docker SDK stats</td>
+        <td><code>docker stats --no-stream</code></td>
+    </tr>
+    <tr>
+        <td>Reboot</td>
+        <td>Web UI → host helper</td>
+        <td><code>stack-reboot</code> → helper socket directly</td>
+    </tr>
+    <tr>
+        <td>Pacman sync/upgrade</td>
+        <td>Web UI → host helper</td>
+        <td><code>stack-pacman-sync</code> / <code>stack-pacman-upgrade</code> → helper socket</td>
+    </tr>
+    <tr>
+        <td>Prune images/volumes</td>
+        <td>Web UI → Docker SDK → helper socket</td>
+        <td><code>docker image prune -f</code> / <code>docker volume prune -f</code></td>
+    </tr>
+    <tr>
+        <td>View disk usage</td>
+        <td>Web UI → Docker SDK df + shutil</td>
+        <td><code>docker system df</code> + <code>du -sh config/*/</code></td>
+    </tr>
+    <tr>
+        <td>Resource check</td>
+        <td>Web UI → Docker SDK container attrs</td>
+        <td><code>docker inspect</code> + parse JSON</td>
+    </tr>
+</table>
+
+<h3>6B. Operations That Need a New Home</h3>
+<table>
+    <tr><th>Operation</th><th>Currently</th><th>Options</th></tr>
+    <tr>
+        <td>Install/remove catalog items</td>
+        <td>Web UI → Docker SDK (pull, run, stop, rm)</td>
+        <td>① Fish function <code>stack-catalog install/remove</code><br>② Standalone <code>scripts/catalog.sh</code><br>③ Drop entirely (manual docker commands)</td>
+    </tr>
+    <tr>
+        <td>Settings management</td>
+        <td>Web UI → SQLite DB</td>
+        <td>① Config file (<code>config/settings.json</code>)<br>② Fish universal variables<br>③ Drop (each service has its own config)</td>
+    </tr>
+    <tr>
+        <td>Audit log</td>
+        <td>Web UI → Django AuditLog model</td>
+        <td>① Syslog/journald<br>② Drop (Loki already collects logs)</td>
+    </tr>
+    <tr>
+        <td>TLS certificate check</td>
+        <td>Web UI → /api/v2/host/tls</td>
+        <td>Fish function <code>stack-tls-check</code> → openssl s_client</td>
+    </tr>
+    <tr>
+        <td>Login/auth</td>
+        <td>Django session auth</td>
+        <td>Drop — services have their own auth</td>
+    </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="catalog">7. Catalog System</h2>
+
+<div class="card">
+    <h3>Decision Required</h3>
+    <p>The catalog lets you install/remove third-party tools (Uptime Kuma, Dozzle, Beszel, etc.) from the web UI. Options:</p>
+    <ol style="margin: 1rem 0; padding-left: 1.5rem;">
+        <li><strong>Keep as fish function</strong> — <code>stack-catalog install uptime-kuma</code> → reads <code>catalog/registry.json</code>, runs <code>docker run</code> via helper socket</li>
+        <li><strong>Standalone script</strong> — <code>scripts/catalog.sh install uptime-kuma</code> (no fish dependency)</li>
+        <li><strong>Drop entirely</strong> — users run <code>docker run</code> manually (the catalog entries are just docker-compose snippets)</li>
+    </ol>
+    <p><strong>Recommendation:</strong> Option 1 (fish function) — keeps the curated catalog accessible from the terminal.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="data">8. Data & State</h2>
+
+<table>
+    <tr><th>Data</th><th>Location</th><th>Fate</th></tr>
+    <tr>
+        <td>Control panel SQLite DB</td>
+        <td><code>data/control-panel/control-panel.db</code></td>
+        <td><span class="badge badge-red">Deleted</span> — contains settings, audit log, sessions. All replaceable.</td>
+    </tr>
+    <tr>
+        <td>Control panel secrets</td>
+        <td><code>.env</code> (CONTROL_PANEL_*)</td>
+        <td><span class="badge badge-red">Removed</span> — 5 env vars no longer needed.</td>
+    </tr>
+    <tr>
+        <td>Fish function config</td>
+        <td>Fish universal variables (<code>MEDIA_STACK_HOST_IP</code>, etc.)</td>
+        <td><span class="badge badge-green">Kept</span> — still used, but <code>MEDIA_STACK_SERVICE_KEY</code> no longer needed.</td>
+    </tr>
+    <tr>
+        <td>Service configs</td>
+        <td><code>config/radarr/</code>, <code>config/sonarr/</code>, etc.</td>
+        <td><span class="badge badge-green">Kept</span> — unchanged.</td>
+    </tr>
+    <tr>
+        <td>Host helper daemon</td>
+        <td><code>/opt/controlpanel-helper/</code></td>
+        <td><span class="badge badge-green">Kept</span> — still needed for reboot/pacman.</td>
+    </tr>
+    <tr>
+        <td>Backup script</td>
+        <td><code>scripts/backup.sh</code></td>
+        <td><span class="badge badge-yellow">Modified</span> — remove control-panel section.</td>
+    </tr>
+    <tr>
+        <td>Setup script</td>
+        <td><code>scripts/setup.sh</code></td>
+        <td><span class="badge badge-yellow">Modified</span> — remove control-panel dirs + secrets.</td>
+    </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="phases">9. Implementation Phases</h2>
+
+<div class="phase phase-risk-low">
+    <h3>Phase 1: Foundation (Days 1-3) <span class="badge badge-green">Low risk</span></h3>
+    <ul class="checklist">
+        <li>Create per-service fish API helpers (<code>__arr_api</code>, <code>__plex_api</code>, <code>__nzbdav_api</code>, etc.)</li>
+        <li>Rewrite <code>__stack_api</code> to route based on path prefix to direct service calls</li>
+        <li>Add env vars for direct service URLs (<code>RADARR_URL=http://radarr:7878</code>, etc.)</li>
+        <li>Test 5 fish functions end-to-end against live services</li>
+        <li>Verify host helper socket still works for reboot/pacman</li>
+    </ul>
+</div>
+
+<div class="phase phase-risk-med">
+    <h3>Phase 2: Fish Functions (Days 4-10) <span class="badge badge-yellow">Medium risk</span></h3>
+    <ul class="checklist">
+        <li>Rewrite Arr functions (15) — direct Radarr/Sonarr API calls</li>
+        <li>Rewrite NzbDAV functions (5) — direct NzbDAV API calls</li>
+        <li>Rewrite Plex functions (20) — direct Plex API calls</li>
+        <li>Rewrite WatchState functions (3) — direct WatchState API calls</li>
+        <li>Rewrite diagnostics functions (8) — docker CLI + /proc reads</li>
+        <li>Rewrite container lifecycle (2) — docker CLI via helper socket</li>
+        <li>Add host operation fish functions (reboot, pacman)</li>
+        <li>Rewrite third-party functions (Seerr, Cleanuparr, Notify)</li>
+        <li>Mark list import + loop remediation as "pending" (currently placeholders)</li>
+        <li>Run full fish function test suite</li>
+    </ul>
+</div>
+
+<div class="phase phase-risk-med">
+    <h3>Phase 3: Landing Page (Days 11-13) <span class="badge badge-yellow">Medium risk</span></h3>
+    <ul class="checklist">
+        <li>Remove control-panel from service-registry.json + inline registry</li>
+        <li>Replace health check JS to do direct per-service checks</li>
+        <li>Remove nginx proxy block for /api/</li>
+        <li>Update Mermaid graph (remove control-panel node)</li>
+        <li>Test landing page renders correctly with 21 services</li>
+    </ul>
+</div>
+
+<div class="phase phase-risk-high">
+    <h3>Phase 4: Remove Control Panel (Days 14-16) <span class="badge badge-red">High risk</span></h3>
+    <ul class="checklist">
+        <li>Remove control-panel service from docker-compose.yml</li>
+        <li>Remove CONTROL_PANEL_* env vars from .env + .env.template</li>
+        <li>Remove <code>services/control-panel/</code> directory (or archive it)</li>
+        <li>Remove control-panel from backup.sh</li>
+        <li>Remove control-panel from setup.sh</li>
+        <li>Update docker-compose.yml: remove Docker socket mount from any remaining service</li>
+        <li>Run full health suite (21 services)</li>
+        <li>Run integration tests</li>
+        <li>Verify fish functions all work</li>
+    </ul>
+</div>
+
+<div class="phase phase-risk-low">
+    <h3>Phase 5: Cleanup (Days 17-19) <span class="badge badge-green">Low risk</span></h3>
+    <ul class="checklist">
+        <li>Archive <code>services/control-panel/</code> to <code>archive/</code></li>
+        <li>Update AGENTS.md, docs/services/control-panel.md → removed</li>
+        <li>Update all Mermaid diagrams</li>
+        <li>Update .env.template (remove 5 control-panel vars)</li>
+        <li>Add catalog fish function (if keeping catalog system)</li>
+        <li>Final commit + push</li>
+    </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="rollback">10. Rollback Strategy</h2>
+
+<div class="card">
+    <h3>Git-based rollback</h3>
+    <p>Every phase is a separate commit. Rollback = <code>git revert &lt;commit&gt;</code>. The control panel Docker image is built from source, so reverting the compose change + rebuilding restores the service.</p>
+    <pre>
+# Rollback Phase 4 (control panel removal):
+git revert &lt;phase-4-commit&gt;
+docker compose up -d control-panel --build
+# Service restored in ~2 minutes
+    </pre>
+</div>
+
+<div class="card">
+    <h3>Branch-based rollback</h3>
+    <p>Create a <code>remove-control-panel</code> branch. Merge to main only after all phases pass. If anything breaks, merge <code>main</code> back into the branch to restore.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="risks">11. Risks & Mitigations</h2>
+
+<table>
+    <tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr>
+    <tr>
+        <td>Fish functions break during migration</td>
+        <td><span class="badge badge-red">High</span></td>
+        <td><span class="badge badge-red">High</span></td>
+        <td>Migrate in batches; keep old <code>__stack_api</code> as fallback</td>
+    </tr>
+    <tr>
+        <td>Service APIs change (unversioned)</td>
+        <td><span class="badge badge-yellow">Medium</span></td>
+        <td><span class="badge badge-yellow">Medium</span></td>
+        <td>Pin API versions where possible; test against live services</td>
+    </tr>
+    <tr>
+        <td>Landing page health checks timeout</td>
+        <td><span class="badge badge-yellow">Medium</span></td>
+        <td><span class="badge badge-green">Low</span></td>
+        <td>Parallel fetch with 3s timeout per service</td>
+    </tr>
+    <tr>
+        <td>Catalog system loses web UI</td>
+        <td><span class="badge badge-green">Low</span></td>
+        <td><span class="badge badge-yellow">Medium</span></td>
+        <td>Create fish function <code>stack-catalog</code> as replacement</td>
+    </tr>
+    <tr>
+        <td>Host operations (reboot) lose web UI</td>
+        <td><span class="badge badge-green">Low</span></td>
+        <td><span class="badge badge-green">Low</span></td>
+        <td>Create fish functions <code>stack-reboot</code>, <code>stack-pacman-*</code></td>
+    </tr>
+    <tr>
+        <td>Docker socket still mounted somewhere</td>
+        <td><span class="badge badge-green">Low</span></td>
+        <td><span class="badge badge-red">High</span></td>
+        <td>Audit docker-compose.yml; only Traefik should have socket (already :ro)</td>
+    </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2>Files Changed (Summary)</h2>
+<table>
+    <tr><th>File</th><th>Action</th></tr>
+    <tr><td><code>services/fish-functions/functions/__stack_api.fish</code></td><td><span class="badge badge-red">Rewrite</span> — route to direct service calls</td></tr>
+    <tr><td><code>services/fish-functions/functions/stack-*.fish</code> (95 files)</td><td><span class="badge badge-yellow">Modify</span> — use new per-service helpers</td></tr>
+    <tr><td><code>services/fish-functions/functions/__arr_api.fish</code></td><td><span class="badge badge-green">Create</span> — direct Radarr/Sonarr API helper</td></tr>
+    <tr><td><code>services/fish-functions/functions/__plex_api.fish</code></td><td><span class="badge badge-green">Create</span> — direct Plex API helper</td></tr>
+    <tr><td><code>services/fish-functions/functions/__nzbdav_api.fish</code></td><td><span class="badge badge-green">Create</span> — direct NzbDAV API helper</td></tr>
+    <tr><td><code>services/landing-page/index.html</code></td><td><span class="badge badge-yellow">Modify</span> — direct health checks, remove control-panel</td></tr>
+    <tr><td><code>services/landing-page/service-registry.json</code></td><td><span class="badge badge-yellow">Modify</span> — remove control-panel entry</td></tr>
+    <tr><td><code>services/landing-page/nginx.conf</code></td><td><span class="badge badge-yellow">Modify</span> — remove /api/ proxy</td></tr>
+    <tr><td><code>docker-compose.yml</code></td><td><span class="badge badge-red">Remove</span> — control-panel service block</td></tr>
+    <tr><td><code>.env</code> / <code>.env.template</code></td><td><span class="badge badge-yellow">Modify</span> — remove 5 CONTROL_PANEL_* vars</td></tr>
+    <tr><td><code>scripts/backup.sh</code></td><td><span class="badge badge-yellow">Modify</span> — remove control-panel section</td></tr>
+    <tr><td><code>scripts/setup.sh</code></td><td><span class="badge badge-yellow">Modify</span> — remove control-panel dirs</td></tr>
+    <tr><td><code>services/control-panel/</code></td><td><span class="badge badge-red">Archive</span> → <code>archive/control-panel/</code></td></tr>
+    <tr><td><code>AGENTS.md</code></td><td><span class="badge badge-yellow">Modify</span> — update service count, remove control-panel references</td></tr>
+    <tr><td><code>.github/workflows/validate.yml</code></td><td><span class="badge badge-yellow">Modify</span> — remove Django test step</td></tr>
+</table>
+
+<p style="margin-top: 3rem; color: var(--muted); text-align: center;">Generated by Buffy · The Bear Cave · August 2026</p>
+
+</body>
+</html>
