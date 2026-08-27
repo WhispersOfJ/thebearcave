@@ -12,7 +12,7 @@ auto-hunting, Plex analytics.
 
 ## Role
 
-The media-ops surface (sibling to the Control Panel's infrastructure ops):
+The media-ops surface:
 
 - Unified queue/calendar/history across Radarr + Sonarr
 - Library management + global search via Prowlarr

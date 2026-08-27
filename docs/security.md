@@ -30,19 +30,10 @@ How secrets are handled, what's exposed, and the deliberate tradeoffs.
 | Traefik :80/:443 | LAN (or WAN if you open it) | Dashboard basic-auth protected; HTTPS via locally-trusted mkcert CA (see [docs/tls.md](tls.md)) |
 | All service UIs | LAN via nip.io hostnames | No auth on most (*arr apps, Seerr, InfiniDysk) — LAN trust model |
 | Metacache :8765 | LAN | Provider API unauthenticated by design (Plex sends no auth); write endpoints locked with `METACACHE_API_KEY` |
-| Control Panel :8420 | LAN | docker.sock access — **highest blast radius**; mitigated by Origin/Host validation |
 
 ## Deliberate tradeoffs
 
-1. **Control Panel privilege model** — docker.sock (RW), `pid: host`, `/sys/fs/fuse`
-   (writable) enable Force Unstick and FUSE recovery. These are the exact powers that
-   make it dangerous if exposed. Keep it LAN-only.
-2. **Control Panel auth** — session login exists but several endpoints are effectively
-   unauthenticated with Origin/Host checks only. This matches the original stack's
-   decision; revisit if the panel ever leaves the LAN.
-3. **`CONTROL_PANEL_SECURE_COOKIE`** — leave empty on plain-LAN HTTP. Set it **only**
-   when a TLS reverse proxy fronts the panel, or every login silently fails.
-4. **rclone RC** — password-protected (`NZBDAV_RCLONE_RC_PASS`) but that's the password
+1. **rclone RC** — password-protected (`NZBDAV_RCLONE_RC_PASS`) but that's the password
    InfiniDysk uses to push cache-forget notifications; keep it unique.
 
 ## CI security gates

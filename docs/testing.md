@@ -48,13 +48,6 @@ Requires `.env` loaded (real API keys) and the stack up.
 
 ## Unit tests
 
-### Control Panel (Django)
-
-```bash
-cd services/control-panel/django
-CONTROL_PANEL_SECRET_KEY=ci-test-secret pytest
-```
-
 ### Metacache (.NET)
 
 ```bash

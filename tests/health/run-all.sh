@@ -141,10 +141,6 @@ check_metacache() {
     check_container "metacache" "Metacache"
 }
 
-check_control_panel() {
-    check_container "control-panel" "Control Panel"
-}
-
 check_unpackerr() {
     check_container "unpackerr" "Unpackerr"
 }
@@ -242,7 +238,6 @@ main() {
             seerr) check_seerr ;;
             plex) check_plex ;;
             metacache) check_metacache ;;
-            control-panel) check_control_panel ;;
             unpackerr) check_unpackerr ;;
             cleanuparr) check_cleanuparr ;;
             watchstate) check_watchstate ;;
@@ -271,7 +266,6 @@ main() {
         check_seerr
         check_plex
         check_metacache
-        check_control_panel
         check_unpackerr
         check_cleanuparr
         check_watchstate

@@ -19,6 +19,9 @@ and the two policies every operator must know: **actions are SHA-pinned** and
 | `pr-lint.yml` | `pull_request_target` | Enforces Conventional Commits in PR titles |
 | `stale.yml` | schedule | Auto-closes stale issues/PRs |
 | `secret-guard.yml` | push/PR to `main` | Fails when a workflow references a secret not declared in `.github/required-secrets.json`, or a declared secret's `.env.template` var is missing |
+| `cert-expiry-check.yml` | weekly + dispatch | Probes the Traefik HTTPS certificate and alerts via Discord before it expires |
+| `disk-cleanup.yml` | weekly + dispatch | Prunes Docker images/volumes/build cache when disk usage crosses a threshold, alerts via Discord |
+| `pin-drift-check.yml` | weekly + dispatch | Verifies all third-party action pins are current; opens/closes a `pin-drift` issue |
 
 `dependabot.yml` (not a workflow) drives weekly version updates for Docker,
 pip, NuGet, and GitHub Actions.

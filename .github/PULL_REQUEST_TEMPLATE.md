@@ -18,7 +18,6 @@
 - [ ] InfiniDysk (nzbdav)
 - [ ] Radarr / Sonarr / Prowlarr
 - [ ] Seerr
-- [ ] Control Panel
 - [ ] Traefik
 - [ ] WatchState
 - [ ] Monitoring (Grafana / Prometheus / Loki)

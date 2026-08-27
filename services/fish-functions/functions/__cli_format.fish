@@ -1,5 +1,5 @@
 # __cli_format.fish — Shared formatting helpers for fish functions
-# Replaces the Python Formatter class from the control panel CLI API.
+# Replaces the Python Formatter class from the retired CLI API.
 # All functions respect $STACK_COLOR (true/false, default: auto-detect TTY).
 
 # ANSI color codes using fish-compatible escape sequences

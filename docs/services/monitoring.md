@@ -119,9 +119,9 @@ Custom Python exporter scraping InfiniDysk's SABnzbd-compatible API.
 # Prometheus targets
 curl http://HOST_IP:9090/api/v1/targets
 
-# Loki log query (last hour, control-panel container)
+# Loki log query (last hour, nzbdav container)
 curl -G http://HOST_IP:3100/loki/api/v1/query_range \
-  --data-urlencode 'query={container="control-panel"}' \
+  --data-urlencode 'query={container="nzbdav"}' \
   --data-urlencode 'start=1h'
 
 # Grafana health
