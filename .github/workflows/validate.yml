@@ -11,6 +11,17 @@ on:
   pull_request:
     branches: ["main"]
   workflow_dispatch:
+    inputs:
+      skip_django_tests:
+        description: "Skip Django unit tests"
+        required: false
+        default: false
+        type: boolean
+      skip_actionlint:
+        description: "Skip actionlint workflow lint"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   validate:
@@ -56,6 +67,7 @@ jobs:
           done
 
       - name: Actionlint (workflow lint)
+        if: ${{ github.event.inputs.skip_actionlint != 'true' }}
         run: |
           # v1.7.12 pinned — to upgrade, bump the version here (asset name is
           # actionlint_<version>_linux_amd64.tar.gz) and re-run validate.
@@ -65,6 +77,7 @@ jobs:
           /tmp/actionlint -color .github/workflows/*.yml
 
       - name: Unit tests - Django control panel
+        if: ${{ github.event.inputs.skip_django_tests != 'true' }}
         run: |
           pip install -r services/control-panel/django/requirements.txt
           cd services/control-panel/django

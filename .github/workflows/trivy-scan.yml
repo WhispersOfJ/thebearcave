@@ -7,6 +7,21 @@ name: Trivy Image Security Scan
 
 on:
   workflow_dispatch:
+    inputs:
+      severity:
+        description: "Severity threshold"
+        required: false
+        default: "CRITICAL,HIGH"
+        type: choice
+        options:
+          - "CRITICAL,HIGH"
+          - CRITICAL
+          - "CRITICAL,HIGH,MEDIUM"
+      quick:
+        description: "Quick scan (IaC only, skip image CVE scan)"
+        required: false
+        default: false
+        type: boolean
   pull_request:
     paths:
       - "docker-compose.yml"
@@ -27,6 +42,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     name: Scan Images for CVEs
+    if: ${{ github.event.inputs.quick != 'true' }}
 
     steps:
       - name: Checkout code
@@ -53,7 +69,8 @@ jobs:
           while IFS= read -r image; do
             [ -z "$image" ] && continue
             echo "::group::Scanning $image"
-            RESULT=$(trivy image --scanners vuln --format json --severity CRITICAL,HIGH "$image" 2>/dev/null || echo '{}')
+            SEVERITY="${{ github.event.inputs.severity || 'CRITICAL,HIGH' }}"
+            RESULT=$(trivy image --scanners vuln --format json --severity "$SEVERITY" "$image" 2>/dev/null || echo '{}')
             CRIT=$(echo "$RESULT" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' 2>/dev/null || echo 0)
             HIGH=$(echo "$RESULT" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' 2>/dev/null || echo 0)
             CRITICAL_TOTAL=$((CRITICAL_TOTAL + CRIT))
@@ -62,7 +79,15 @@ jobs:
             echo "::endgroup::"
           done < /tmp/images.txt
           echo "=== TOTAL: CRITICAL=$CRITICAL_TOTAL HIGH=$HIGH_TOTAL ==="
-          if [ "$CRITICAL_TOTAL" -gt 0 ]; then
+          SEVERITY="${{ github.event.inputs.severity || 'CRITICAL,HIGH' }}"
+          if [ "$SEVERITY" = "CRITICAL" ]; then
+            # Only gate on CRITICAL when severity is CRITICAL-only
+            GATE_COUNT=$CRITICAL_TOTAL
+          else
+            # Gate on CRITICAL (always) regardless of HIGH/MEDIUM
+            GATE_COUNT=$CRITICAL_TOTAL
+          fi
+          if [ "$GATE_COUNT" -gt 0 ]; then
             echo "❌ $CRITICAL_TOTAL CRITICAL CVEs detected across all images"
             exit 1
           else
@@ -103,7 +128,8 @@ jobs:
                     services/control-panel/django/Dockerfile \
                     services/nzbdav-exporter/Dockerfile; do
             echo "::group::Trivy IaC scan: $df"
-            trivy config --severity HIGH,CRITICAL --exit-code 1 "$df" \
+            SEVERITY="${{ github.event.inputs.severity || 'HIGH,CRITICAL' }}"
+            trivy config --severity "$SEVERITY" --exit-code 1 "$df" \
               || fail=1
             echo "::endgroup::"
           done
