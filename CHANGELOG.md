@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.9.1...v1.10.0) (2026-08-27)
+
+
+### Features
+
+* **monitoring:** add backup freshness, disk fill rate, and load alerts ([#39](https://github.com/WhispersOfJ/thebearcave/issues/39)) ([e5f924c](https://github.com/WhispersOfJ/thebearcave/commit/e5f924c9df00781b9cf00bd1edf7e5097e1cf27d))
+* **security:** add resource limits to all 22 services ([#5](https://github.com/WhispersOfJ/thebearcave/issues/5)) ([fb3b43a](https://github.com/WhispersOfJ/thebearcave/commit/fb3b43a8ef32e3afff70c6d549a6fc39891b9fed))
+
+
+### Bug Fixes
+
+* **alerts:** correct BackupStale metric and HostHighLoad PromQL ([39e7030](https://github.com/WhispersOfJ/thebearcave/commit/39e703099437b9d3d3bf5370e8caab0490f9e44b))
+
 ## [1.9.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.9.0...v1.9.1) (2026-08-27)
 
 
