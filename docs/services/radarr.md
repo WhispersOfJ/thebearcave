@@ -48,5 +48,5 @@ Movie management — the movie half of the *arr pair.
   `docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav`; restart dependents after.
 - **Queue stuck on "importing"** — files may be broken or the mount stale. Use Control
   Panel's queue tools or check `docker compose logs radarr`.
-- **API key changed** — every consumer (Control Panel, InfiniDysk, Unpackerr, Metacache)
+- **API key changed** — every consumer (InfiniDysk, Unpackerr, Metacache)
   reads `RADARR_API_KEY`; update `.env` and `--force-recreate` the consumers.

@@ -13,7 +13,7 @@ Queue cleanup automation — strikes, malware blocking, stalled-cleanup.
 
 ## Role
 
-- Automates what the Control Panel's "unstick" button does by hand
+- Automates stalled/failed queue recovery that was previously manual
 - QueueCleaner: stalled/warning/error queue items
 - MalwareBlocker: blocks releases matching malware patterns
 - Needs filesystem access to the paths the download client reports — hence the FUSE

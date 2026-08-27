@@ -55,7 +55,7 @@ jobs:
             2>/dev/null | openssl x509 -outform PEM > "$CERT_FILE" 2>/dev/null || true
 
           if [ ! -s "$CERT_FILE" ]; then
-            { echo "status=error"; echo "message=Could not probe certificate from $HOST_URL"; } >> "\$GITHUB_OUTPUT"
+            { echo "status=error"; echo "message=Could not probe certificate from $HOST_URL"; } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -80,14 +80,14 @@ jobs:
           echo "  SANs: $SAN"
 
           if [ "$DAYS_LEFT" -le 0 ]; then
-            { echo "status=expired"; echo "message=🔴 CERTIFICATE EXPIRED $((DAYS_LEFT * -1)) days ago"; } >> "\$GITHUB_OUTPUT"
+            { echo "status=expired"; echo "message=🔴 CERTIFICATE EXPIRED $((DAYS_LEFT * -1)) days ago"; } >> "$GITHUB_OUTPUT"
           elif [ "$DAYS_LEFT" -le "$WARNING_DAYS" ]; then
-            { echo "status=warning"; echo "message=⚠️ Certificate expires in $DAYS_LEFT days ($EXPIRY_DATE)"; } >> "\$GITHUB_OUTPUT"
+            { echo "status=warning"; echo "message=⚠️ Certificate expires in $DAYS_LEFT days ($EXPIRY_DATE)"; } >> "$GITHUB_OUTPUT"
           else
-            { echo "status=ok"; echo "message=✅ Certificate valid for $DAYS_LEFT days (expires $EXPIRY_DATE)"; } >> "\$GITHUB_OUTPUT"
+            { echo "status=ok"; echo "message=✅ Certificate valid for $DAYS_LEFT days (expires $EXPIRY_DATE)"; } >> "$GITHUB_OUTPUT"
           fi
 
-          { echo "days_left=$DAYS_LEFT"; echo "expiry_date=$EXPIRY_DATE"; echo "issuer=$ISSUER"; } >> "\$GITHUB_OUTPUT"
+          { echo "days_left=$DAYS_LEFT"; echo "expiry_date=$EXPIRY_DATE"; echo "issuer=$ISSUER"; } >> "$GITHUB_OUTPUT"
 
       - name: Send Discord alert
         if: steps.check.outputs.status != 'ok' && steps.check.outputs.status != ''

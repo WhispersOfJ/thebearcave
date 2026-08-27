@@ -17,7 +17,7 @@ nothing is ever written to local disk.
 - Downloads from Usenet (2 providers: primary + backup, 26 connections each)
 - Serves everything via WebDAV (`http://nzbdav:3000/`, user/pass from `.env`)
 - Exposes a **SABnzbd-compatible API** on port 3000 — this is what Radarr/Sonarr
-  (and the Control Panel) treat as the download client
+  treat as the download client
 - Symlink import strategy: completed downloads appear as symlinks under
   `/mnt/remote/nzbdav/completed-symlinks`
 - Headless-configurable via `NZBDAV_CONFIG__*` env vars — no manual Settings-UI needed

@@ -27,7 +27,7 @@ services/fish-functions/
 ```
 
 **No backend proxy.** Each function calls its target service's API directly on
-the `bearcave` Docker network. The old control-panel routing layer was removed
+the `bearcave` Docker network — the previous central routing proxy was removed
 in the Phase 2 migration.
 
 ## Function Categories

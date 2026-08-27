@@ -28,33 +28,28 @@ it reintroduces the unkillable D-state hang (SIGKILL mid-shutdown → wedged con
 Recreating the nzbdav container **wipes the queue** and silently blocklists affected
 items. Always confirm the queue is empty before touching the container.
 
-### 4. Control Panel reads .env at create time only
-
-`docker compose restart control-panel` does **not** pick up `.env` changes.
-Use `docker compose up -d --force-recreate control-panel`.
-
 ---
 
 ## High
 
-### 5. Cleanuparr doesn't auto-register
+### 4. Cleanuparr doesn't auto-register
 
 It discovers *arr apps but needs explicit instance registration in its `arr_instances`
 table. Register Radarr + Sonarr after first boot or restores.
 
-### 6. Watchtower only updates channel-tagged images
+### 5. Watchtower only updates channel-tagged images
 
 `ghcr.io/hotio/*:release` images auto-update nightly at 04:00. Digest-pinned images
 (seerr, unpackerr) and versioned tags (cleanuparr:2.10.5) are **excluded by design** —
 bump them deliberately.
 
-### 7. App removal must be exhaustive
+### 6. App removal must be exhaustive
 
 Removing an app touches: compose block, config dir, `.env` vars, Prowlarr sync,
-Cleanuparr rows, Control Panel references, Traefik labels, tests. Miss one and you get
+Cleanuparr rows, Traefik labels, tests. Miss one and you get
 a half-removed service.
 
-### 8. rclone.conf needs `rclone obscure`
+### 7. rclone.conf needs `rclone obscure`
 
 The WebDAV password in `config/nzbdav-rclone/rclone.conf` must be rclone-obfuscated
 (`rclone obscure "pass"`), not plaintext. The file is gitignored — the committed
@@ -64,28 +59,28 @@ The WebDAV password in `config/nzbdav-rclone/rclone.conf` must be rclone-obfusca
 
 ## Medium
 
-### 9. Plex scheduled scan only
+### 8. Plex scheduled scan only
 
 `FSEventLibraryUpdatesEnabled` is disabled; scanning is scheduled (6h). New content
-doesn't appear instantly — trigger a scan from Plex/Control Panel for immediacy.
+doesn't appear instantly — trigger a scan from Plex for immediacy.
 
-### 10. WatchState import window
+### 9. WatchState import window
 
 WatchState's import skips 02:00–05:59 deliberately (SQLite write-contention window
 shared with poster sync, arr backup, Plex Butler). Don't schedule other Plex DB writers
 into that window.
 
-### 11. Traefik + Plex separation
+### 10. Traefik + Plex separation
 
 Plex is not behind Traefik (host network). Anyone expecting "everything through one
 port" will be confused — document `:32400` for Plex.
 
-### 12. Linux-only host resolution
+### 11. Linux-only host resolution
 
 Prometheus reaches node-exporter via `host.docker.internal:9100`. This works on Linux
 (extra_hosts → host-gateway) but not on Docker Desktop. The stack is Linux-only.
 
-### 13. HTTPS is a local CA — Let's Encrypt can never work here
+### 12. HTTPS is a local CA — Let's Encrypt can never work here
 
 All `*.nip.io` hostnames serve the mkcert-signed wildcard cert (wired in as Traefik's
 default certificate via `config/traefik/dynamic/tls.yml`). Let's Encrypt **cannot**
@@ -102,7 +97,7 @@ back to the self-signed default cert (see git history: `ef2ab3c`).
 - Real public certificates require a public domain pointing at this host with 80/443
   forwarded, then a working `ACME_EMAIL`. Full model in [docs/tls.md](tls.md).
 
-### 14. metadata-action tags separator changes on release pushes
+### 13. metadata-action tags separator changes on release pushes
 
 `docker/metadata-action` joins its `tags` output with **commas** on branch/PR pushes
 but **newlines** on release tag pushes (when `type=semver` rules fire: `1.3.0`/`1.3`/
@@ -128,4 +123,4 @@ whole newline-joined string and fails. This reddened `docker-publish.yml`'s
 | Everything unhealthy | `.env` placeholders? `grep changeme .env` |
 | Browser shows certificate warning | CA not installed on that device — `scripts/trust-ca.sh` |
 | Metacache "Fix Match" spam | Cache warm status: `curl localhost:8765/warm/status` |
-| Docker Publish red on a release tag push | `steps.meta.outputs.tags` newline separator — see landmine 14 |
+| Docker Publish red on a release tag push | `steps.meta.outputs.tags` newline separator — see landmine 13 |

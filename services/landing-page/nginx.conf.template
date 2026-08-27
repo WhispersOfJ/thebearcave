@@ -20,7 +20,7 @@ server {
     }
 
     # ═══════════════════════════════════════════════════════════════════
-    # Per-service health proxy — no control panel needed
+    # Per-service health proxy
     # The landing page calls /health/{service} and nginx proxies to the
     # actual service health endpoint on the Docker network.
     # ═══════════════════════════════════════════════════════════════════

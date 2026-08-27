@@ -14,11 +14,6 @@ metacache:
       - any-glob-to-any-file:
           - services/metacache/**
 
-control-panel:
-  - changed-files:
-      - any-glob-to-any-file:
-          - services/control-panel/**
-
 monitoring:
   - changed-files:
       - any-glob-to-any-file:

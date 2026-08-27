@@ -17,8 +17,8 @@ The media server. **The one service not behind Traefik** — it runs on the host
 
 Plex's own guidance: GDM auto-discovery, DLNA, and remote-access NAT-PMP/UPnP
 negotiation are all unreliable on bridge networking. Host networking also means
-`localhost:32400` is shared with the host — which is how the Control Panel reaches
-Plex via `host.docker.internal`.
+`localhost:32400` is shared with the host — which is how host-side tools reach
+Plex directly.
 
 ## Volume mounts
 
@@ -49,7 +49,7 @@ Plex via `host.docker.internal`.
 
 | Variable | Purpose |
 |----------|---------|
-| `PLEX_TOKEN` | API token (used by Control Panel, Metacache warm, tests) |
+| `PLEX_TOKEN` | API token (used by Metacache warm, tests) |
 | `PLEX_URL` | `http://HOST_IP:32400` |
 
 ## Hardware transcoding notes
@@ -62,8 +62,8 @@ Plex via `host.docker.internal`.
 ## Troubleshooting
 
 - **Unkillable container (D-state)** — the 90s grace period should prevent this; if it
-  happens, `docker kill` may fail too — the Control Panel's Tier-3 FUSE-abort recovery
-  is the designed escape hatch
+  happens, `docker kill` may fail too — restarting the FUSE mount owner
+  (nzbdav_rclone) is the designed escape hatch
 - **Everything showing deleted after a scan** — the FUSE mount was down during the scan.
   Restore the mount, restart Plex, trigger a rescan
 - **Software transcode despite GPU** — check `docker exec plex ls /dev/dri` shows the

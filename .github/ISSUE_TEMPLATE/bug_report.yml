@@ -23,7 +23,6 @@ body:
         - Sonarr
         - Prowlarr
         - Seerr
-        - Control Panel
         - Traefik
         - WatchState
         - Unpackerr

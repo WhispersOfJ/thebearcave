@@ -26,7 +26,6 @@ flowchart LR
             NZB[nzbdav :3000<br/>InfiniDysk]
             RCL[rclone sidecar<br/>FUSE mount]
             Meta[Metacache :8765]
-            CP[Control Panel :8420]
             ARR[arr-dashboard :41789]
             LP[Landing Page :8000]
             WS[WatchState :8705]
@@ -93,7 +92,6 @@ flowchart TB
         RCL["rclone :5572 RC"]
         Seerr["Seerr :5055"]
         Meta["Metacache :8765"]
-        CP["Control Panel :8420"]
         ARR["arr-dashboard :41789"]
         LP["Landing Page :8000"]
         WS["WatchState :8705"]
@@ -272,7 +270,6 @@ flowchart TB
 | URL pattern | Target | Example |
 |-------------|--------|---------|
 | `http://HOST_IP:32400` | Plex (direct, not proxied) | `http://192.168.1.100:32400/web` |
-| `https://panel.HOST_IP.nip.io` | Control Panel | `https://panel.192.168.1.100.nip.io` |
 | `https://arr.HOST_IP.nip.io` | arr-dashboard | |
 | `https://radarr.HOST_IP.nip.io` | Radarr | |
 | `https://sonarr.HOST_IP.nip.io` | Sonarr | |
@@ -298,7 +295,6 @@ TheBearCave/
 ├── config/plex/      ← full Plex library DB (~33 GB)
 ├── media/{movies,shows,...}   ← symlinks into FUSE mount (gitignored content)
 ├── data/                      ← loki, prometheus, grafana, metacache DBs
-├── logs/control-panel/        ← control panel rotating logs
 ├── secrets/                   ← Docker secrets source files (gitignored)
 ├── config/traefik/            ← Traefik static config
 └── archive/                   ← legacy files from media-stack + metacacharr

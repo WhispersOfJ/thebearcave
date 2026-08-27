@@ -68,7 +68,6 @@ backup_configs() {
         "promtail"
         "grafana"
         "prometheus"
-        "control-panel"
     )
     
     for service in "${services[@]}"; do
@@ -111,13 +110,6 @@ backup_databases() {
         mkdir -p "$db_backup/watchstate"
         cp -r services/watchstate/config "$db_backup/watchstate/"
         log_info "Backed up: WatchState database"
-    fi
-    
-    # Backup Control Panel database
-    if [ -d "data/control-panel" ]; then
-        mkdir -p "$db_backup/control-panel"
-        cp -r data/control-panel "$db_backup/control-panel/"
-        log_info "Backed up: Control Panel database"
     fi
     
     log_success "Database backup complete"

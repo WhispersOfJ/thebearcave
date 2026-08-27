@@ -19,20 +19,9 @@ updates:
       - "dependencies"
       - "docker"
 
-  # Dockerfiles: metacache, control-panel, nzbdav-exporter.
+  # Dockerfiles: metacache, nzbdav-exporter.
   - package-ecosystem: "docker"
     directory: "/services/metacache"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    labels:
-      - "dependencies"
-      - "docker"
-
-  - package-ecosystem: "docker"
-    directory: "/services/control-panel/django"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -77,18 +66,7 @@ updates:
           - "Microsoft.AspNetCore.Mvc.Testing"
           - "Microsoft.Extensions.TimeProvider.Testing"
 
-  # Python packages — control-panel Django + nzbdav-exporter.
-  - package-ecosystem: "pip"
-    directory: "/services/control-panel/django"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    labels:
-      - "dependencies"
-      - "python"
-
+  # Python packages — nzbdav-exporter.
   - package-ecosystem: "pip"
     directory: "/services/nzbdav-exporter"
     schedule:

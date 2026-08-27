@@ -595,7 +595,7 @@ services:
     mem_limit: 128m
     cpus: "0.25"
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider http://localhost:9080/ready || exit 1"]
+      test: ["CMD", "/usr/bin/promtail", "-check-syntax", "-config.file=/etc/promtail/config.yaml"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -819,7 +819,7 @@ services:
     restart: unless-stopped
     logging: *common-logging
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider http://localhost:3000/ || exit 1"]
+      test: ["CMD-SHELL", "wget --spider http://127.0.0.1:3000/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -853,7 +853,7 @@ services:
     restart: unless-stopped
     logging: *common-logging
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider http://localhost:80/ || exit 1"]
+      test: ["CMD-SHELL", "wget --spider http://127.0.0.1:80/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

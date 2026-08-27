@@ -32,7 +32,7 @@ Recovery:
 ```bash
 docker compose restart nzbdav nzbdav_rclone          # mount owner first
 docker compose restart radarr sonarr plex unpackerr cleanuparr  # then dependents
-# Trigger a Plex rescan (Control Panel or API)
+# Trigger a Plex rescan (web UI or API)
 ```
 
 **Do not** let Plex run a full scan while the mount is down — it marks items deleted.
@@ -60,7 +60,7 @@ docker exec nzbdav_rclone ls /mnt/remote/nzbdav/completed-symlinks | head
 ```
 
 - If the symlinks dir is empty/absent → the download didn't complete or the mount is stale
-- If files exist but imports hang → use the Control Panel's queue tools or Unpackerr logs
+- If files exist but imports hang → use Unpackerr logs or the *arr queue UI
 - Confirm the download client config points at `nzbdav:3000` with the right API key
 
 ---
@@ -108,7 +108,7 @@ docker exec plex ls /dev/dri/renderD128    # world-writable check
 
 ## Container won't die (D-state hang)
 
-Plex is the known case. The Control Panel's **Force Unstick** (Tier 3) is the designed
+Plex is the known case. Restarting the FUSE mount owner (nzbdav_rclone) is the designed
 escape — it aborts the wedged FUSE connection. Manual fallback:
 
 ```bash

@@ -7,8 +7,11 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# shellcheck disable=SC2034 # consumed by the modules that source this file
 SECRETS_DIR="secrets"
+# shellcheck disable=SC2034
 ENV_FILE=".env"
+# shellcheck disable=SC2034
 ENV_TEMPLATE=".env.template"
 
 log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }

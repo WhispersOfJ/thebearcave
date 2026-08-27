@@ -7,7 +7,7 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A unified media-acquisition-and-serving stack. 22 Docker Compose services, a Django
+A unified media-acquisition-and-serving stack. 22 Docker Compose services, a Next.js
 arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
 and CI/CD via GitHub Actions. Hosted on Linux.
 
@@ -52,13 +52,13 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
 | **ARR dashboard** | arr-dashboard |
 | **Landing page** | Nginx |
 
-### Two Dashboard Surfaces
+### Dashboard Surface
 
 | Panel | Port | Technology | Responsibilities |
 |-------|------|------------|-----------------|
 | **arr-dashboard** | 41789 | Next.js (Node 22) | Multi-instance queue/calendar/history, TRaSH Guides, library cleanup, auto-hunting, Plex analytics, notifications, statistics |
 
-They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
+Talks independently to Radarr/Sonarr/Prowlarr APIs.
 
 - **Content flow:** Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mount → Plex serves
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
@@ -81,18 +81,19 @@ They share no state. Both talk independently to Radarr/Sonarr/Prowlarr APIs.
 | 7 | `seerr` | Request manager | 5055 | bearcave |
 | 8 | `plex` | Media server | — | host |
 | 9 | `metacache` | Metadata cache proxy for Plex | 8765 | bearcave |
-| 11 | `arr-dashboard` | Next.js media operations dashboard | 41789 | bearcave |
-| 12 | `unpackerr` | Auto-extracts downloads | — | bearcave |
-| 13 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 | bearcave |
-| 14 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
-| 15 | `loki` | Log aggregation | 3100 | bearcave |
-| 16 | `promtail` | Log shipping to Loki | — | bearcave |
-| 17 | `grafana` | Dashboards + alerting | 3001 | bearcave |
-| 18 | `nzbdav-exporter` | NzbDAV config/queue metrics | 9200 | bearcave |
-| 19 | `prometheus` | Metrics collection | 9090 | bearcave |
-| 20 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 | host |
-| 21 | `cadvisor` | Container resource metrics | 8080 | bearcave |
-| 22 | `landing-page` | Nginx service portal | 8000 | bearcave |
+| 10 | `arr-dashboard` | Next.js media operations dashboard | 41789 | bearcave |
+| 11 | `unpackerr` | Auto-extracts downloads | — | bearcave |
+| 12 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 | bearcave |
+| 13 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
+| 14 | `loki` | Log aggregation | 3100 | bearcave |
+| 15 | `promtail` | Log shipping to Loki | — | bearcave |
+| 16 | `grafana` | Dashboards + alerting | 3001 | bearcave |
+| 17 | `nzbdav-exporter` | NzbDAV config/queue metrics | 9200 | bearcave |
+| 18 | `prometheus` | Metrics collection | 9090 | bearcave |
+| 19 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 | host |
+| 20 | `cadvisor` | Container resource metrics | 8080 | bearcave |
+| 21 | `landing-page` | Nginx service portal | 8000 | bearcave |
+| 22 | `alertmanager` | Prometheus alert routing + Discord notifications | 9093 | bearcave |
 
 ### Network Topology
 
@@ -163,17 +164,10 @@ GET  /metrics/prometheus   — Prometheus scrape endpoint
 ## Technologies
 
 ### Backend
-- **Python 3.14** — Control panel, scripts, tests
-- **Django 5.2** + **Django REST Framework 3.16** — Control panel backend
-- **httpx 0.28** — HTTP client for Arr/NzbDAV APIs
-- **argon2-cffi** — Password hashing
-- **Docker SDK for Python** — Container management
-- **SQLite** — Control panel database
+- **Python 3.14** — Scripts, tests, nzbdav-exporter
+- **SQLite** — Local app state (arr-dashboard)
 
 ### Frontend
-- **htmx** — Dynamic UI without JavaScript frameworks
-- **Tailwind CSS** — Utility-first styling
-- **SSE (Server-Sent Events)** — Live log streaming
 - **Next.js 22** — arr-dashboard (separate container)
 
 ### Infrastructure
@@ -201,12 +195,12 @@ GET  /metrics/prometheus   — Prometheus scrape endpoint
 - **Ruff** — Python linting
 
 ### CI/CD
-- **GitHub Actions** — 11 workflows; full policy in [docs/ci-cd.md](docs/ci-cd.md)
+- **GitHub Actions** — 14 workflows; full policy in [docs/ci-cd.md](docs/ci-cd.md)
   - **All third-party actions are SHA-pinned** (immutable supply chain); the `# tag` comment records the version. Upgrade path: `gh api repos/{owner}/{repo}/commits/{tag} --jq .sha`, then update SHA + comment. Dependabot cannot auto-bump SHA pins.
   - **release-please only opens PRs for `feat:`/`fix:` commits.** `ci:`, `docs:`, `chore:` do not trigger a release. If you need to cut a release, ensure at least one commit uses a release-worthy type.
   - **Brand-new repo race condition:** workflows added in the initial push of a new repo may not trigger on push/PR events. Manual dispatch works. Re-adding or renaming the workflow file fixes it.
   - **actionlint gates every workflow change** in `validate.yml` — syntax, expressions, action refs, and shellcheck on `run:` blocks. Replicate locally: download the pinned actionlint release binary and run `actionlint .github/workflows/*.yml`.
-  - `validate.yml` — compose validation, env coverage, shellcheck, ruff, actionlint, Django tests
+  - `validate.yml` — compose validation, env coverage, shellcheck, ruff, actionlint, exporter unit tests
   - `release-please.yml` — automated release management
   - `trivy-scan.yml` — CVE scan all 22 images, IaC config scan, baseline report
   - `dotnet-ci.yml` — .NET build/format/test/coverage/NuGet CVE audit for metacache
@@ -219,7 +213,7 @@ GET  /metrics/prometheus   — Prometheus scrape endpoint
   - `dependabot.yml` — automated dependency updates
 
 ### Languages
-- **Python** — Control panel + scripts
+- **Python** — Scripts, tests, nzbdav-exporter
 - **Bash** — System scripts, CI steps
 - **C# / .NET 10** — Metacache metadata cache proxy
 - **TypeScript** — arr-dashboard (Next.js)
@@ -275,12 +269,11 @@ Run `./scripts/setup.sh` to generate secrets.
 
 5. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching.
 
+6. **Traefik + Plex separation** — Plex runs on host network and cannot be behind Traefik. Access directly at `http://HOST_IP:32400`.
 
-7. **Traefik + Plex separation** — Plex runs on host network and cannot be behind Traefik. Access directly at `http://HOST_IP:32400`.
+7. **rclone.conf requires `rclone obscure`** — Passwords in rclone.conf must be rclone-obfuscated, not plaintext.
 
-8. **rclone.conf requires `rclone obscure`** — Passwords in rclone.conf must be rclone-obfuscated, not plaintext.
-
-9. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, traefik labels.
+8. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, traefik labels.
 
 ---
 

@@ -7,9 +7,6 @@
 # Metacache (.NET service)
 services/metacache/ @WhispersOfJ
 
-# Control Panel (Django)
-services/control-panel/ @WhispersOfJ
-
 # CI/CD
 .github/ @WhispersOfJ
 
