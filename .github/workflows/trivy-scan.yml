@@ -76,7 +76,7 @@ jobs:
 
   trivy-config:
     runs-on: ubuntu-latest
-    name: Scan IaC Config (Dockerfiles + Compose)
+    name: Scan IaC Config (Dockerfiles)
     steps:
       - name: Checkout code
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -88,14 +88,30 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
           sudo apt-get update && sudo apt-get install -y trivy
 
-      - name: Trivy IaC scan (Dockerfiles + compose)
+      - name: Trivy IaC scan (Dockerfiles)
+        # `trivy config` rejects multiple targets in one invocation, so each
+        # Dockerfile is scanned separately and the job fails if any one of them
+        # reports HIGH/CRITICAL findings. The repo-root `.trivyignore` lists the
+        # currently-deferred checks (e.g. DS-0002, pending the non-root USER
+        # work in improvement item 7). docker-compose.yml is deliberately not a
+        # trivy "config" target here: Trivy's IaC scanner detects 0 files for it,
+        # so scanning it would be a silent no-op.
         run: |
-          trivy config --severity HIGH,CRITICAL --exit-code 1 \
-            services/metacache/Dockerfile \
-            services/control-panel/django/Dockerfile \
-            services/nzbdav-exporter/Dockerfile \
-            docker-compose.yml || true
-          echo "⚠️  IaC scan completed (non-blocking for now)"
+          set -euo pipefail
+          fail=0
+          for df in services/metacache/Dockerfile \
+                    services/control-panel/django/Dockerfile \
+                    services/nzbdav-exporter/Dockerfile; do
+            echo "::group::Trivy IaC scan: $df"
+            trivy config --severity HIGH,CRITICAL --exit-code 1 "$df" \
+              || fail=1
+            echo "::endgroup::"
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Trivy IaC scan found HIGH/CRITICAL misconfigurations."
+            exit 1
+          fi
+          echo "IaC scan clean — no HIGH/CRITICAL misconfigurations."
 
   report:
     runs-on: ubuntu-latest

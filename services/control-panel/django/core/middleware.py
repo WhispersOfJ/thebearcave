@@ -31,6 +31,11 @@ class VerifySameOriginMiddleware:
         self.get_response = get_response
         host_ip = os.environ.get("HOST_IP")
         self.allowed_hosts = {h for h in (host_ip, "localhost", "127.0.0.1") if h}
+        # POSTs via Traefik arrive on the nip.io hostname; without it, write
+        # requests through the proxy are rejected here with 403 even though
+        # Django's ALLOWED_HOSTS accepts them. Keep in lockstep with settings.py.
+        if host_ip:
+            self.allowed_hosts.add(f"panel.{host_ip}.nip.io")
         self.loopback_ips = {"127.0.0.1", "::1"}
         gateway = _own_network_gateway()
         if gateway:

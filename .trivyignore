@@ -1,0 +1,11 @@
+# Trivy IaC misconfiguration ignores for The Bear Cave.
+#
+# This file is enforced by `.github/workflows/trivy-scan.yml` (the
+# `trivy-config` job). Entries here are CURRENT known-deferred findings only —
+# if you remove one, CI starts failing on that check again, which is the point.
+# Keep each line to the format "<CHECK-ID> # <reason + tracking ticket/item>".
+
+# services/control-panel/django/Dockerfile runs as root (no USER directive).
+# Deferred to improvement item 7 (Tier 3: non-root USER for control-panel).
+# This is NOT ignorable long-term — resolving item 7 removes this entry.
+DS-0002 # deferred: control-panel non-root USER, item 7 / Tier 3

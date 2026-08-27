@@ -12,12 +12,18 @@ if not _secret_key_env and not DEBUG:
     )
 SECRET_KEY = _secret_key_env or "dev-only-insecure-key-do-not-deploy"
 
+# Narrowed to match VerifySameOriginMiddleware's actual allowlist — not ["*"]
+# anymore. Includes the nip.io hostname Traefik routes the panel on
+# (panel.HOST_IP.nip.io): without it, proxied HTTPS requests return 400. Falls
+# back to localhost-only in dev (HOST_IP unset) so "manage.py runserver" works.
+_host_ip = os.environ.get("HOST_IP")
 ALLOWED_HOSTS = [
-    # Narrowed to match VerifySameOriginMiddleware's actual allowlist — not
-    # ["*"] anymore. Falls back to localhost-only in dev (when HOST_IP is
-    # unset) so "manage.py runserver" works without extra config.
-    *(h for h in (os.environ.get("HOST_IP"), "localhost", "127.0.0.1", "[::1]") if h),
-]  # narrowed by core.middleware.VerifySameOriginMiddleware as defense-in-depth
+    h
+    for h in (_host_ip, "localhost", "127.0.0.1", "[::1]")
+    if h
+]
+if _host_ip:
+    ALLOWED_HOSTS.append(f"panel.{_host_ip}.nip.io")  # also enforced in core.middleware
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -88,6 +94,35 @@ DATABASES = {
 SESSION_COOKIE_NAME = "cp_session"
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 14 days, matches the retired itsdangerous SESSION_MAX_AGE
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
+
+# ---------------------------------------------------------------------------
+# Transport & cookie security (parent for improvement items 12/13)
+# ---------------------------------------------------------------------------
+# Wired to CONTROL_PANEL_SECURE_COOKIE (compose + .env). When truthy, session and
+# CSRF cookies are TLS-only. Because this panel touches the Docker socket, secure
+# is enabled by default; the tradeoff is that direct plain-HTTP access to :8420
+# can no longer hold a session — use the Traefik HTTPS route (panel.HOST_IP.nip.io).
+_secure_cookie = os.environ.get("CONTROL_PANEL_SECURE_COOKIE", "") == "1"
+
+SESSION_COOKIE_SECURE = _secure_cookie
+CSRF_COOKIE_SECURE = _secure_cookie
+
+if not DEBUG:
+    # HSTS: 1 year, include subdomains. Only meaningful over the HTTPS route;
+    # Traefik already does the 80->443 redirect at the edge, so there is no
+    # in-app SECURE_SSL_REDIRECT (it would loop against the TLS terminator).
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = False
+    # Defense-in-depth header hardening via SecurityMiddleware.
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    # Disallow <frame>/<iframe>/<embed> embedding so the panel can't be framed.
+    X_FRAME_OPTIONS = "DENY"
+
+    # POSTs through Traefik carry Origin https://panel.HOST_IP.nip.io; Django's
+    # CSRF / our VerifySameOriginMiddleware compare against this list.
+    CSRF_TRUSTED_ORIGINS = [f"https://panel.{_host_ip}.nip.io"] if _host_ip else []
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["core.authentication.SessionOrApiKeyAuthentication"],

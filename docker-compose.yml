@@ -622,8 +622,10 @@ services:
     container_name: promtail
     volumes:
       - *ca-mount
+      # Promtail reads /var/lib/docker/containers directly (static_configs), so
+      # it needs that volume mount but NOT the Docker socket, which it never    
+      # calls. Dropping the socket removes a root-equivalent host mount.
       - /var/lib/docker/containers:/var/lib/docker/containers
-      - /var/run/docker.sock:/var/run/docker.sock
       - ./config/promtail/promtail-config.yaml:/etc/promtail/config.yaml
     command: -config.file=/etc/promtail/config.yaml
     environment:

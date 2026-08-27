@@ -1,10 +1,14 @@
 # Potential Improvements
 
-Fifty concrete, evidence-backed improvements for The Bear Cave, plus a catalogue
-of additional software worth adding to the stack.
+Over one hundred concrete, evidence-backed recommendations for The Bear Cave: a
+catalogue of improvements to the existing stack, a list of **historically used
+software to remove** (section 7), and a catalogue of current software worth
+adding (section 8).
 
-Every item names the file (and line, where it is stable) that produced the
-finding, so none of this needs re-investigating before it can be acted on.
+Counts: **62 numbered improvement items** (sections 1-7 and 9) plus **46
+software titles** (section 8) = 108 concrete recommendations, each naming the
+file (and line, where stable) that produced the finding, so none requires
+re-investigation before it can be acted on.
 
 ## How to Read This
 
@@ -585,9 +589,91 @@ consequences. Start by promoting the four above out of code comments.
 
 ---
 
-# 7. Software Suggestions
+# 7. Historically Used Software — Removal Recommendations
 
-Additions worth making to the stack, each tied to a specific gap above.
+Software that once powered this stack (or its media-stack / metacacharr
+predecessors) and is now dead weight in the working tree, superseded, or no
+longer deployed. Each item below removes a historically used tool rather than
+adding a new one.
+
+### 51. Recyclarr config is an 80 MB clone of two external repos, and Recyclarr is not deployed
+**Severity:** HIGH · **Effort:** M
+**Where:** `config/recyclarr/` — 80 MB total: `resources/trash-guides` (73 MB) + `resources/config-templates` (1.4 MB); `docker-compose.yml` has zero `recyclarr` references
+**Problem:** The directory carries a full clone of the TRaSH-Guides and
+config-templates GitHub repos, checked into the working tree. Recyclarr is not
+a compose service and does not run. Every commit, clone, grep and `shellcheck`
+walk drags 80 MB of somebody else's git history around, and a stale snapshot
+actively misleads anyone reading the config for current custom-format values.
+**Fix:** Delete `config/recyclarr/`. If quality profiles are wanted, run
+Recyclarr as a pinned container fed a thin `settings.yml` synced from the live
+TRaSH repo, or use Profilarr (section 8).
+
+### 52. checkrr is not deployed yet its scan output ships in the working tree
+**Severity:** MEDIUM · **Effort:** S
+**Where:** `data/checkrr-final/` — 1.4 MB of `badfiles-*.csv`, `redownload-*.csv`, `redownload-commands-*.txt`, `verified-dead-*.csv` and `checkrr.yaml`; zero compose references
+**Problem:** checkrr (dead-download scanner) is historically used software whose
+one-off August 2026 scan output was left where every grep walks it. The CSVs are
+1,300+ lines of stale facts about files that have since moved, redownloaded or
+been pruned.
+**Fix:** Archive the scan report elsewhere (or keep only the summary in
+docs/), delete `data/checkrr-final/`, and remove the directory from the
+backup script so stale CSVs do not keep getting re-backed up.
+
+### 53. `data/alertmaker` is an empty leftover directory
+**Severity:** LOW · **Effort:** S
+**Where:** `data/alertmaker/` — 0 files
+**Problem:** An empty directory from a previously used (historically used)
+notify helper. It reserves a name and adds a line to every `ls`, with no purpose.
+**Fix:** Delete it.
+
+### 54. `services/watchtower/` is an empty directory from a retired auto-updater
+**Severity:** LOW · **Effort:** S
+**Where:** `services/watchtower/` — 0 files; item 43 flagged it, this is the removal action
+**Problem:** Watchtower was the historically used auto-update tool. It is gone
+(no compose service), and the empty directory is the last remnant, implying
+auto-updates are configured when they are not.
+**Fix:** Delete `services/watchtower/`. If automated image upkeep is wanted,
+use **Diun** (section 8) for notify-only bumping instead of auto-pulling onto
+floating tags.
+
+### 55. Seerr supersedes Overseerr — do not re-add the ancestor
+**Severity:** LOW · **Effort:** S
+**Where:** the stack runs `ghcr.io/seerr-team/seerr` (docker-compose.yml); `archive/metacacharr/DESIGN.md:955` still discusses "Overseerr, ..." as if it were live
+**Problem:** Overseerr is the historically used request manager; Seerr is its
+actively maintained fork already used here. Any doc, script or mental model that
+reaches for "Overseerr" targets software this stack deliberately replaced.
+**Fix:** When scope touches requests, standardise on Seerr. Update the stale
+`DESIGN.md` reference (or rely on archive removal, item 45).
+
+### 56. Dependabot is the historically used dependency updater; Renovate is the go-forward
+**Severity:** LOW · **Effort:** S
+**Where:** `.github/dependabot.yml` (still present); the existing config drives
+NuGet/Docker/pip updates weekly
+**Problem:** The repo's own supply-chain section (item 37 of the software
+catalog) already argues Renovate understands image tags *and* digests in a way
+Dependabot cannot. Keeping both configured means two sources of update truth.
+**Fix:** Decide one. If Renovate is adopted, delete `dependabot.yml` and its
+scale/interval settings plus the `github-actions` ecosystem entry to avoid
+double PRs. If Renovate is not adopted, keep Dependabot and drop the Renovate
+recommendation.
+
+### 57. The media-stack fish-function rewrite spec is a historical deliverable at the repo root
+**Severity:** LOW · **Effort:** S
+**Where:** `fish-functions-rewrite-spec.md` (21 KB) — superseded by the rewrite
+itself, merged in commit `979d769`
+**Problem:** The spec that drove the rewrite is now archive-calibre history, but
+it sits beside README/CLAUDE/AGENTS at the repo's entry point, suggesting it is
+a living orientation doc.
+**Fix:** Move to `docs/services/fish-functions-spec.md` (item 46) or into
+`archive/`. Keep only the orientation docs at the root.
+
+---
+
+# 8. Software Suggestions
+
+Additions worth making to the stack, each tied to a specific gap above. None of
+these are historically used tools from the removed set (section 7); every entry
+here is a current, maintained project.
 
 ## Authentication and edge
 
@@ -641,6 +727,15 @@ inspectable from the control panel rather than the shell.
 of `backup.sh`. If the ping stops, it alerts. Off-host by construction, so it
 also partly covers item 42.
 
+**Minio** — an S3-compatible object store that can run on a second disk or box
+and act as the off-box target for restic (item 44). Keeps the "remote" off the
+same drive as the data it protects while staying fully self-hosted.
+
+**BorgBackup + borgmatic** — an alternative to restic if dedup-and-compress
+behaviour is preferred. `borgmatic` adds single-file config and cron wiring
+opposite to `restic`'s `--repository` flags. Choose one, not both, to avoid two
+backup formats to recover from.
+
 ## Monitoring and observability
 
 **Gatus** — a lightweight status page and synthetic checker, ideally on a second
@@ -659,7 +754,7 @@ than duplicating it: Loki is for querying history, Dozzle is for watching a
 service start. Read-only socket mount; pair it with docker-socket-proxy.
 
 **Diun** — notifies when a watched image has a new digest. The correct answer to
-the empty `services/watchtower/` directory (item 43): it tells you an update
+the empty `services/watchtower/` directory (item 54): it tells you an update
 exists and lets you pin deliberately, rather than auto-pulling onto floating
 tags and undoing item 27.
 
@@ -673,6 +768,28 @@ item 39 raises the rule count.
 **Tautulli** — Plex watch history, per-user statistics, transcode monitoring.
 There is currently no visibility into Plex usage at all, and it is the one
 service in the stack whose behaviour most affects the host's CPU.
+
+**Netdata** — high-frequency (1s) real-time metrics with a built-in dashboard and
+zero-config alerts. Complements Prometheus, which samples every 15s; run both if
+a spike between scrapes keeps being missed on Plex transcode storms.
+
+**speedtest-exporter** — runs a periodic Ookla speedtest and exposes
+latency/down/up as Prometheus metrics. Directly answers "is the Usenet download
+slow because of the provider or my line" during nzbdav troubleshooting.
+
+**smartctl-exporter** — exports disk SMART attributes the way node-exporter
+exports CPU/RAM. The control panel already surfaces SMART health (its
+`/disk-health` endpoint); this adds the trend data so alerts can fire *before* a
+drive degrades, not after (item 39's fourth blind spot).
+
+**Vector** — a Rust log pipeline that can replace or sit beside promtail for
+`journald` or app logs, with far lighter resource use than promtail's Go agent
+in high-volume stacks. Only worth swapping once Loki volume is a measured
+problem.
+
+**Grafana Tempo** — distributed tracing. Only justified if the control panel's
+`envelope_exception_handler` and Docker API retries (item 16) show latency
+chasing worth doing; otherwise it is an unused container.
 
 ## Media stack additions
 
@@ -706,6 +823,15 @@ the bottleneck. Do not add it speculatively.
 **Wizarr** — Plex invite and onboarding management. Add only if the stack serves
 users beyond the operator.
 
+**Watcharr** — a web watchlist that reads Radarr/Sonarr library lists and lets a
+non-technical household member browse "have/want" without touching the *arr
+UIs. Complements Seerr when requests are automated but discovery is not.
+
+**Changedetection.io** — polls arbitrary web pages and alerts on diffs. Useful
+here to watch indexer-availability pages, provider status boards or pricing
+announcements, then feed the result into ntfy/Alertmanager. Optional; skip if
+nothing external needs watching.
+
 ## Application runtime
 
 **gunicorn** — the fix for item 11, and the smallest high-value change in this
@@ -718,6 +844,22 @@ migrate with `dumpdata`/`loaddata`.
 **Redis** — Django cache backend and session store. Takes session writes off the
 database entirely, which is most of the write pressure in item 40. Also serves
 Authelia if that is adopted.
+
+**ntfy** — a tiny self-hosted push-notification server. Gives the stack an
+alerting channel that does not depend on a third-party webhook like
+`DISCORD_WEBHOOK_URL`; phones subscribe to a topic and Alertmanager/backup
+script publish to it. One container, no account.
+
+**Mailpit** — a local, zero-config SMTP catcher. The control panel's Django app
+today has no email backend, so any mail (password resets, import failures) falls
+back to console. Point Django at Mailpit to get real `Message` objects you can
+inspect, or hand them to a relay later — without an external mail provider.
+
+**Komodo** — a maintained, self-hosted image-update notifier with a web UI,
+along the lines of the removed Watchtower directory (item 54) but notify-first
+and actively developed. Lists every compose service with its pinned vs. newest
+digest, so items 27 and 28 can be reviewed in one screen instead of grepping
+`docker-compose.yml`.
 
 ## Development tooling
 
@@ -742,3 +884,68 @@ it.
 **just** — a command runner to replace the dispatch logic in `setup.sh`
 (item 41). A `justfile` with `just setup`, `just backup`, `just health` is
 self-documenting in a way a 444-line bash script is not.
+
+---
+
+# 9. Findings from Tier 1 implementation (this pass)
+
+Items discovered and, where noted, resolved while applying te Tier 1 security
+batch. The addressed ones are marked DONE; the rest remain open.
+
+### 58. DONE — control-panel Dockerfile never packaged the `cli` app
+**Severity:** HIGH (build-time) · **Effort:** S
+**During:** item 11 gunicorn rebuild
+**Finding:** `services/control-panel/django/Dockerfile` had no `COPY cli ./cli`
+even though INSTALLED_APPS declares `"cli"`. `collectstatic` therefore failed
+with `ModuleNotFoundError: No module named 'cli'`, and the running control-panel
+image was out of sync with the source (it predated the `cli` app added in commit
+32f475c). The image was effectively un-rebuildable until linked.
+**Fix (applied):** added `COPY cli ./cli`. Image now builds; 165 static files
+collected. Any future app must be added to both INSTALLED_APPS and the COPY list.
+
+### 59. Loki ingestion rate limit silently drops logs during bursts
+**Severity:** MEDIUM · **Effort:** S
+**During:** item 2 promtail restart
+**Finding:** on restart, promtail caught up a large backlog and Loki overflowed
+the default per-tenant `ingestion_rate_mb` (4 MB/s), emitting repeated HTTP 429
+`ingestion rate limit exceeded` and retrying/dropping batches. This is a
+pre-existing Loki limits issue, adjoining item 37.
+**Fix:** raise `limits_config.ingestion_rate_mb` (e.g. 64) and
+`ingestion_burst_size_mb` in `config/loki/loki-config.yaml`, and add a
+`per_stream_rate_limit` guard so one noisy service cannot wedge the pipeline.
+Fold into item 37.
+
+### 60. DONE — four cross-service secrets had the `changeme` default
+**Severity:** HIGH · **Effort:** M
+**During:** post-Tier-1 secret cleanup — resolved this session
+**Finding:** `METACACHE_API_KEY`, `WS_API_KEY`, `WS_SYSTEM_SECRET` and
+`CONTROL_PANEL_SERVICE_API_KEY` were literal `changeme`, and the control-panel
+DB `healthcheck-cron` key hash matched `changeme`.
+**Fix (applied):** rotated all four to fresh 32-char hex values in `.env`, then
+`--force-recreate`d metacache, watchstate and control-panel, and re-ran
+`bootstrap` so the `healthcheck-cron` hash tracks the new service key. Verified
+all three healthy, `/healthz` 200, and the DB hash matches the new key (no
+longer `changeme`). `.env` now contains zero `changeme` placeholders.
+
+### 61. OFF-BOX backup (item 44) deferred — no destination exists on host
+**Severity:** HIGH · **Effort:** L → blocked
+**During:** restic decision — skipped this pass by choice (option: "skip restic")
+**Finding:** host has a single root disk (938 GB, 70% used) with no second disk,
+NAS/SMB/NFS/SFTP endpoint, or cloud credentials, so "restic to an off-box
+repository" cannot execute as written. `backup.sh` still writes to local
+`backups/` on the same disk.
+**Fix (future):** once an off-box destination exists (cloud B2/S3, SFTP host, or
+a periodically-attached USB/eSATA drive), install restic, init an encrypted
+repo, wrap `backup.sh`, and add `restic check` + a restore-into-scratch smoke
+test (item 25). Documented for the operator; no install performed this pass.
+
+### 62. The pre-Tier-1 Trivy "IaC gate" never scanned anything
+**Severity:** HIGH (process) · **Effort:** done
+**During:** item 29 rewrite
+**Finding:** the old command passed three Dockerfiles + compose to one `trivy
+config` invocation. Trivy fatally rejects multiple targets (
+`multiple targets cannot be specified`), and `docker-compose.yml` is not a valid
+misconfig target for `trivy config` (0 files detected). Combined with `|| true`,
+the gate produced neither scanned results nor failures.
+**Fix (applied):** per-file loop over the three Dockerfiles, `--exit-code 1`,
+repo `.trivyignore` (DS-0002 only, deferred to item 7). All three scan clean.
