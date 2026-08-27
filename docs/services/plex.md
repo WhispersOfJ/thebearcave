@@ -4,7 +4,7 @@ The media server. **The one service not behind Traefik** — it runs on the host
 
 | | |
 |---|---|
-| **Image** | `plexinc/pms-docker:latest` |
+| **Image** | `plexinc/pms-docker:beta` |
 | **Port** | 32400 (host network) |
 | **Network** | `host` (deliberate — see below) |
 | **Healthcheck** | `curl -sf http://localhost:32400/identity` |
@@ -44,6 +44,12 @@ Plex directly.
   container into an unkillable D-state hang
 - Scheduled scanning only (`FSEventLibraryUpdatesEnabled` disabled) — new content
   appears within the scan interval or via a manual scan
+
+## Image channel
+
+The Compose deployment uses Plex's official `beta` tag to track the latest development
+build. This is intentionally not pinned to a specific build number; verify the running
+Plex version after updating and review beta release notes before production upgrades.
 
 ## Environment variables
 

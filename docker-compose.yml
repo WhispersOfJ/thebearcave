@@ -378,7 +378,7 @@ services:
     restart: unless-stopped
     logging: *common-logging
     stop_grace_period: 90s
-    image: plexinc/pms-docker:latest
+    image: plexinc/pms-docker:beta
     container_name: plex
     mem_limit: 2g
     cpus: "2.0"
