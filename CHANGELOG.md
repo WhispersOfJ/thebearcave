@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.9.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.9.0...v1.9.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **ci:** add actionlint checksum verification + pre-commit gate + docs ([aebec8d](https://github.com/WhispersOfJ/thebearcave/commit/aebec8de2278e8fe50d3eb9ed9b8133397acb8d8))
+* **ci:** add pytest to exporter test dependencies ([16d1ab5](https://github.com/WhispersOfJ/thebearcave/commit/16d1ab53c0feb0f4eed51729961b75630686ad38))
+* **ci:** correct actionlint SHA-256 checksum ([19d6fa9](https://github.com/WhispersOfJ/thebearcave/commit/19d6fa953b06ad3afa9a4ce655d556d4a7d459a5))
+* **security:** harden stack per potential.md audit items ([4f4255c](https://github.com/WhispersOfJ/thebearcave/commit/4f4255c8baa1eaa6e2ff42ce7bfc6422ac4f487c))
+
 ## [1.9.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.8.0...v1.9.0) (2026-08-27)
 
 
