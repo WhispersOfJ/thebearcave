@@ -86,12 +86,26 @@ jobs:
           set -euo pipefail
           RECLAIMED=0
 
+          # Helper: convert Docker output like "1.234GB" or "567.8MB" to MB
+          to_mb() {
+            local val=$1
+            if echo "$val" | grep -qi 'gb'; then
+              echo "$val" | sed 's/[^0-9.]//g' | awk '{printf "%.0f", $1 * 1024}'
+            elif echo "$val" | grep -qi 'mb'; then
+              echo "$val" | sed 's/[^0-9.]//g' | awk '{printf "%.0f", $1}'
+            elif echo "$val" | grep -qi 'kb'; then
+              echo "$val" | sed 's/[^0-9.]//g' | awk '{printf "%.0f", $1 / 1024}'
+            else
+              echo "$val" | sed 's/[^0-9.]//g' | awk '{printf "%.0f", $1 / 1048576}'
+            fi
+          }
+
           echo "=== Pruning dangling images ==="
           RESULT=$(docker image prune -f 2>/dev/null || echo "")
           if [ -n "$RESULT" ]; then
             echo "$RESULT"
-            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
-            RECLAIMED=$((RECLAIMED + BYTES))
+            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
+            RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
           fi
 
           if [ "${{ inputs.aggressive }}" = "true" ]; then
@@ -100,8 +114,8 @@ jobs:
             RESULT=$(docker image prune -a -f --filter "until=168h" 2>/dev/null || echo "")
             if [ -n "$RESULT" ]; then
               echo "$RESULT"
-              BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
-              RECLAIMED=$((RECLAIMED + BYTES))
+              BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
+              RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
             fi
           fi
 
@@ -110,8 +124,8 @@ jobs:
           RESULT=$(docker volume prune -f 2>/dev/null || echo "")
           if [ -n "$RESULT" ]; then
             echo "$RESULT"
-            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
-            RECLAIMED=$((RECLAIMED + BYTES))
+            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
+            RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
           fi
 
           echo ""
@@ -119,8 +133,8 @@ jobs:
           RESULT=$(docker builder prune -f --keep-storage 5GB 2>/dev/null || echo "")
           if [ -n "$RESULT" ]; then
             echo "$RESULT"
-            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
-            RECLAIMED=$((RECLAIMED + BYTES))
+            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9.]+[A-Za-z]*' || echo 0)
+            RECLAIMED=$((RECLAIMED + $(to_mb "$BYTES")))
           fi
 
           echo ""
@@ -148,7 +162,7 @@ jobs:
           USAGE="${{ steps.disk.outputs.usage_pct }}"
           THRESHOLD="${{ env.THRESHOLD }}"
           DRY_RUN="${{ inputs.dry_run }}"
-          RECLAIMED="${{ steps.outputs.reclaimed_mb || echo 'N/A' }}"
+          RECLAIMED="${{ steps.pruning.outputs.reclaimed_mb || echo 'N/A' }}"
 
           if [ "$DRY_RUN" = "true" ]; then
             TITLE="🧹 Disk Cleanup — Dry Run"
@@ -202,7 +216,7 @@ jobs:
           echo "| Threshold | ${{ env.THRESHOLD }}% |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Above Threshold | ${{ steps.disk.outputs.above_threshold }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Dry Run | ${{ inputs.dry_run }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Reclaimed | ${{ steps.outputs.reclaimed_mb || 'N/A' }} MB |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Reclaimed | ${{ steps.pruning.outputs.reclaimed_mb || 'N/A' }} MB |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat /tmp/disk-before.txt >> "$GITHUB_STEP_SUMMARY" || true
