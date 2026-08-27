@@ -135,15 +135,19 @@ groups:
           description: "Host metrics collection has stopped. Check node-exporter."
 
       # Backup freshness — fires if backup.sh hasn't written in 25 hours
+      # Uses node_textfile_mtime_seconds from a textfile collector written by backup.sh
+      # Requires: --collector.textfile.directory=/var/lib/node_exporter/textfile
+      # and backup.sh to write a timestamp to that directory.
       - alert: BackupStale
         expr: |
-          time() - node_filesystem_mtime_seconds{mountpoint="/",fstype!~"tmpfs|overlay"} > 90000
+          time() - node_textfile_mtime_seconds{filename=~"backup.*"} > 90000
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: "Backup may be stale"
-          description: "No backup file updated in 25+ hours. Verify backup.sh cron."
+          description: "No backup marker updated in 25+ hours. Verify backup.sh cron."
+          runbook: "Check cron: crontab -l | grep backup; Check backups/: ls -lt backups/ | head -5"
 
       # Disk fill rate — predicts when disk will be full based on 6h trend
       - alert: DiskFillingFast
@@ -156,13 +160,13 @@ groups:
           summary: "Disk projected to fill within 24 hours"
           description: "At current fill rate, root filesystem will be full within 24h."
 
-      # Host load average > CPU count
+      # Host load average > CPU count for 15+ minutes
       - alert: HostHighLoad
         expr: |
-          node_load15 > count(count by (instance) (node_cpu_seconds_total{mode="idle"})) without (mode, cpu)
+          node_load15 > count without (cpu, mode) (node_cpu_seconds_total{mode="idle"})
         for: 15m
         labels:
           severity: warning
         annotations:
           summary: "Host load average exceeds CPU count"
-          description: "15-minute load average is {{ $value | printf \"%.1f\" }}, exceeding CPU count."
+          description: "15-minute load average is {{ $value | printf \"%.1f\" }}, exceeding CPU count for 15+ minutes."

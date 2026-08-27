@@ -20,8 +20,8 @@ FAIL=0
 cleanup() { rm -rf "$SCRATCH_DIR"; }
 trap cleanup EXIT
 
-pass() { echo -e "  \033[32m✓\033[0m $1"; ((PASS++)); }
-fail() { echo -e "  \033[31m✗\033[0m $1"; ((FAIL++)); }
+pass() { echo -e "  \033[32m✓\033[0m $1"; PASS=$((PASS + 1)); }
+fail() { echo -e "  \033[31m✗\033[0m $1"; FAIL=$((FAIL + 1)); }
 
 echo "============================================"
 echo " Bear Cave Backup Restore Test"
