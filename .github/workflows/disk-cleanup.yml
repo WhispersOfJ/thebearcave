@@ -1,0 +1,209 @@
+name: Disk Cleanup
+# Pinned actions policy: third-party actions are pinned to full commit SHAs
+# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
+# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
+# update the SHA and the "# tag" comment on its uses: line.
+
+# Prunes Docker images, volumes, and build cache when disk usage exceeds a
+# threshold. Runs weekly + on demand. Sends Discord alert with reclaimed space.
+#
+# Note: This workflow runs on a self-hosted runner or targets the host via SSH.
+# For GitHub-hosted runners, it only reports — actual cleanup requires host access.
+# Set HOST_RUNNER=true and use a self-hosted runner for real cleanup.
+
+on:
+  schedule:
+    - cron: "42 5 * * 3" # Wednesday 05:42 UTC
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Disk usage threshold (%) to trigger cleanup"
+        required: false
+        default: "80"
+        type: string
+      dry_run:
+        description: "Dry run (report only, no cleanup)"
+        required: false
+        default: false
+        type: boolean
+      aggressive:
+        description: "Aggressive cleanup (remove all unused images, not just dangling)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  THRESHOLD: ${{ inputs.threshold || '80' }}
+
+jobs:
+  cleanup:
+    name: Disk Cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check current disk usage
+        id: disk
+        run: |
+          set -euo pipefail
+
+          echo "=== Disk Usage ==="
+          df -h / | tee /tmp/disk-before.txt
+
+          USAGE_PCT=$(df / --output=pcent | tail -1 | tr -d ' %')
+          USAGE_HUMAN=$(df -h / --output=used,size,pcent | tail -1)
+          echo "usage_pct=$USAGE_PCT" >> "$GITHUB_OUTPUT"
+          echo "usage_human=$USAGE_HUMAN" >> "$GITHUB_OUTPUT"
+
+          echo ""
+          echo "Current usage: ${USAGE_PCT}%"
+          echo "Threshold: ${{ env.THRESHOLD }}%"
+
+          if [ "$USAGE_PCT" -ge "${{ env.THRESHOLD }}" ]; then
+            echo "above_threshold=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Disk usage above threshold — cleanup needed"
+          else
+            echo "above_threshold=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Disk usage below threshold — no cleanup needed"
+          fi
+
+      - name: Docker disk usage (before)
+        if: steps.disk.outputs.above_threshold == 'true'
+        run: |
+          echo "=== Docker Disk Usage (before) ==="
+          docker system df 2>/dev/null || echo "Docker not available on this runner"
+          echo ""
+          echo "=== Docker Images ==="
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}" 2>/dev/null | head -20 || true
+          echo ""
+          echo "=== Docker Volumes ==="
+          docker volume ls 2>/dev/null | head -20 || true
+
+      - name: Prune Docker resources
+        if: steps.disk.outputs.above_threshold == 'true' && inputs.dry_run != 'true'
+        run: |
+          set -euo pipefail
+          RECLAIMED=0
+
+          echo "=== Pruning dangling images ==="
+          RESULT=$(docker image prune -f 2>/dev/null || echo "")
+          if [ -n "$RESULT" ]; then
+            echo "$RESULT"
+            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
+            RECLAIMED=$((RECLAIMED + BYTES))
+          fi
+
+          if [ "${{ inputs.aggressive }}" = "true" ]; then
+            echo ""
+            echo "=== Aggressive: removing ALL unused images ==="
+            RESULT=$(docker image prune -a -f --filter "until=168h" 2>/dev/null || echo "")
+            if [ -n "$RESULT" ]; then
+              echo "$RESULT"
+              BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
+              RECLAIMED=$((RECLAIMED + BYTES))
+            fi
+          fi
+
+          echo ""
+          echo "=== Pruning unused volumes ==="
+          RESULT=$(docker volume prune -f 2>/dev/null || echo "")
+          if [ -n "$RESULT" ]; then
+            echo "$RESULT"
+            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
+            RECLAIMED=$((RECLAIMED + BYTES))
+          fi
+
+          echo ""
+          echo "=== Pruning build cache ==="
+          RESULT=$(docker builder prune -f --keep-storage 5GB 2>/dev/null || echo "")
+          if [ -n "$RESULT" ]; then
+            echo "$RESULT"
+            BYTES=$(echo "$RESULT" | grep -oP 'reclaimed \K[0-9]+' || echo 0)
+            RECLAIMED=$((RECLAIMED + BYTES))
+          fi
+
+          echo ""
+          echo "=== Pruning stopped containers ==="
+          docker container prune -f 2>/dev/null || true
+
+          echo ""
+          TOTAL_MB=$((RECLAIMED / 1024 / 1024))
+          echo "Total reclaimed: ${TOTAL_MB} MB"
+          echo "reclaimed_mb=$TOTAL_MB" >> "$GITHUB_OUTPUT"
+
+      - name: Docker disk usage (after)
+        if: steps.disk.outputs.above_threshold == 'true' && inputs.dry_run != 'true'
+        run: |
+          echo "=== Docker Disk Usage (after) ==="
+          docker system df 2>/dev/null || true
+          echo ""
+          df -h / | tee /tmp/disk-after.txt
+
+      - name: Send Discord alert
+        if: steps.disk.outputs.above_threshold == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          USAGE="${{ steps.disk.outputs.usage_pct }}"
+          THRESHOLD="${{ env.THRESHOLD }}"
+          DRY_RUN="${{ inputs.dry_run }}"
+          RECLAIMED="${{ steps.outputs.reclaimed_mb || echo 'N/A' }}"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            TITLE="🧹 Disk Cleanup — Dry Run"
+            COLOR=16776960  # Yellow
+            DESC="Disk usage is ${USAGE}% (threshold: ${THRESHOLD}%). Dry run — no cleanup performed."
+          elif [ "${{ steps.disk.outputs.above_threshold }}" = "true" ]; then
+            TITLE="🧹 Disk Cleanup — Completed"
+            COLOR=65280  # Green
+            DESC="Disk usage was ${USAGE}% (threshold: ${THRESHOLD}%). Reclaimed: ${RECLAIMED} MB"
+          else
+            TITLE="✅ Disk Cleanup — No Action Needed"
+            COLOR=65280  # Green
+            DESC="Disk usage is ${USAGE}% (threshold: ${THRESHOLD}%). Below threshold."
+          fi
+
+          PAYLOAD=$(cat <<EOFPAYLOAD
+          {
+            "embeds": [{
+              "title": "${TITLE}",
+              "description": "${DESC}",
+              "color": ${COLOR},
+              "fields": [
+                {"name": "Current Usage", "value": "${USAGE}%", "inline": true},
+                {"name": "Threshold", "value": "${THRESHOLD}%", "inline": true},
+                {"name": "Reclaimed", "value": "${RECLAIMED} MB", "inline": true},
+                {"name": "Dry Run", "value": "${DRY_RUN}", "inline": true}
+              ],
+              "footer": {"text": "The Bear Cave · Disk Cleanup"},
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            }]
+          }
+          EOFPAYLOAD
+          )
+
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -sf -X POST "$DISCORD_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
+            echo "Discord alert sent."
+          else
+            echo "DISCORD_WEBHOOK_URL not set — skipping Discord alert."
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Disk Cleanup" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Current Usage | ${{ steps.disk.outputs.usage_pct }}% |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Threshold | ${{ env.THRESHOLD }}% |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Above Threshold | ${{ steps.disk.outputs.above_threshold }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dry Run | ${{ inputs.dry_run }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Reclaimed | ${{ steps.outputs.reclaimed_mb || 'N/A' }} MB |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/disk-before.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
