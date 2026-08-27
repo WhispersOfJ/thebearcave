@@ -10,5 +10,5 @@ function stack-plex-butler --description 'Fire a Plex Butler task on demand'
         echo "  refresh-libraries, refresh-local-media, upgrade-media-analysis" >&2
         return 1
     end
-    __stack_api POST "/api/v2/cli/plex/butler/$argv[1]"
+    __plex_butler $argv[1]
 end

@@ -1,3 +1,3 @@
-function stack-plex-clean-log-files --description 'Delete old supplemental log files Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/clean-log-files
+function stack-plex-clean-log-files.fish --description 'Trigger Plex clean-log-files'
+    __plex_butler clean-log-files
 end

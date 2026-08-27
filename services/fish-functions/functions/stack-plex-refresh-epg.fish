@@ -1,3 +1,3 @@
-function stack-plex-refresh-epg --description 'Refresh Live TV EPG guide data Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/refresh-epg
+function stack-plex-refresh-epg.fish --description 'Trigger Plex refresh-epg'
+    __plex_butler refresh-epg
 end

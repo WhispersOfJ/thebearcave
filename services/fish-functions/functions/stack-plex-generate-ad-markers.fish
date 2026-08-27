@@ -1,3 +1,3 @@
-function stack-plex-generate-ad-markers --description 'Generate ad-break markers Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/generate-ad-markers
+function stack-plex-generate-ad-markers.fish --description 'Trigger Plex generate-ad-markers'
+    __plex_butler generate-ad-markers
 end

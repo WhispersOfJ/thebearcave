@@ -1,3 +1,5 @@
-function stack-docker-disk-usage --description 'Docker disk usage breakdown'
-    __stack_api GET /api/v2/host/disk-health
+function stack-docker-disk-usage --description 'Show Docker disk usage'
+    fmt_heading "Docker Disk Usage"
+    echo ""
+    docker system df
 end

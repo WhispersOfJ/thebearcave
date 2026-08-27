@@ -1,3 +1,3 @@
-function stack-plex-backup-database --description 'Back up Plex database Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/backup-database
+function stack-plex-backup-database.fish --description 'Trigger Plex backup-database'
+    __plex_butler backup-database
 end

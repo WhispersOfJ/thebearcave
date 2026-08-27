@@ -8,5 +8,29 @@ function stack-arr-blocklist --description 'Recent blocklisted releases'
     or begin; echo "Invalid app: $argv[1]" >&2; return 1; end
     set -l limit 20
     test (count $argv) -ge 2; and set limit $argv[2]
-    __stack_api GET "/api/v2/cli/arr/$app/blocklist?limit=$limit"
+
+    set -l url (__arr_api_url $app)
+    set -l key (__arr_api_key $app)
+    fmt_heading "$app — Blocklist"
+    echo ""
+
+    set -l result (curl -sf "$url/api/v3/blocklist?pageSize=$limit&sortKey=date&sortDirection=descending" \
+        -H "X-Api-Key: $key" 2>/dev/null)
+    if test $status -ne 0
+        fmt_error "Cannot reach $app"
+        return 1
+    end
+
+    echo "$result" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('records', [])
+if not items:
+    print('  Blocklist is empty.')
+else:
+    for item in items[:$limit]:
+        title = item.get('title', item.get('sourceTitle', '?'))
+        date = (item.get('date', '') or '')[:10]
+        print(f'  {date}  {title}')
+" 2>/dev/null
 end

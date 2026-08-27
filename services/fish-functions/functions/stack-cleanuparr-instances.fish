@@ -1,3 +1,3 @@
 function stack-cleanuparr-instances --description 'Which arr apps Cleanuparr has connected'
-    __stack_api GET /api/v2/cli/cleanuparr/instances
+    __cleanuparr_api GET "api/v1/instances"
 end

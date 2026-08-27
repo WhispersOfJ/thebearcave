@@ -1,8 +1,18 @@
-# Usage: stack-log-levels [reset]
-function stack-log-levels --description 'Check, or reset, every Servarr app log level'
-    if test (count $argv) -ge 1; and test "$argv[1]" = reset
-        __stack_api POST /api/v2/cli/log-levels
+function stack-log-levels --description 'Show or set log levels for services'
+    if test (count $argv) -eq 0
+        fmt_heading "Log Levels"
+        echo ""
+        for app in prowlarr radarr sonarr; do
+            set -l level (docker exec "$app" cat /config/Logging/Levels.json 2>/dev/null | grep -oP '"[^"]+"\s*:\s*"[^"]+"' | head -3)
+            if test -n "$level"
+                echo "  $app:"
+                echo "$level" | while read -l l; echo "    $l"; end
+            else
+                echo "  $app: default"
+            end
+        end
     else
-        __stack_api GET /api/v2/cli/log-levels
+        echo "Usage: stack-log-levels (read-only — set via Arr web UI)" >&2
+        return 1
     end
 end

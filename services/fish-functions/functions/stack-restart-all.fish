@@ -7,5 +7,18 @@ function stack-restart-all --description 'Restart the whole stack (confirms firs
             return 1
         end
     end
-    __stack_api POST /api/v2/cli/stack/restart-all
+
+    set -l sock "/var/run/controlpanel-helper.sock"
+    if not test -S "$sock"
+        fmt_error "Host helper socket not found at $sock"
+        return 1
+    end
+
+    set -l response (echo '{"action":"restart-all"}' | timeout 120 socat - UNIX-CONNECT:"$sock" 2>/dev/null)
+    if test $status -eq 0
+        echo "$response"
+    else
+        fmt_error "Failed to restart stack"
+        return 1
+    end
 end

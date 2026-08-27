@@ -7,17 +7,38 @@ function stack-arr --description 'Trigger arr command (rss-sync, search-missing,
     set -l app (__stack_arr_app $argv[1])
     or begin; echo "Invalid app: $argv[1] (use radarr or sonarr)" >&2; return 1; end
     set -l cmd $argv[2]
+
+    # Map fish commands to Arr API command names
+    set -l api_cmd
     switch $cmd
         case rss-sync
-            __stack_api POST "/api/v2/cli/arr/$app/command/RssSync"
+            set api_cmd RssSync
         case search-missing
-            __stack_api POST "/api/v2/cli/arr/$app/command/MissingEpisodeSearch"
+            set api_cmd MissingEpisodeSearch
         case unstick
-            __stack_api POST "/api/v2/cli/arr/$app/command/RefreshMonitoredDownloads"
+            set api_cmd RefreshMonitoredDownloads
         case unstick-importing
-            __stack_api POST "/api/v2/cli/arr/$app/command/ManualImport"
+            set api_cmd ManualImport
         case '*'
             echo "Unknown command: $cmd" >&2
             return 1
+    end
+
+    # Call Arr API directly
+    set -l url (__arr_api_url $app)
+    or begin; echo "Cannot determine URL for $app" >&2; return 1; end
+    set -l key (__arr_api_key $app)
+    or begin; echo "Cannot determine API key for $app" >&2; return 1; end
+
+    set -l result (curl -sf -X POST "$url/api/v3/command" \
+        -H "X-Api-Key: $key" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"$api_cmd\"}" 2>/dev/null)
+
+    if test $status -eq 0
+        fmt_success "$api_cmd triggered on $app."
+    else
+        fmt_error "Failed to trigger $api_cmd on $app."
+        return 1
     end
 end

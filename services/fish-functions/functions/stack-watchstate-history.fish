@@ -1,5 +1,4 @@
-# Usage: stack-watchstate-history [title] [limit]
-function stack-watchstate-history --description 'Watch history, optionally filtered to a title'
+function stack-watchstate-history --description 'Show WatchState watch history'
     set -l title ""
     set -l limit 20
     if test (count $argv) -ge 1
@@ -8,9 +7,9 @@ function stack-watchstate-history --description 'Watch history, optionally filte
     if test (count $argv) -ge 2
         set limit $argv[2]
     end
+    set -l url "v1/api/history?limit=$limit"
     if test -n "$title"
-        __stack_api GET "/api/v2/cli/watchstate/history?title=$title&limit=$limit"
-    else
-        __stack_api GET "/api/v2/cli/watchstate/history?limit=$limit"
+        set url "$url&title=$title"
     end
+    __watchstate_api GET "$url"
 end

@@ -1,3 +1,3 @@
-function stack-plex-generate-chapter-thumbs --description 'Generate chapter thumbnail files Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/generate-chapter-thumbs
+function stack-plex-generate-chapter-thumbs.fish --description 'Trigger Plex generate-chapter-thumbs'
+    __plex_butler generate-chapter-thumbs
 end

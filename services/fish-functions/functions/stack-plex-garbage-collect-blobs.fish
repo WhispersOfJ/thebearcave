@@ -1,3 +1,3 @@
-function stack-plex-garbage-collect-blobs --description 'Garbage-collect unused metadata blobs Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/garbage-collect-blobs
+function stack-plex-garbage-collect-blobs.fish --description 'Trigger Plex garbage-collect-blobs'
+    __plex_butler garbage-collect-blobs
 end

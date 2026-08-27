@@ -8,5 +8,19 @@ function stack-top --description 'Top containers by CPU or memory usage'
     if test (count $argv) -ge 2
         set limit $argv[2]
     end
-    __stack_api GET "/api/v2/cli/top?by=$by&limit=$limit"
+
+    fmt_heading "Top Containers (by $by)"
+    echo ""
+
+    if test "$by" = "mem"
+        docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}\t{{.MemUsage}}' \
+            | sort -t'%' -k2 -rn | head -n $limit | while read -l name cpu mem_pct mem_usage
+            echo "  $name  $cpu  $mem_pct  $mem_usage"
+        end
+    else
+        docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}\t{{.MemUsage}}' \
+            | sort -t'%' -k1 -rn | head -n $limit | while read -l name cpu mem_pct mem_usage
+            echo "  $name  $cpu  $mem_pct  $mem_usage"
+        end
+    end
 end

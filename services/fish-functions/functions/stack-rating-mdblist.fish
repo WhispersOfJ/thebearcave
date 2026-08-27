@@ -4,5 +4,7 @@ function stack-rating-mdblist --description 'A title MDBList score + IMDb sub-ra
         echo "Usage: stack-rating-mdblist <imdb-id>" >&2
         return 1
     end
+    # MDBList lookup is custom logic in the control panel
+    # Preserved as __stack_api until extracted to standalone script
     __stack_api GET "/api/v2/cli/rating/mdblist/$argv[1]"
 end

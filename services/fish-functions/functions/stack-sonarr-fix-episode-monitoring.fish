@@ -1,3 +1,13 @@
 function stack-sonarr-fix-episode-monitoring --description 'Fix unmonitored episodes under monitored series'
-    __stack_api POST "/api/v2/cli/arr/sonarr/command/RefreshMonitoredDownloads"
+    set -l url (__arr_api_url sonarr)
+    set -l key (__arr_api_key sonarr)
+    curl -sf -X POST "$url/api/v3/command" \
+        -H "X-Api-Key: $key" \
+        -H "Content-Type: application/json" \
+        -d '{"name": "RefreshMonitoredDownloads"}' >/dev/null 2>&1
+    if test $status -eq 0
+        fmt_success "RefreshMonitoredDownloads triggered on sonarr."
+    else
+        fmt_error "Failed to trigger on sonarr."
+    end
 end

@@ -1,3 +1,3 @@
-function stack-plex-process-assets --description 'Process pending local assets Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/process-assets
+function stack-plex-process-assets.fish --description 'Trigger Plex process-assets'
+    __plex_butler process-assets
 end

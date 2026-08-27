@@ -13,5 +13,32 @@ function stack-arr-clear-blocklist --description 'Clear every blocklisted releas
             return 1
         end
     end
-    __stack_api DELETE "/api/v2/cli/arr/$app/blocklist"
+
+    set -l url (__arr_api_url $app)
+    set -l key (__arr_api_key $app)
+    set -l endpoint "movie"
+    test "$app" = "sonarr"; and set endpoint "series"
+
+    # Get all blocklist items and delete each
+    set -l result (curl -sf "$url/api/v3/blocklist?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null)
+    if test $status -ne 0
+        fmt_error "Cannot reach $app"
+        return 1
+    end
+
+    echo "$result" | python3 -c "
+import sys, json, subprocess
+data = json.load(sys.stdin)
+items = data.get('records', [])
+if not items:
+    print('  Blocklist is already empty.')
+else:
+    for item in items:
+        bid = item.get('id')
+        if bid:
+            subprocess.run(['curl', '-sf', '-X', 'DELETE',
+                '$url/api/v3/blocklist/$bid',
+                '-H', 'X-Api-Key: $key'], capture_output=True)
+    print(f'  Cleared {len(items)} blocklisted items.')
+" 2>/dev/null
 end

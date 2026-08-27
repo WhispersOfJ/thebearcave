@@ -1,3 +1,3 @@
-function stack-plex-deep-media-analysis --description 'Full deep analysis Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/deep-media-analysis
+function stack-plex-deep-media-analysis.fish --description 'Trigger Plex deep-media-analysis'
+    __plex_butler deep-media-analysis
 end

@@ -1,3 +1,3 @@
-function stack-plex-loudness-analysis --description 'Analyze audio loudness Butler task'
-    __stack_api POST /api/v2/cli/plex/butler/loudness-analysis
+function stack-plex-loudness-analysis.fish --description 'Trigger Plex loudness-analysis'
+    __plex_butler loudness-analysis
 end

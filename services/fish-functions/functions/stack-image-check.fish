@@ -1,3 +1,7 @@
-function stack-image-check --description 'Check pinned images for newer registry digest'
-    __stack_api GET /api/v2/host/image-check
+function stack-image-check --description 'Show Docker image versions'
+    fmt_heading "Docker Image Versions"
+    echo ""
+    docker ps --format '{{.Names}}\t{{.Image}}' | sort | while read -l name image
+        echo "  $name  $image"
+    end
 end
