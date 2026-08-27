@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.10.0...v1.10.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **landing-page:** correct Mermaid graph edge node IDs ([c8efb03](https://github.com/WhispersOfJ/thebearcave/commit/c8efb03f77227fdaa130df7bd6484fa22ea04438))
+* **security:** revert wrong image pins, recreate containers with resource limits ([fae4f3c](https://github.com/WhispersOfJ/thebearcave/commit/fae4f3c677acb2547418a10d839545ab20627116))
+
 ## [1.10.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.9.1...v1.10.0) (2026-08-27)
 
 
