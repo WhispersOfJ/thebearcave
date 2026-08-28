@@ -193,7 +193,7 @@ services:
   nzbdav:
     restart: unless-stopped
     logging: *common-logging
-    image: ghcr.io/infinidysk/infinidysk:latest
+    image: ghcr.io/infinidysk/infinidysk:dev
     container_name: nzbdav
     mem_limit: 2g
     cpus: "1.0"

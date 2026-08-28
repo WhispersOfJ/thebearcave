@@ -5,7 +5,7 @@ nothing is ever written to local disk.
 
 | | |
 |---|---|
-| **Image** | `ghcr.io/infinidysk/infinidysk:latest` |
+| **Image** | `ghcr.io/infinidysk/infinidysk:dev` |
 | **Port** | 3000 |
 | **Network** | `bearcave` |
 | **Healthcheck** | `curl -fsSL http://localhost:3000/healthz` |
@@ -52,6 +52,16 @@ nothing is ever written to local disk.
 2. Settings → Usenet → verify providers are loaded (they come from env)
 3. Confirm WebDAV works: `rclone lsd nzbdav:` from any host with the rclone.conf
 4. No manual API-key setup needed — `NZBDAV_CONFIG__*` env vars are authoritative
+
+## Updating
+
+Use the guarded script — it refuses to touch the container while the queue has
+items, then verifies the mount and all dependents come back healthy:
+
+```bash
+./scripts/update-nzbdav.sh            # preflight → queue guard → pull → recreate → verify
+./scripts/update-nzbdav.sh --dry-run  # preflight + queue check only
+```
 
 ## Troubleshooting
 
