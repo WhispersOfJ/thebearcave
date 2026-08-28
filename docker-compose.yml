@@ -469,6 +469,9 @@ services:
   unpackerr:
     restart: unless-stopped
     logging: *common-logging
+    # stable (0.15.2, 2026-03-08) carries 3 CRITICAL openssl CVEs, suppressed
+    # in .trivyignore until golift rebuilds stable; the unstable tag's
+    # /unpackerr binary ships non-executable (mode 644) so it cannot run.
     image: golift/unpackerr
     container_name: unpackerr
     mem_limit: 64m
@@ -786,7 +789,10 @@ services:
   cadvisor:
     restart: unless-stopped
     logging: *common-logging
-    image: gcr.io/cadvisor/cadvisor:latest
+    # gcr.io's cadvisor registry is deprecated (tags end at v0.55.1 and the
+    # repo now publishes to GHCR); the stale gcr.io :latest carried 4
+    # CRITICAL CVEs (openssl, grpc, stdlib). v0.60.5 scans clean.
+    image: ghcr.io/google/cadvisor:v0.60.5
     container_name: cadvisor
     mem_limit: 512m
     cpus: "0.5"
