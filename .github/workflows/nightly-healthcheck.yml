@@ -93,6 +93,61 @@ jobs:
             services/promtail/promtail-config.yaml \
             services/prometheus/prometheus.yml
 
+  update-guard:
+    name: nzbdav Update Guard Script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # The guard script cannot run for real here (no home stack access), so
+      # exercise its CLI contract and its drift-sensitive assumptions instead.
+      - name: CLI contract
+        run: |
+          [ -x scripts/update-nzbdav.sh ] || { echo "❌ not executable"; exit 1; }
+          ./scripts/update-nzbdav.sh --help | grep -q -- '--dry-run'
+          if ./scripts/update-nzbdav.sh --bogus >/dev/null 2>&1; then
+            echo "❌ unknown option was accepted"
+            exit 1
+          fi
+
+      # The script waits on a hardcoded DEPENDENTS list; compose decides the
+      # real cascade via depends_on.nzbdav_rclone.restart: true. If one changes
+      # without the other, the update script's health waits are wrong.
+      - name: Dependents list matches compose cascade
+        run: |
+          python3 - <<'EOF'
+          import re
+          import sys
+
+          try:
+              import yaml
+          except ImportError:
+              sys.exit("pyyaml unavailable on runner")
+
+          compose = yaml.safe_load(open("docker-compose.yml"))
+          cascaded = set()
+          for name, svc in compose.get("services", {}).items():
+              deps = svc.get("depends_on") or {}
+              rclone = deps.get("nzbdav_rclone") if isinstance(deps, dict) else None
+              if isinstance(rclone, dict) and rclone.get("restart") is True:
+                  cascaded.add(name)
+          if not cascaded:
+              sys.exit("no restart:true cascade found off nzbdav_rclone in compose")
+
+          script = open("scripts/update-nzbdav.sh").read()
+          m = re.search(r"^DEPENDENTS=\((.*)\)", script, re.M)
+          if not m:
+              sys.exit("DEPENDENTS array not found in scripts/update-nzbdav.sh")
+          declared = set(m.group(1).split())
+
+          if cascaded != declared:
+              sys.exit(
+                  f"drift: compose cascades {sorted(cascaded)}, "
+                  f"update-nzbdav.sh waits for {sorted(declared)}"
+              )
+          print(f"update-nzbdav.sh dependents match compose cascade: {sorted(declared)}")
+          EOF
+
   env-coverage:
     name: Env Var Coverage
     runs-on: ubuntu-latest
