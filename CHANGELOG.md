@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.10.1...v1.11.0) (2026-08-28)
+
+
+### Features
+
+* **nzbdav:** track InfiniDysk dev tag and add queue-guarded update script ([23a4e2a](https://github.com/WhispersOfJ/thebearcave/commit/23a4e2a003db6e0aa6383049366f31bacc2bab43))
+* **plex:** use official beta image ([e3323c3](https://github.com/WhispersOfJ/thebearcave/commit/e3323c310568315cacf3650588709beb1cf2d292))
+
 ## [1.10.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.10.0...v1.10.1) (2026-08-27)
 
 
