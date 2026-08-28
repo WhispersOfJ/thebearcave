@@ -318,7 +318,7 @@ N8N_BASIC_AUTH_PASSWORD=changeme
 6. **Bazarr + Plex path** — Bazarr needs access to the media folders to place subs; wire the same FUSE/mount paths as sonarr/radarr.
 7. **AdGuard router change timing** — plan the DHCP/DNS cutover window with the user.
 8. **Per-service health endpoints** — confirm each image's healthcheck path at implementation.
-9. **Image source** — hotio for Lidarr/Bazarr (matches stack); **linuxserver for Readarr** (no hotio image); official upstream for Audiobookshelf/Komga/AdGuard/Vaultwarden/n8n; Uptime Kuma `louislam/uptime-kuma:1`; Crowdsec `crowdsecurity/crowdsec` + Traefik plugin. Pin where CVE-prone or unstable (Readarr!). See §14.
+9. **Image source** — hotio for Lidarr/Bazarr (matches stack); **linuxserver for Readarr** (no hotio image); official upstream for Audiobookshelf/Komga/AdGuard/Vaultwarden/n8n; Uptime Kuma `louislam/uptime-kuma:2.5.3-slim-rootless` (**slip candidate**, §14); Crowdsec `crowdsecurity/crowdsec` + Traefik plugin. Pin where CVE-prone or unstable (Readarr!, komga `1.x`). See §14.
 
 ---
 
@@ -522,7 +522,7 @@ Traefik labels). **Not for deployment until approved.**
 
 ```yaml
   komga:
-    image: gotson/komga:latest
+    image: gotson/komga:1.x   # 1.x = current minor; passes CVE gate w/ draft ignores (§14)
     container_name: komga
     mem_limit: 1g
     cpus: "1.0"
@@ -655,11 +655,14 @@ Traefik labels). **Not for deployment until approved.**
 
 ### Phase 3 blocks — Uptime Kuma, Vaultwarden, n8n
 
-### Uptime Kuma (status/uptime dashboard)
+### Uptime Kuma (status/uptime dashboard) — ⚠️ flagged for Phase 3 slip (§14)
 
 ```yaml
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    # ⚠️ CVE gate: NO tag clears CRITICAL (2026-08-28). Best = slim-rootless
+    # (bookworm, UID 1000, 12 CRITICAL — live jsonata/protobufjs/grpc deps).
+    # Re-check before Phase 3; if still red, this service slips (see §14).
+    image: louislam/uptime-kuma:2.5.3-slim-rootless
     container_name: uptime-kuma
     mem_limit: 128m
     cpus: "0.25"
@@ -687,9 +690,9 @@ Traefik labels). **Not for deployment until approved.**
       - "traefik.http.routers.uptime-kuma.tls=true"
 ```
 
-> No PUID/PGID env support in the official image — runs as default (root) user;
-> **verify at deploy** that `./config/uptime-kuma` ownership is acceptable, and
-> watch the 128m cap (Node + SQLite — §7 tier may need a bump after 48h).
+> `2.5.3-slim-rootless` runs as UID 1000 (no PUID/PGID env needed; no root).
+> **Deploy only if re-scan is green or the slip decision is made** — see the
+> §14 tag-sweep table. Watch the 128m cap (Node + SQLite — §7 may need a bump).
 
 ### Vaultwarden (self-hosted password manager)
 
@@ -806,27 +809,136 @@ Traefik labels). **Not for deployment until approved.**
 
 ## 14. Image Verification Findings (2026-08-28)
 
-Registry manifest checks (no pulls):
+All 10 deployable images re-verified live with `docker manifest inspect` on
+2026-08-28 (no pulls) — **10/10 resolve**, digests recorded below:
 
-| Image | Exists? | Notes |
-|-------|---------|-------|
-| `ghcr.io/hotio/lidarr:release` | ✅ | Matches stack convention; watchtower-auto-updatable |
-| `ghcr.io/hotio/bazarr:release` | ✅ | |
-| `ghcr.io/advplyr/audiobookshelf:latest` | ✅ | Official |
-| `gotson/komga:latest` | ✅ | Official |
-| `adguard/adguardhome:latest` | ✅ | |
-| `crowdsecurity/crowdsec:latest` | ✅ | Bouncer: **Traefik middleware plugin** (see §4.8) — no sidecar container needed |
-| `louislam/uptime-kuma:1` | ✅ | `:1` = current major |
-| `vaultwarden/server:latest` | ✅ | |
-| `n8nio/n8n:latest` | ✅ | |
-| `ghcr.io/hotio/readarr:*` | ❌ | **hotio does not publish Readarr at all** |
-| `linuxserver/readarr:latest` | ❌ | No `latest` — Readarr has no stable release |
-| `linuxserver/readarr:develop` / `:nightly` | ⚠️ | Listed in Hub API but manifest does not resolve (as of check) |
-| `linuxserver/readarr:develop-0.4.18.2805-ls157` | ✅ | **Use this pinned tag**; bump deliberately (0.4.x = revived-project dev builds) |
+| Image | Exists? | Resolved digest (prefix) | Notes |
+|-------|---------|--------------------------|-------|
+| `ghcr.io/hotio/lidarr:release` | ✅ | `sha256:ba6e44dad2342e3225…` | Matches stack convention; watchtower-auto-updatable |
+| `ghcr.io/hotio/bazarr:release` | ✅ | `sha256:be98ebc3523b49ff8d…` | |
+| `ghcr.io/advplyr/audiobookshelf:latest` | ✅ | `sha256:e388e90e381ae3fa86…` | Official |
+| `gotson/komga:1.x` | ✅ | `sha256:e755c9691aa8ec38e2…` | Official; **`1.x` pin** — passes CVE gate with draft ignores (§14) |
+| `adguard/adguardhome:latest` | ✅ | `sha256:678640ae9987aff621…` | |
+| `crowdsecurity/crowdsec:latest` | ✅ | `sha256:95a25d0f0fb92d9620…` | Bouncer: **Traefik middleware plugin** (see §4.8) — no sidecar container needed |
+| `louislam/uptime-kuma:2.5.3-slim-rootless` | ✅ | — | Best tag (bookworm, UID 1000) — **slip candidate** if gate stays red (§14) |
+| `vaultwarden/server:latest` | ✅ | `sha256:5d326778c22f063d09…` | |
+| `n8nio/n8n:latest` | ✅ | `sha256:6b3a46d63a081e0c7f…` | |
+| `linuxserver/readarr:develop-0.4.18.2805-ls157` | ✅ | `sha256:fc5552ceaa09cd31a4…` | **Use this pinned tag**; bump deliberately (0.4.x = revived-project dev builds) |
+| `ghcr.io/hotio/readarr:*` | ❌ | — | **hotio does not publish Readarr at all** |
+| `linuxserver/readarr:latest` | ❌ | — | No `latest` — Readarr has no stable release |
+| `linuxserver/readarr:develop` / `:nightly` | ⚠️ | — | Listed in Hub API but manifest does not resolve (as of check) |
 
-CVE posture: the stack's `trivy-scan.yml` workflow scans all compose images
-nightly — new images are covered automatically once in compose. No suppressions
-should be pre-emptively added; add with justification only if a scan fails.
+Digests are floating-tag snapshots for reference — `:latest`/`:release` tags
+move, so re-verify at deploy. Readarr stays **pinned** (only reliable tag).
+
+### CVE posture scan (2026-08-28, trivy 0.74.0, `CRITICAL,HIGH`)
+
+Scanned all 10 images with the exact `trivy-scan.yml` invocation. **Result:
+35 CRITICAL / 912 HIGH** — the CI gate fails on any CRITICAL, so adding these
+images to compose **will break the trivy-scan workflow** (push + weekly)
+until remediated. Current stack baseline: 20 images, **0 CRITICAL** (the
+`fix(security): eliminate 15 CRITICAL CVEs` commit holds the line).
+
+| Image | CRITICAL | HIGH | Notable CVEs (CRITICAL) |
+|-------|----------|------|-------------------------|
+| `louislam/uptime-kuma:1` | **13** | 220 | stdlib v1.20.5/v1.24.4 (CVE-2024-24790, CVE-2025-68121), zlib1g CVE-2023-45853, protobufjs, liquidjs, jsonata, fast-xml-parser, grpc |
+| `gotson/komga:latest` | **9** | 207 | stdlib v1.17.8 (CVE-2023-24538/24540, CVE-2024-24790, CVE-2025-68121), linux-libc-dev 7.0 (5×) |
+| `ghcr.io/hotio/lidarr:release` | **5** | 76 | ASP.NET Core 8.0.12 (CVE-2025-55315) — hotio image lags .NET runtime |
+| `vaultwarden/server:latest` | **4** | 68 | libmariadb3 11.8.6 (CVE-2026-44172, CVE-2026-49261) |
+| `crowdsecurity/crowdsec:latest` | **2** | 241 | kin-openapi v0.137.0 (GHSA-r277-6w6q-xmqw) — Go dep, LAPI HTTP parsing |
+| `ghcr.io/advplyr/audiobookshelf:latest` | **2** | 66 | form-data 4.0.0 (CVE-2025-7783), sequelize 6.35.2 (CVE-2026-69240) — Node deps |
+| `adguard/adguardhome:latest` | 0 | 2 | |
+| `n8nio/n8n:latest` | 0 | 3 | |
+| `ghcr.io/hotio/bazarr:release` | 0 | 6 | |
+| `linuxserver/readarr:develop-0.4.18.2805-ls157` | 0 | 23 | (pinned tag already the only option) |
+
+**Remediation plan before Phase 1/2 deploy (no pre-emptive `.trivyignore`):**
+
+1. **Re-scan at deploy time** — floating tags (`:latest`/`:release`) move;
+   some CRITICALs (e.g. hotio lidarr's stale .NET 8.0.12) may clear on an
+   upstream rebuild. The digests above pin what was scanned 2026-08-28.
+2. **Prioritize by reachability:** uptime-kuma + komga (22 of 35 CRITICAL) are
+   the worst; check for newer tags/pinned versions that drop below the gate.
+3. **Suppress only with justification** per existing `.trivyignore` policy
+   (e.g. `linux-libc-dev` in komga = host-kernel headers, not shipped binaries).
+4. **Merge order:** land the compose changes in a PR and let the trivy scan
+   report the live gate result before merging — do not merge with the gate
+   red. If a CRITICAL can't be cleared, that image's phase slips until it can.
+
+### Draft `.trivyignore` entries (apply only when the phase lands — 11 of 35 CRITICALs)
+
+Verified reachability in the actual images (2026-08-28). **Only dead-code and
+scan-artifact findings are drafted below.** The other 24 CRITICALs (uptime-kuma
+13, lidarr 5, crowdsec 2, audiobookshelf 2, vaultwarden… see matrix) are live
+runtime code and must NOT be ignored — they need upstream image fixes or a
+phase slip (uptime-kuma is the standout: EOL buster base).
+
+Apply the block below to `.trivyignore` **in the same change that adds the
+images to compose** — never before (policy: entries are current findings only):
+
+```
+# ── New-image CRITICAL CVEs (deferred with justification, 2026-08-28) ───────
+# Applies when the Phase 1/2 compose blocks (§13) land. Re-verify at deploy:
+# floating tags move and re-scans may clear some entries.
+
+# komga (gotson/komga:1.x): linux-libc-dev = "Linux Kernel Headers for
+# development" — compile-time-only package (verified installed, no runtime
+# code). Kernel CVEs do not affect the shipped Java app. Track: upstream base
+# image change — remove if a slimmer base drops the package.
+CVE-2026-53398 # komga linux-libc-dev headers — not runtime code
+CVE-2026-64535 # komga linux-libc-dev headers — not runtime code
+CVE-2026-64564 # komga linux-libc-dev headers — not runtime code
+CVE-2026-72287 # komga linux-libc-dev headers — not runtime code
+CVE-2026-74394 # komga linux-libc-dev headers — not runtime code
+
+# komga (gotson/komga:1.x): trivy reports Go stdlib v1.17.8 (CVE-2023-24538,
+# CVE-2023-24540, CVE-2024-24790, CVE-2025-68121) but the image ships NO Go
+# runtime/binary — Rust coreutils + komga.jar only (verified via ELF scan).
+# Scan artifact from multi-stage build layers. Track: re-scan at deploy.
+CVE-2023-24538 # komga Go stdlib — no Go binary ships (scan artifact)
+CVE-2023-24540 # komga Go stdlib — no Go binary ships (scan artifact)
+CVE-2024-24790 # komga Go stdlib — no Go binary ships (scan artifact)
+CVE-2025-68121 # komga Go stdlib — no Go binary ships (scan artifact)
+
+# vaultwarden (vaultwarden/server:latest): libmariadb3 present in image but
+# the vaultwarden binary has ZERO MariaDB references (verified via strings;
+# default backend is SQLite). Unused client lib. Track: upstream image slims
+# its Debian base — remove if libmariadb3 disappears.
+CVE-2026-44172 # vaultwarden libmariadb3 — unused (SQLite backend)
+CVE-2026-49261 # vaultwarden libmariadb3 — unused (SQLite backend)
+```
+
+**Tag-sweep results (2026-08-28) — newer tags don't save uptime-kuma; komga
+passes with the draft ignores:**
+
+| Image | Tag | Base | CRITICAL | Verdict |
+|-------|-----|------|----------|---------|
+| uptime-kuma | `:1` / `:latest` | **Debian 10 buster (EOL)** | 13 | Red |
+| uptime-kuma | `:2` / `:2.5.3` | bookworm | **134** | Red (worse) |
+| uptime-kuma | `2.5.3-slim` | bookworm | **12** | Best option, still red |
+| uptime-kuma | `2.5.3-slim-rootless` | bookworm | ~12 (same base), **UID 1000** | Best + least privilege, still red |
+| komga | `latest` / `1.x` / `1.26.3` | Ubuntu 26.04 | 9 | **Green if draft ignores applied** (all 9 = suppressible) |
+
+- **komga: resolved.** `1.x` matches `latest` (9 CRITICAL, all in the draft
+  block: 5 linux-libc-dev headers + 4 Go-stdlib scan artifacts, verified no
+  Go binary ships). Pin `gotson/komga:1.x` and the gate passes.
+- **uptime-kuma: unresolved — recommend Phase 3 slip.** No tag clears the
+  gate: `:1` is EOL-buster; `:2` jumps to 134; the **`2.5.3-slim-rootless`**
+  (bookworm, UID 1000 — best security posture) still has 12, and several are
+  live app deps (jsonata 2.1.1 ×3, protobufjs, grpc in the JS bundle —
+  reachable; verified no Go toolchain so the 2 stdlib hits are artifacts, and
+  node isn't linked against system sqlite/gnutls/zlib, but the JS-deps alone
+  keep it red under repo policy). Re-check `2.5.3-slim-rootless` at Phase 3
+  time; slip if still red. Do NOT ignore live JSON-parsing deps to force green.
+
+**NOT in this draft (live runtime code — fix upstream, do not ignore):**
+
+| Image | CVEs | Why not ignorable |
+|-------|------|-------------------|
+| uptime-kuma 2.5.3-slim-rootless | 12 (jsonata, protobufjs, grpc, sqlite3, gnutls, zlib, stdlib) | 2 stdlib = scan artifacts; rest = live app/base deps — see slip note above |
+| hotio/lidarr:release | 5 (ASP.NET Core 8.0.12 CVE-2025-55315) | .NET runtime IS the app; hotio image lags upstream — pin newer hotio or wait for rebuild |
+| crowdsec:latest | 2 (kin-openapi GHSA-r277-6w6q-xmqw) | Go dep compiled into LAPI which parses HTTP — reachable; track upstream release |
+| audiobookshelf:latest | 2 (form-data, sequelize) | Node deps in the running app (sequelize = DB layer) — track upstream |
 
 ---
 
