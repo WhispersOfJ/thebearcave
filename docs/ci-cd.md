@@ -8,7 +8,7 @@ and the two policies every operator must know: **actions are SHA-pinned** and
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
-| `validate.yml` | push/PR to `main` | The gate: compose validation, `.env.template` coverage, shellcheck, ruff, bash syntax, **actionlint**, Django + exporter unit tests |
+| `validate.yml` | push/PR to `main` | The gate: compose validation, `.env.template` coverage, shellcheck, ruff, bash syntax, fish function checks (parse + `fish_indent` + completion drift + offline smoke suite), **actionlint**, exporter unit tests |
 | `release-please.yml` | push to `main` | Conventional-commit release automation: bumps version, updates CHANGELOG, opens the release PR (needs `RELEASE_PLEASE_TOKEN` — see below) |
 | `trivy-scan.yml` | push/PR to `main` + weekly | CVE-scan all 22 images, IaC config scan, commits `STAGE-4-CVE-BASELINE.md` |
 | `dotnet-ci.yml` | push/PR to `main` | Build/format/test/coverage/NuGet CVE audit for metacache |
