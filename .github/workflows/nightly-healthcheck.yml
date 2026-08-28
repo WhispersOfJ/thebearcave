@@ -84,7 +84,11 @@ jobs:
       - name: YAML lint
         run: |
           pip install yamllint
-          yamllint -d relaxed \
+          # Keep relaxed for structure checks but disable line-length: it is
+          # stylistic (actionlint is the real workflow gate), half the
+          # workflows legitimately exceed 80 cols, and recent yamllint
+          # versions fail on warnings, which broke this step nightly.
+          yamllint -d "{extends: relaxed, rules: {line-length: disable}}" \
             docker-compose.yml \
             .github/workflows/*.yml \
             .github/dependabot.yml \
