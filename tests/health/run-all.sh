@@ -82,6 +82,8 @@ check_container() {
     fi
 }
 
+# Generic helpers kept for ad-hoc/manual checks — not wired into the suite.
+# shellcheck disable=SC2329
 check_port() {
     local service_name=$1
     local port=$2
@@ -94,6 +96,8 @@ check_port() {
     fi
 }
 
+# Generic helpers kept for ad-hoc/manual checks — not wired into the suite.
+# shellcheck disable=SC2329
 check_health_endpoint() {
     local service_name=$1
     local url=$2

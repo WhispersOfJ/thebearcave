@@ -24,6 +24,7 @@ NC='\033[0m' # No Color
 # Load environment
 if [ -f ".env" ]; then
     set -a
+    # shellcheck disable=SC1091
     source .env
     set +a
 fi

@@ -40,7 +40,7 @@ else
 fi
 
 # Step 2: Find the latest backup archive
-LATEST_BACKUP=$(ls -t "$REPO_DIR"/backups/bearcave_backup_*.tar.gz 2>/dev/null | head -1)
+LATEST_BACKUP=$(find "$REPO_DIR/backups" -maxdepth 1 -name 'bearcave_backup_*.tar.gz' -printf '%T@\t%p\n' 2>/dev/null | sort -rn | head -1 | cut -f2-)
 if [ -z "$LATEST_BACKUP" ]; then
     fail "No backup archive found in backups/"
     echo ""

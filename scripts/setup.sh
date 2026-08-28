@@ -15,9 +15,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/helpers.sh"
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/validate.sh"
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/secrets.sh"
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/github.sh"
 
 # ============================================================================
@@ -36,14 +40,14 @@ interactive_setup() {
     if [ ! -f "$ENV_FILE" ]; then
         log_warning ".env file not found."
         echo ""
-        read -p "Create .env from template? (Y/n): " create_env
+        read -r -p "Create .env from template? (Y/n): " create_env
         if [ "${create_env:-Y}" != "n" ]; then
             cp "$ENV_TEMPLATE" "$ENV_FILE"
             log_success "Created .env from template"
             echo ""
             echo "Please edit .env with your actual values before continuing."
             echo ""
-            read -p "Press Enter after editing .env..."
+            read -r -p "Press Enter after editing .env..."
         fi
     fi
 
@@ -64,14 +68,14 @@ interactive_setup() {
     fi
 
     echo ""
-    read -p "Generate Docker secrets? (Y/n): " gen_secrets
+    read -r -p "Generate Docker secrets? (Y/n): " gen_secrets
     if [ "${gen_secrets:-Y}" != "n" ]; then
         create_secrets_dir
         generate_secrets
     fi
 
     echo ""
-    read -p "Sync RELEASE_PLEASE_TOKEN to GitHub Actions secret? (Y/n): " sync_gh
+    read -r -p "Sync RELEASE_PLEASE_TOKEN to GitHub Actions secret? (Y/n): " sync_gh
     if [ "${sync_gh:-Y}" != "n" ]; then
         sync_github_secrets
     fi
