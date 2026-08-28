@@ -124,3 +124,4 @@ whole newline-joined string and fails. This reddened `docker-publish.yml`'s
 | Browser shows certificate warning | CA not installed on that device — `scripts/trust-ca.sh` |
 | Metacache "Fix Match" spam | Cache warm status: `curl localhost:8765/warm/status` |
 | Docker Publish red on a release tag push | `steps.meta.outputs.tags` newline separator — see landmine 13 |
+| pacman aborts with `error: command failed to execute correctly` | pug gist-sync hook failed — [pug-pacman-gist-sync](operations/pug-pacman-gist-sync.md) |
