@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.12.0...v1.12.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **compose:** read node-exporter healthcheck body to stop log flood ([e4ed066](https://github.com/WhispersOfJ/thebearcave/commit/e4ed066271a9052ae2d2efa543769e94e5f7d7fc))
+* **security:** eliminate 15 CRITICAL CVEs across the stack ([db5c97b](https://github.com/WhispersOfJ/thebearcave/commit/db5c97bca3a278b8e709d3e02f10a6abadf4340f))
+
 ## [1.12.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.11.0...v1.12.0) (2026-08-28)
 
 
