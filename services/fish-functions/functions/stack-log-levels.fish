@@ -3,7 +3,6 @@ function stack-log-levels --description 'Show or set log levels for services'
         fmt_heading "Log Levels"
         echo ""
         for app in prowlarr radarr sonarr
-            do
             set -l level (docker exec "$app" cat /config/Logging/Levels.json 2>/dev/null | grep -oP '"[^"]+"\s*:\s*"[^"]+"' | head -3)
             if test -n "$level"
                 echo "  $app:"
