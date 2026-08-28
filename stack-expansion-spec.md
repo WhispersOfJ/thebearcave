@@ -200,7 +200,8 @@ Risks/notes:
 
 **Phase 2 — network layer:** AdGuard Home (needs router DHCP change — coordinate timing; brief DNS disruption when switching) + Crowdsec (LAPI + bouncer).
 
-**Phase 3 — utilities:** Uptime Kuma (fast win), Vaultwarden, n8n (first workflow: Discord notifications).
+**Phase 3 — utilities:** Uptime Kuma (**slip-gated** — CVE hold, §10 #10),
+Vaultwarden, n8n (first workflow: Discord notifications).
 
 Rationale: dependencies first (Bazarr needs nothing new; Lidarr/Readarr share pipeline work; servers build on the extended categories; network tools change topology so they land after media settles; utilities are independent).
 
@@ -795,7 +796,10 @@ Traefik labels). **Not for deployment until approved.**
 > events (see §10 Q2).
 
 ### Notes on the drafts
-- `hotio/*:release` tags auto-update via the stack's watchtower mechanism.
+- `hotio/*:release` tags auto-update via the stack's watchtower mechanism
+  (Bazarr). **Lidarr uses `:nightly`** for the .NET CVE fix (§14) — treat as
+  dev-grade; re-check `:release` at each update cycle in case hotio refreshes
+  it past .NET 8.0.21.
 - All healthcheck endpoints (`/ping`, `/api/health`, `/actuator/health`,
   `/control/health`, `cscli lapi status`, `/`, `/alive`, `/healthz`) to be
   re-verified against the actual images at deploy time.
@@ -871,21 +875,25 @@ until remediated. Current stack baseline: 20 images, **0 CRITICAL** (the
 1. **Re-scan at deploy time** — floating tags (`:latest`/`:release`) move;
    some CRITICALs (e.g. hotio lidarr's stale .NET 8.0.12) may clear on an
    upstream rebuild. The digests above pin what was scanned 2026-08-28.
-2. **Prioritize by reachability:** uptime-kuma + komga (22 of 35 CRITICAL) are
-   the worst; check for newer tags/pinned versions that drop below the gate.
+2. **Prioritize by reachability:** resolved since the initial scan — komga
+   (9) via `1.x` + draft ignores; uptime-kuma (13) via slip decision (§10 #10);
+   lidarr (5) via `:nightly`. Remaining open: crowdsec + audiobookshelf
+   (4, upstream-wait) — see matrix below.
 3. **Suppress only with justification** per existing `.trivyignore` policy
    (e.g. `linux-libc-dev` in komga = host-kernel headers, not shipped binaries).
 4. **Merge order:** land the compose changes in a PR and let the trivy scan
    report the live gate result before merging — do not merge with the gate
    red. If a CRITICAL can't be cleared, that image's phase slips until it can.
 
-### Draft `.trivyignore` entries (apply only when the phase lands — 11 of 35 CRITICALs)
+### Draft `.trivyignore` entries (apply only when the phase lands — 11 of 35 CRITICALs scanned; 9× komga + 2× vaultwarden)
 
 Verified reachability in the actual images (2026-08-28). **Only dead-code and
-scan-artifact findings are drafted below.** The other 24 CRITICALs (uptime-kuma
-13, lidarr 5, crowdsec 2, audiobookshelf 2, vaultwarden… see matrix) are live
-runtime code and must NOT be ignored — they need upstream image fixes or a
-phase slip (uptime-kuma is the standout: EOL buster base).
+scan-artifact findings are drafted below** — the 11 entries cover 13 findings
+(komga 9: 5 linux-libc-dev + 4 Go-stdlib; vaultwarden 4: 2 CVE IDs ×
+libmariadb3+mariadb-common). Of the 35 scanned CRITICALs, lidarr's 5 are
+resolved via `:nightly` (above); the remaining **17 are live runtime code and
+must NOT be ignored** (uptime-kuma 13 — slip decision §10 #10; crowdsec 2 +
+audiobookshelf 2 — upstream-wait, deploy-as-is).
 
 Apply the block below to `.trivyignore` **in the same change that adds the
 images to compose** — never before (policy: entries are current findings only):
@@ -960,8 +968,15 @@ runtime.
 |-------|------|-------------------|
 | uptime-kuma 2.5.3-slim-rootless | 12 (jsonata, protobufjs, grpc, sqlite3, gnutls, zlib, stdlib) | 2 stdlib = scan artifacts; rest = live app/base deps — see slip note above |
 | ~~hotio/lidarr:release~~ | ~~5 (CVE-2025-55315)~~ | **Resolved** — use `:nightly` (0 CRITICAL), see note above |
-| crowdsec:latest | 2 (kin-openapi GHSA-r277-6w6q-xmqw) | Go dep compiled into LAPI which parses HTTP — reachable; track upstream release |
-| audiobookshelf:latest | 2 (form-data, sequelize) | Node deps in the running app (sequelize = DB layer) — track upstream |
+| crowdsec (all tags) | 2 (kin-openapi GHSA-r277-6w6q-xmqw) | **No tag clears it** — swept `latest`/`slim`/`v1.7.8-slim`/`v1.8.0-rc2-slim`/`dev`: all ship kin-openapi v0.137.0; fix exists (0.144.0) but Crowdsec hasn't rebuilt. Deploy as-is (LAN-only, LAPI) and track upstream release |
+| audiobookshelf (all tags) | 2 (form-data CVE-2025-7783, sequelize CVE-2026-69240) | **No tag clears it** — swept `latest`/`2.36.0`/`edge`: all ship form-data 4.0.0 (fixed 4.0.4) + sequelize 6.35.2 (fixed 6.37.4); upstream hasn't bumped. Deploy as-is and track upstream |
+
+**Crowdsec + audiobookshelf (2026-08-28): both are upstream-wait, deploy-as-is.**
+Fixes exist upstream but neither project has rebuilt an image with them. Neither
+is ignorable (live runtime code) and neither has an alternative tag — so Phase
+1/2 deploy them with the CVE tracking documented here, and remove the notes
+when the upstream rebuild lands. These are the last two open CVE items besides
+the uptime-kuma slip.
 
 ---
 

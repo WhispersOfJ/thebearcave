@@ -282,6 +282,24 @@ flowchart TB
 | `https://traefik.HOST_IP.nip.io` | Traefik dashboard | |
 | `https://bearcave.HOST_IP.nip.io` | Landing page | |
 
+**Planned (per `stack-expansion-spec.md`, not yet deployed):**
+
+| URL pattern | Target | Example |
+|-------------|--------|---------|
+| `https://lidarr.HOST_IP.nip.io` | Lidarr (music) | |
+| `https://readarr.HOST_IP.nip.io` | Readarr (ebooks) | |
+| `https://bazarr.HOST_IP.nip.io` | Bazarr (subtitles) | |
+| `https://audiobookshelf.HOST_IP.nip.io` | Audiobookshelf | |
+| `https://komga.HOST_IP.nip.io` | Komga (comics) | |
+| `https://adguard.HOST_IP.nip.io` | AdGuard Home (web UI; DNS on :53) | |
+| `https://uptime-kuma.HOST_IP.nip.io` | Uptime Kuma (**slip-gated**) | |
+| `https://vaultwarden.HOST_IP.nip.io` | Vaultwarden | |
+| `https://n8n.HOST_IP.nip.io` | n8n (workflows) | |
+
+Crowdsec has **no** nip.io route (LAPI is an API for bouncers/`cscli`, not a
+web UI — see `docs/services/crowdsec.md`). Add each row to the live table above
+when its phase deploys.
+
 > **Note:** `.nip.io` resolves any `*.IP.nip.io` to that IP with no DNS setup. For real
 > hostnames, replace with your own domain in the Traefik labels.
 

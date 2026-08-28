@@ -104,6 +104,31 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 Plex is the only service on host network — it cannot be behind Traefik because GDM,
 DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networking.
 
+### Planned Services (not yet deployed — see `stack-expansion-spec.md`)
+
+10 additional services are specified in `stack-expansion-spec.md` (phases 1–3),
+each with a draft compose block, docs page, and port allocation. **Not in
+docker-compose.yml yet** — deploy per phase; add to the table above and port map
+below as each lands. Docs pages already exist in `docs/services/`:
+
+| # | Service | Purpose | Port | Phase | Docs |
+|---|---------|---------|------|-------|------|
+| P1 | `lidarr` | Music acquisition | 8686 | 1 | [docs/services/lidarr.md](docs/services/lidarr.md) |
+| P2 | `readarr` | Ebook acquisition | 8787 | 1 | [docs/services/readarr.md](docs/services/readarr.md) |
+| P3 | `bazarr` | Subtitles for movies/shows | 6767 | 1 | [docs/services/bazarr.md](docs/services/bazarr.md) |
+| P4 | `audiobookshelf` | Audiobook/podcast server | 13378 | 1 | [docs/services/audiobookshelf.md](docs/services/audiobookshelf.md) |
+| P5 | `komga` | Comics/manga server | 25600 | 1 | [docs/services/komga.md](docs/services/komga.md) |
+| P6 | `adguard` | LAN DNS ad/tracker blocker | 53, 3003 | 2 | [docs/services/adguard.md](docs/services/adguard.md) |
+| P7 | `crowdsec` | Intrusion detection (Traefik plugin bouncer) | 18080 | 2 | [docs/services/crowdsec.md](docs/services/crowdsec.md) |
+| P8 | `uptime-kuma` | Status/uptime monitoring (**slip-gated** CVE hold) | 3002 | 3 | [docs/services/uptime-kuma.md](docs/services/uptime-kuma.md) |
+| P9 | `vaultwarden` | Self-hosted password manager | 8222 | 3 | [docs/services/vaultwarden.md](docs/services/vaultwarden.md) |
+| P10 | `n8n` | Workflow automation (Discord notifications first) | 5678 | 3 | [docs/services/n8n.md](docs/services/n8n.md) |
+
+Key cross-cutting items from the spec: the nzbdav category rollout (§15,
+queue-gated) precedes Phases 1 acquisitions; CVE posture gates some images
+(§14 — lidarr `:nightly`, komga `1.x`, uptime-kuma slip); the Crowdsec
+bouncer is a Traefik middleware plugin, not a sidecar (§4.8).
+
 ---
 
 ## Port Map
@@ -127,6 +152,14 @@ DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networ
 9696  Prowlarr
 11011 Cleanuparr
 41789 arr-dashboard (Next.js)
+
+# Planned (per stack-expansion-spec.md — add to the live map when deployed)
+53    adguard (DNS; tcp+udp)         3003  adguard (web UI)
+8686  lidarr                        8787  readarr
+6767  bazarr                        13378 audiobookshelf
+25600 komga                         18080 crowdsec (LAPI)
+3002  uptime-kuma                   8222  vaultwarden
+5678  n8n
 ```
 
 ---
