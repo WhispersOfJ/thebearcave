@@ -5,7 +5,7 @@ function stack-plex-sessions --description 'Who is watching what right now'
     fmt_heading "Plex Sessions"
     echo ""
 
-    set -l result (curl -sf "$plex_url/status/sessions?X-Plex-Token=$token" 2>/dev/null)
+    set -l result (curl -sf -H "Accept: application/json" "$plex_url/status/sessions?X-Plex-Token=$token" 2>/dev/null)
     if test $status -ne 0
         fmt_error "Cannot reach Plex"
         return 1

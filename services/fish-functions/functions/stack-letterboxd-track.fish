@@ -8,8 +8,11 @@ function stack-letterboxd-track --description 'Register a Letterboxd list for ni
     set -l label ""
     set -l idx (contains -i -- --label $argv)
     if test -n "$idx"
-        set -l next (math $idx + 1)
-        set label $argv[$next]
+        if test $idx -eq (count $argv)
+            echo "--label given but no value provided" >&2
+            return 1
+        end
+        set label $argv[(math $idx + 1)]
     end
 
     set -l tracked_file "$HOME/.config/bearcave/letterboxd-tracked.txt"
@@ -21,6 +24,10 @@ function stack-letterboxd-track --description 'Register a Letterboxd list for ni
         return 0
     end
 
-    echo "$url|$label" >> "$tracked_file"
-    fmt_success "Now tracking: $url${label:+ (label: $label)}"
+    echo "$url|$label" >>"$tracked_file"
+    if test -n "$label"
+        fmt_success "Now tracking: $url (label: $label)"
+    else
+        fmt_success "Now tracking: $url"
+    end
 end

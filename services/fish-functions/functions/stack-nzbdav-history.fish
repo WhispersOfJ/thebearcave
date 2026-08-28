@@ -3,5 +3,5 @@ function stack-nzbdav-history --description 'Show NzbDAV recent download history
     if test (count $argv) -ge 1
         set limit $argv[1]
     end
-    __nzbdav_api GET history
+    __nzbdav_api GET history "limit=$limit"
 end

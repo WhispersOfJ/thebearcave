@@ -5,7 +5,10 @@ function stack-arr --description 'Trigger arr command (rss-sync, search-missing,
         return 1
     end
     set -l app (__stack_arr_app $argv[1])
-    or begin; echo "Invalid app: $argv[1] (use radarr or sonarr)" >&2; return 1; end
+    or begin
+        echo "Invalid app: $argv[1] (use radarr or sonarr)" >&2
+        return 1
+    end
     set -l cmd $argv[2]
 
     # Map fish commands to Arr API command names
@@ -26,9 +29,15 @@ function stack-arr --description 'Trigger arr command (rss-sync, search-missing,
 
     # Call Arr API directly
     set -l url (__arr_api_url $app)
-    or begin; echo "Cannot determine URL for $app" >&2; return 1; end
+    or begin
+        echo "Cannot determine URL for $app" >&2
+        return 1
+    end
     set -l key (__arr_api_key $app)
-    or begin; echo "Cannot determine API key for $app" >&2; return 1; end
+    or begin
+        echo "Cannot determine API key for $app" >&2
+        return 1
+    end
 
     set -l result (curl -sf -X POST "$url/api/v3/command" \
         -H "X-Api-Key: $key" \

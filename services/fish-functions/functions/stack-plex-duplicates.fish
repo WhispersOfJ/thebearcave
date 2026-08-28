@@ -5,7 +5,7 @@ function stack-plex-duplicates --description 'Show duplicate media in Plex'
     fmt_heading "Plex — Duplicates"
     echo ""
 
-    curl -sf "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c "
 import sys, json, urllib.request
 try:
@@ -14,7 +14,8 @@ try:
         key = section.get('key')
         title = section.get('title', '?')
         url = f'$plex_url/library/sections/{key}/all?X-Plex-Token=$token'
-        r = urllib.request.urlopen(url, timeout=10)
+        req = urllib.request.Request(url, headers={'Accept': 'application/json'})
+        r = urllib.request.urlopen(req, timeout=10)
         items = json.loads(r.read()).get('MediaContainer', {}).get('Metadata', [])
         dupes = {}
         for item in items:

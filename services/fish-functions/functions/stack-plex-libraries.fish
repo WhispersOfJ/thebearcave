@@ -5,7 +5,7 @@ function stack-plex-libraries --description 'List Plex library names'
     fmt_heading "Plex Libraries"
     echo ""
 
-    curl -sf "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c "
 import sys, json
 try:

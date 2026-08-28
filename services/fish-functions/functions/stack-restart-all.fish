@@ -8,17 +8,22 @@ function stack-restart-all --description 'Restart the whole stack (confirms firs
         end
     end
 
-    set -l sock "/var/run/controlpanel-helper.sock"
-    if not test -S "$sock"
-        fmt_error "Host helper socket not found at $sock"
+    if not command -q docker
+        fmt_error "docker not found"
         return 1
     end
 
-    set -l response (echo '{"action":"restart-all"}' | timeout 120 socat - UNIX-CONNECT:"$sock" 2>/dev/null)
-    if test $status -eq 0
-        echo "$response"
+    set -l containers (docker ps -q 2>/dev/null)
+    if test (count $containers) -eq 0
+        fmt_warning "No running containers."
+        return 0
+    end
+
+    fmt_heading "Restarting (count $containers) container(s)"
+    if docker restart $containers >/dev/null 2>&1
+        fmt_success "Restarted (count $containers) container(s)."
     else
-        fmt_error "Failed to restart stack"
+        fmt_error "Restart failed — run 'docker compose ps' to check state."
         return 1
     end
 end

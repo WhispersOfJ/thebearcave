@@ -48,12 +48,18 @@ in the Phase 2 migration.
 ## Setup
 
 ```fish
-set -U MEDIA_STACK_HOST_IP "192.0.2.1"
-set -U MEDIA_STACK_DIR "/home/bear/TheBearCave"
-set -U MEDIA_STACK_COLOR true  # optional
+# Optional: force color on/off (default: auto-detect TTY)
+set -U STACK_COLOR true
 
 bash services/fish-functions/scripts/install.sh
 ```
+
+Functions read API keys from the environment (`RADARR_API_KEY`, `SONARR_API_KEY`,
+`PROWLARR_API_KEY`, `PLEX_TOKEN`, `FRONTEND_BACKEND_API_KEY`, `WS_API_KEY`,
+`MDBLIST_KEY`, `OMDB_KEY`, `SEERR_API_KEY`) and honor `<APP>_URL` / `PLEX_URL` /
+`NZBDAV_URL` / `WATCHSTATE_URL` / `CLEANUPARR_URL` / `SEERR_URL` overrides.
+Defaults target the host-published `localhost` ports — these are host-shell
+tools; docker service names will not resolve from outside the compose network.
 
 ## Configuration
 
@@ -64,7 +70,10 @@ Functions read API keys from environment variables (set in `.env`):
 - `WS_API_KEY`
 
 The helper functions (`__arr_api`, etc.) are prefixed with `__` so they are
-not installed as user-facing commands.
+not installed as user-facing commands, but they ARE symlinked onto the function
+path — the `stack-*` commands call them at runtime. `__cli_format.fish` (shared
+`fmt_*` formatting helpers) is loaded via `~/.config/fish/conf.d/` because
+autoload can never trigger on a file nothing invokes by name.
 
 ## Troubleshooting
 

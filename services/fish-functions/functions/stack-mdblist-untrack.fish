@@ -12,7 +12,7 @@ function stack-mdblist-untrack --description 'Stop syncing a tracked MDBList lis
     end
 
     set -l tmp (mktemp)
-    grep -vF "$argv[1]" "$tracked_file" > "$tmp" 2>/dev/null
+    grep -vF "$argv[1]" "$tracked_file" >"$tmp" 2>/dev/null
     mv "$tmp" "$tracked_file"
     fmt_success "Stopped tracking: $argv[1]"
 end

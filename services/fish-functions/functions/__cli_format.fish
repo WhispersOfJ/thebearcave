@@ -15,7 +15,7 @@ set -g _FMT_WHITE (printf '\033[37m')
 
 function _fmt_color_enabled
     if set -q STACK_COLOR
-        test "$STACK_COLOR" = "true"
+        test "$STACK_COLOR" = true
         return
     end
     test -t 1

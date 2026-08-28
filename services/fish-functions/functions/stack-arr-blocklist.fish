@@ -5,7 +5,10 @@ function stack-arr-blocklist --description 'Recent blocklisted releases'
         return 1
     end
     set -l app (__stack_arr_app $argv[1])
-    or begin; echo "Invalid app: $argv[1]" >&2; return 1; end
+    or begin
+        echo "Invalid app: $argv[1]" >&2
+        return 1
+    end
     set -l limit 20
     test (count $argv) -ge 2; and set limit $argv[2]
 

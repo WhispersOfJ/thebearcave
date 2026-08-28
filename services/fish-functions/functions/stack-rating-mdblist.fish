@@ -1,7 +1,8 @@
-# Usage: stack-rating-mdblist <imdb-id>
-function stack-rating-mdblist --description 'A title MDBList score + IMDb sub-rating'
+# Usage: stack-rating-mdblist <query>
+# <query> is an IMDb id (tt...) or a title; uses MDBList's search endpoint.
+function stack-rating-mdblist --description 'A title MDBList score + per-source ratings'
     if test (count $argv) -ne 1
-        echo "Usage: stack-rating-mdblist <imdb-id>" >&2
+        echo "Usage: stack-rating-mdblist <imdb-id-or-title>" >&2
         return 1
     end
 
@@ -11,13 +12,10 @@ function stack-rating-mdblist --description 'A title MDBList score + IMDb sub-ra
         return 1
     end
 
-    # MDBList API: lookup by IMDb ID
-    set -l result (curl -sf "https://api.mdblist.com/api/tmdb/movie/$argv[1]?apikey=$mdblist_key" 2>/dev/null)
-    if test $status -ne 0
-        # Try alternative endpoint
-        set result (curl -sf "https://mdblist.com/api/$mdblist_key/search?query=$argv[1]" 2>/dev/null)
-    end
-
+    set -l payload (python3 -c 'import json, sys; print(json.dumps({"query": sys.argv[1]}))' "$argv[1]")
+    set -l result (curl -sf -X POST "https://api.mdblist.com/api/search?apikey=$mdblist_key" \
+        -H "Content-Type: application/json" \
+        -d "$payload" 2>/dev/null)
     if test $status -ne 0
         fmt_error "Cannot reach MDBList API"
         return 1
@@ -26,14 +24,15 @@ function stack-rating-mdblist --description 'A title MDBList score + IMDb sub-ra
     echo "$result" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-if isinstance(d, list) and len(d) > 0:
-    item = d[0]
-else:
-    item = d
-print(f'  {item.get(\"title\", \"?\")} ({item.get(\"year\", \"?\")})')
-print(f'  MDBList: {item.get(\"score\", \"?\")}')
-if item.get('ratings'):
-    for r in item['ratings']:
-        print(f'  {r.get(\"source\", \"?\")}: {r.get(\"score\", \"?\")}')
-" 2>/dev/null
+results = d if isinstance(d, list) else d.get('results', d.get('movies', []))
+if not results:
+    print('  No results for that query.')
+    sys.exit(0)
+item = results[0]
+print(f\"  {item.get('title', '?')} ({item.get('year', '?')})\")
+score = item.get('score')
+print(f\"  MDBList: {score if score is not None else '?'}/100\")
+for r in item.get('ratings', []):
+    print(f\"  {r.get('source', '?')}: {r.get('score', '?')}\")
+"
 end

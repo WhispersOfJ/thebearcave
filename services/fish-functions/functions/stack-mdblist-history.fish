@@ -1,5 +1,5 @@
 function stack-mdblist-history --description 'Recent MDBList sync runs'
-    set -l log_dir "/var/log/mdblist"
+    set -l log_dir /var/log/mdblist
     if test -d "$log_dir"
         fmt_heading "MDBList Sync History"
         echo ""
@@ -7,7 +7,7 @@ function stack-mdblist-history --description 'Recent MDBList sync runs'
             echo "  $line"
         end
     else
-        fmt_heading "MDBList"
+        fmt_heading MDBList
         echo ""
         echo "  No local sync logs found."
         echo "  MDBList sync is not configured in this stack."

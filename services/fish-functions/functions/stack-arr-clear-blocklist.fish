@@ -5,7 +5,10 @@ function stack-arr-clear-blocklist --description 'Clear every blocklisted releas
         return 1
     end
     set -l app (__stack_arr_app $argv[1])
-    or begin; echo "Invalid app: $argv[1]" >&2; return 1; end
+    or begin
+        echo "Invalid app: $argv[1]" >&2
+        return 1
+    end
     if not contains -- -y $argv; and not contains -- --yes $argv
         read -l -P "Clear ALL blocklisted items on $app? [y/N] " confirm
         if test "$confirm" != y -a "$confirm" != Y
@@ -16,8 +19,8 @@ function stack-arr-clear-blocklist --description 'Clear every blocklisted releas
 
     set -l url (__arr_api_url $app)
     set -l key (__arr_api_key $app)
-    set -l endpoint "movie"
-    test "$app" = "sonarr"; and set endpoint "series"
+    set -l endpoint movie
+    test "$app" = sonarr; and set endpoint series
 
     # Get all blocklist items and delete each
     set -l result (curl -sf "$url/api/v3/blocklist?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null)

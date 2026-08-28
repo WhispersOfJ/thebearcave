@@ -11,7 +11,7 @@ function __cleanuparr_api
     set -l body $argv[3]
 
     set -l base_url $CLEANUPARR_URL
-    test -z "$base_url"; and set base_url "http://cleanuparr:11011"
+    test -z "$base_url"; and set base_url "http://localhost:11011"
 
     set -l curl_opts -sS -X $method --fail-with-body
 
@@ -19,5 +19,8 @@ function __cleanuparr_api
         set curl_opts $curl_opts -H 'Content-Type: application/json' -d "$body"
     end
 
-    curl $curl_opts "$base_url$path"
+    # Callers pass paths without a leading slash — normalize both sides
+    set base_url (string trim --chars=/ -- "$base_url")
+    set path (string trim --chars=/ -- "$path")
+    curl $curl_opts "$base_url/$path"
 end

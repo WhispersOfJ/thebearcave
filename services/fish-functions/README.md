@@ -5,11 +5,15 @@ target service's API directly via curl and prints human-readable text.
 
 ## Setup
 
-1. Set fish universal variables:
+1. Export the API keys the functions read (e.g. from `.env`):
 ```fish
-set -U MEDIA_STACK_HOST_IP "192.0.2.1"
-set -U MEDIA_STACK_DIR "/home/bear/TheBearCave"
-set -U MEDIA_STACK_COLOR true  # optional: colored output
+set -x RADARR_API_KEY ...
+set -x SONARR_API_KEY ...
+set -x PLEX_TOKEN ...
+```
+Optional: force color on/off (default: auto-detect TTY):
+```fish
+set -U STACK_COLOR true
 ```
 
 2. Install:
@@ -18,6 +22,9 @@ services/fish-functions/scripts/install.sh
 ```
 
 3. Restart fish or `source ~/.config/fish/config.fish`.
+
+Defaults target the host-published `localhost` ports (these are host-shell
+tools); override with `<APP>_URL` / `PLEX_URL` env vars if needed.
 
 ## Commands
 
@@ -43,7 +50,7 @@ completions/        # Manual tab completions
 scripts/            # install.sh, uninstall.sh
 ```
 
-Each function calls a service-specific helper (`__arr_api`, `__plex_api`,
-`__nzbdav_api`, `__watchstate_api`) which uses curl to hit the service
-API directly. No backend proxy — functions talk to services on the
-`bearcave` Docker network. Color is enabled by default.
+Each function calls a service-specific helper (`__arr_api`, `__arr_api_url`,
+`__arr_api_key`, `__plex_api`, `__nzbdav_api`, `__watchstate_api`) which uses
+curl to hit the service API directly. No backend proxy. The shared `fmt_*`
+formatting helpers in `__cli_format.fish` load via `conf.d` at fish startup.

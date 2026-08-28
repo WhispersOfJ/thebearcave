@@ -1,26 +1,28 @@
 function stack-mount-health --description 'Check FUSE mount health'
     fmt_heading "Mount Health"
     echo ""
-    set -l mounts /mnt/media /mnt/nzbdav
-    for m in $mounts
-        if test -d "$m"
-            set -l count (find "$m" -maxdepth 1 -type f 2>/dev/null | head -5 | count)
-            if test $count -gt 0
-                echo "  $m  "(fmt_status_dot "healthy")
-            else
-                echo "  $m  "(fmt_status_dot "empty")
-            end
+    set -l mount /mnt/remote/nzbdav
+
+    if test -d "$mount"
+        echo "  $mount  "(fmt_status_dot "present")
+    else
+        echo "  $mount  "(fmt_status_dot "missing")
+    end
+
+    # Authoritative check: the rclone sidecar's own healthcheck
+    if command -q docker
+        if docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav 2>/dev/null
+            echo "  rclone mount  "(fmt_status_dot "healthy")
         else
-            echo "  $m  "(fmt_status_dot "missing")
+            echo "  rclone mount  "(fmt_status_dot "dead")
         end
     end
-    # Check rclone mount specifically
-    if command -q rclone
-        set -l running (pgrep -f "rclone.*mount" 2>/dev/null | count)
-        if test $running -gt 0
-            echo "  rclone  "(fmt_status_dot "running")
-        else
-            echo "  rclone  "(fmt_status_dot "stopped")
-        end
+
+    # Content flows through the WebDAV root served by nzbdav
+    set -l entries (timeout 10 ls "$mount" 2>/dev/null | count)
+    if test "$entries" -gt 0
+        echo "  content  "(fmt_status_dot "listing ok")"  ($entries entries)"
+    else
+        echo "  content  "(fmt_status_dot "empty/unreachable")
     end
 end

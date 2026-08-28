@@ -20,7 +20,7 @@ function stack-letterboxd-tracked --description 'Every Letterboxd list currently
             echo "  $url"
         end
         set count (math $count + 1)
-    end < "$tracked_file"
+    end <"$tracked_file"
 
     if test $count -eq 0
         echo "  No lists tracked."

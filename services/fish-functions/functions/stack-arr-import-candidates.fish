@@ -5,7 +5,10 @@ function stack-arr-import-candidates --description 'List files ready to manually
         return 1
     end
     set -l app (__stack_arr_app $argv[1])
-    or begin; echo "Invalid app: $argv[1]" >&2; return 1; end
+    or begin
+        echo "Invalid app: $argv[1]" >&2
+        return 1
+    end
 
     set -l url (__arr_api_url $app)
     set -l key (__arr_api_key $app)

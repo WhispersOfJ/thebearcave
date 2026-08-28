@@ -7,10 +7,10 @@ function stack-resource-check --description 'Check containers missing mem_limit/
         set -l cpus (docker inspect --format '{{.HostConfig.NanoCpus}}' "$c" 2>/dev/null)
         set -l mem_ok "✗"
         set -l cpu_ok "✗"
-        if test "$mem" != "0"; and test -n "$mem"
+        if test "$mem" != 0; and test -n "$mem"
             set mem_ok "✓"
         end
-        if test "$cpus" != "0"; and test -n "$cpus"
+        if test "$cpus" != 0; and test -n "$cpus"
             set cpu_ok "✓"
         end
         if test "$mem_ok" = "✗"; or test "$cpu_ok" = "✗"

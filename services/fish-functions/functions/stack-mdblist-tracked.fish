@@ -20,7 +20,7 @@ function stack-mdblist-tracked --description 'Every MDBList list currently regis
             echo "  $url"
         end
         set count (math $count + 1)
-    end < "$tracked_file"
+    end <"$tracked_file"
 
     if test $count -eq 0
         echo "  No lists tracked."

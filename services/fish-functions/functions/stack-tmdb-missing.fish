@@ -11,7 +11,7 @@ function stack-tmdb-missing --description 'Scan libraries for items with no TMDb
     echo ""
 
     # Get all library sections
-    set -l sections (curl -sf "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null)
+    set -l sections (curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null)
     if test $status -ne 0
         fmt_error "Cannot reach Plex"
         return 1
@@ -33,7 +33,8 @@ for section in data.get('MediaContainer', {}).get('Directory', []):
         continue
 
     url = f'{plex_url}/library/sections/{key}/all?X-Plex-Token={token}&pageSize=500'
-    r = urllib.request.urlopen(url, timeout=30)
+    req = urllib.request.Request(url, headers={'Accept': 'application/json'})
+    r = urllib.request.urlopen(req, timeout=30)
     items = json.loads(r.read()).get('MediaContainer', {}).get('Metadata', [])
 
     missing = []

@@ -5,14 +5,17 @@ function stack-arr-recently-added --description 'Recently added items with file/
         return 1
     end
     set -l app (__stack_arr_app $argv[1])
-    or begin; echo "Invalid app: $argv[1]" >&2; return 1; end
+    or begin
+        echo "Invalid app: $argv[1]" >&2
+        return 1
+    end
     set -l limit 10
     test (count $argv) -ge 2; and set limit $argv[2]
 
     set -l url (__arr_api_url $app)
     set -l key (__arr_api_key $app)
-    set -l endpoint "movie"
-    test "$app" = "sonarr"; and set endpoint "series"
+    set -l endpoint movie
+    test "$app" = sonarr; and set endpoint series
     fmt_heading "$app — Recently Added"
     echo ""
 

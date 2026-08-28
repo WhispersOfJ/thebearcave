@@ -5,7 +5,7 @@ function stack-plex-updates --description 'Check for Plex updates'
     fmt_heading "Plex — Updates"
     echo ""
 
-    curl -sf "$plex_url/updater/check?X-Plex-Token=$token" 2>/dev/null \
+    curl -sf -H "Accept: application/json" "$plex_url/updater/check?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c "
 import sys, json
 try:

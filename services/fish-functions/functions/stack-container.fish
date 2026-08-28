@@ -7,15 +7,13 @@ function stack-container --description 'Restart/stop/start a single container'
     set -l action $argv[1]
     set -l name $argv[2]
 
-    set -l sock "/var/run/controlpanel-helper.sock"
-    if not test -S "$sock"
-        fmt_error "Host helper socket not found at $sock"
+    if not docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx -- "$name"
+        fmt_error "No such container: $name"
         return 1
     end
 
-    set -l response (echo "{\"action\":\"$action\",\"name\":\"$name\"}" | timeout 30 socat - UNIX-CONNECT:"$sock" 2>/dev/null)
-    if test $status -eq 0
-        echo "$response"
+    if docker $action $name >/dev/null 2>&1
+        fmt_success "$action on $name."
     else
         fmt_error "Failed to $action $name"
         return 1

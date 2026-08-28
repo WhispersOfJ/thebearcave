@@ -17,7 +17,7 @@ function __nzbdav_api
     set -l extra $argv[3]
 
     set -l base_url $NZBDAV_URL
-    test -z "$base_url"; and set base_url "http://nzbdav:3000"
+    test -z "$base_url"; and set base_url "http://localhost:3000"
 
     set -l curl_opts -sS -X $method --fail-with-body
 

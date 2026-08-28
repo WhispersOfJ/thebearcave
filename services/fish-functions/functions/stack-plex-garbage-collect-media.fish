@@ -1,3 +1,3 @@
-function stack-plex-garbage-collect-media.fish --description 'Trigger Plex garbage-collect-media'
+function stack-plex-garbage-collect-media --description 'Trigger Plex garbage-collect-media'
     __plex_butler garbage-collect-media
 end

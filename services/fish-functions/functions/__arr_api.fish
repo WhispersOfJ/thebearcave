@@ -5,8 +5,9 @@
 #   path: API path (e.g. /api/v3/system/status)
 #   json_body: optional JSON body for POST/PUT
 #
-# Resolves service names via Docker networking (no Traefik, no HTTPS).
-# Falls back to host_ip:port if running outside Docker network.
+# Defaults target the host-published ports (fish functions run on the host
+# shell, where docker service names do not resolve). Override with
+# RADARR_URL / SONARR_URL / PROWLARR_URL.
 function __arr_api
     if test (count $argv) -lt 3
         echo "Usage: __arr_api <app> <METHOD> <path> [json_body]" >&2
@@ -25,15 +26,15 @@ function __arr_api
     switch $app
         case radarr
             set base_url $RADARR_URL
-            test -z "$base_url"; and set base_url "http://radarr:7878"
+            test -z "$base_url"; and set base_url "http://localhost:7878"
             set api_key $RADARR_API_KEY
         case sonarr
             set base_url $SONARR_URL
-            test -z "$base_url"; and set base_url "http://sonarr:8989"
+            test -z "$base_url"; and set base_url "http://localhost:8989"
             set api_key $SONARR_API_KEY
         case prowlarr
             set base_url $PROWLARR_URL
-            test -z "$base_url"; and set base_url "http://prowlarr:9696"
+            test -z "$base_url"; and set base_url "http://localhost:9696"
             set api_key $PROWLARR_API_KEY
         case '*'
             echo "Unknown app: $app (use radarr, sonarr, or prowlarr)" >&2

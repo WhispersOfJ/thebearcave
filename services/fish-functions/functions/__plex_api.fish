@@ -4,8 +4,8 @@
 #   path: API path (e.g. /status/sessions)
 #   json_body: optional JSON body for POST/PUT
 #
-# Plex runs on host network, so we connect via host.docker.internal:32400
-# from inside Docker, or HOST_IP:32400 from the host.
+# Plex runs on host networking, so from the host shell it is reachable on
+# localhost:32400. Override with PLEX_URL.
 function __plex_api
     if test (count $argv) -lt 2
         echo "Usage: __plex_api <METHOD> <path> [json_body]" >&2
@@ -18,7 +18,7 @@ function __plex_api
 
     # Determine base URL
     set -l base_url $PLEX_URL
-    test -z "$base_url"; and set base_url "http://host.docker.internal:32400"
+    test -z "$base_url"; and set base_url "http://localhost:32400"
 
     set -l curl_opts -sS -X $method --fail-with-body
 
