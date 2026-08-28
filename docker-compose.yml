@@ -757,7 +757,12 @@ services:
     pid: host
     network_mode: host
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider http://localhost:9100/metrics || exit 1"]
+      # wget --spider sends HEAD and closes after headers; node-exporter's
+      # promhttp handler still streams the full ~113KB /metrics body, so the
+      # client's early close floods the logs with one "broken pipe" error per
+      # metric family (~280 lines every 30s). Read the body to completion
+      # instead — cheap (0.5s, 113KB) and error-free.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9100/metrics || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
