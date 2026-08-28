@@ -66,18 +66,6 @@ updates:
           - "Microsoft.AspNetCore.Mvc.Testing"
           - "Microsoft.Extensions.TimeProvider.Testing"
 
-  # Python packages — nzbdav-exporter.
-  - package-ecosystem: "pip"
-    directory: "/services/nzbdav-exporter"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    labels:
-      - "dependencies"
-      - "python"
-
   # GitHub Actions across all workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
