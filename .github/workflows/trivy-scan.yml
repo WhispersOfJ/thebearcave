@@ -180,6 +180,9 @@ jobs:
           git add STAGE-4-CVE-BASELINE.md || true
           if ! git diff --cached --quiet; then
             git commit -m "docs: update CVE baseline scan report"
+            # Another push (e.g. release-please) can land during the scan;
+            # rebase onto it so the push is not rejected as non-fast-forward.
+            git pull --rebase origin main
             git push
           else
             echo "Report unchanged - no commit needed"
