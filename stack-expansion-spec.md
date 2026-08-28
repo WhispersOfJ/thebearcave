@@ -318,7 +318,16 @@ N8N_BASIC_AUTH_PASSWORD=changeme
 6. **Bazarr + Plex path** — Bazarr needs access to the media folders to place subs; wire the same FUSE/mount paths as sonarr/radarr.
 7. **AdGuard router change timing** — plan the DHCP/DNS cutover window with the user.
 8. **Per-service health endpoints** — confirm each image's healthcheck path at implementation.
-9. **Image source** — hotio for Lidarr/Bazarr (matches stack); **linuxserver for Readarr** (no hotio image); official upstream for Audiobookshelf/Komga/AdGuard/Vaultwarden/n8n; Uptime Kuma `louislam/uptime-kuma:2.5.3-slim-rootless` (**slip candidate**, §14); Crowdsec `crowdsecurity/crowdsec` + Traefik plugin. Pin where CVE-prone or unstable (Readarr!, komga `1.x`). See §14.
+9. **Image source** — hotio for Lidarr (**:nightly**, release lags .NET — §14)/Bazarr (matches stack); **linuxserver for Readarr** (no hotio image); official upstream for Audiobookshelf/Komga/AdGuard/Vaultwarden/n8n; Uptime Kuma `louislam/uptime-kuma:2.5.3-slim-rootless` (**slip candidate**, §14); Crowdsec `crowdsecurity/crowdsec` + Traefik plugin. Pin where CVE-prone or unstable (Readarr!, komga `1.x`). See §14.
+10. **⚠️ TRACKING — uptime-kuma Phase 3 slip (decision 2026-08-28):** no published
+    tag clears the trivy CRITICAL gate. `:1`/`:latest` = EOL Debian 10 buster
+    (13 C); `:2`/`:2.5.3` = bookworm (134 C — worse); **best = `2.5.3-slim-rootless`**
+    (bookworm, UID 1000, 12 C — live jsonata/protobufjs/grpc JS deps, not
+    ignorable under repo policy). **Action at Phase 3 kickoff:** re-scan
+    `louislam/uptime-kuma:2.5.3-slim-rootless`; deploy only if 0 CRITICAL,
+    otherwise **slip Uptime Kuma to a later phase** and re-check each cycle.
+    Full matrix + CVE detail in §14. Uptime Kuma is the **only** service with
+    this status — everything else resolves or deploys as-is.
 
 ---
 
@@ -335,6 +344,8 @@ For every service in the phase:
 - [ ] Config dir added to the backup playbook (config-only scope)
 - [ ] `AGENTS.md` service table + port map updated
 - [ ] Phase 1 additionally: nzbdav categories + Prowlarr registration verified end-to-end with a real test grab
+- [ ] **Phase 3 gate:** Uptime Kuma deployed **only if** re-scan of
+      `2.5.3-slim-rootless` is 0 CRITICAL — else slipped (tracking item §10 #10)
 
 ---
 
@@ -371,7 +382,10 @@ Traefik labels). **Not for deployment until approved.**
 ```yaml
   lidarr:
     <<: *common
-    image: ghcr.io/hotio/lidarr:release
+    # :release ships stale .NET 8.0.12 (CVE-2025-55315, 5 CRITICAL); :nightly
+    # ships 8.0.27 → 0 CRITICAL (verified 2026-08-28, §14). Dev build —
+    # per-tool update judgment; re-check :release at deploy in case it refreshes.
+    image: ghcr.io/hotio/lidarr:nightly
     container_name: lidarr
     mem_limit: 512m
     cpus: "0.5"
@@ -814,7 +828,7 @@ All 10 deployable images re-verified live with `docker manifest inspect` on
 
 | Image | Exists? | Resolved digest (prefix) | Notes |
 |-------|---------|--------------------------|-------|
-| `ghcr.io/hotio/lidarr:release` | ✅ | `sha256:ba6e44dad2342e3225…` | Matches stack convention; watchtower-auto-updatable |
+| `ghcr.io/hotio/lidarr:nightly` | ✅ | — | **Use this tag** — :release ships .NET 8.0.12 (5 CRITICAL); :nightly = 8.0.27, 0 CRITICAL (§14) |
 | `ghcr.io/hotio/bazarr:release` | ✅ | `sha256:be98ebc3523b49ff8d…` | |
 | `ghcr.io/advplyr/audiobookshelf:latest` | ✅ | `sha256:e388e90e381ae3fa86…` | Official |
 | `gotson/komga:1.x` | ✅ | `sha256:e755c9691aa8ec38e2…` | Official; **`1.x` pin** — passes CVE gate with draft ignores (§14) |
@@ -931,12 +945,21 @@ passes with the draft ignores:**
   keep it red under repo policy). Re-check `2.5.3-slim-rootless` at Phase 3
   time; slip if still red. Do NOT ignore live JSON-parsing deps to force green.
 
+**lidarr resolved (2026-08-28):** CVE-2025-55315 (.NET Security Feature
+Bypass) is fixed in **.NET 8.0.21**; hotio's `:release` image (rebuilt
+2026-08-26) still ships **8.0.12** — but **`ghcr.io/hotio/lidarr:nightly`
+ships .NET 8.0.27 and scans at 0 CRITICAL / 48 HIGH**. Decision: use
+**`:nightly`** for Phase 1 (clears the gate; dev build — per-tool update
+judgment applies, watch for breakage), or slip Lidarr until hotio refreshes
+`:release` with ≥8.0.21. Do NOT ignore CVE-2025-55315 — it's the live
+runtime.
+
 **NOT in this draft (live runtime code — fix upstream, do not ignore):**
 
 | Image | CVEs | Why not ignorable |
 |-------|------|-------------------|
 | uptime-kuma 2.5.3-slim-rootless | 12 (jsonata, protobufjs, grpc, sqlite3, gnutls, zlib, stdlib) | 2 stdlib = scan artifacts; rest = live app/base deps — see slip note above |
-| hotio/lidarr:release | 5 (ASP.NET Core 8.0.12 CVE-2025-55315) | .NET runtime IS the app; hotio image lags upstream — pin newer hotio or wait for rebuild |
+| ~~hotio/lidarr:release~~ | ~~5 (CVE-2025-55315)~~ | **Resolved** — use `:nightly` (0 CRITICAL), see note above |
 | crowdsec:latest | 2 (kin-openapi GHSA-r277-6w6q-xmqw) | Go dep compiled into LAPI which parses HTTP — reachable; track upstream release |
 | audiobookshelf:latest | 2 (form-data, sequelize) | Node deps in the running app (sequelize = DB layer) — track upstream |
 
