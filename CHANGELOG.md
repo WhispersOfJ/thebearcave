@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.12.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.11.0...v1.12.0) (2026-08-28)
+
+
+### Features
+
+* **fish:** add generated tab completions for all stack-* commands ([9a3c154](https://github.com/WhispersOfJ/thebearcave/commit/9a3c1544bc14748f36df6d331f32087a674515b4))
+
+
+### Bug Fixes
+
+* **fish:** drop stray bash-style do; repair stack-help description matching ([a776913](https://github.com/WhispersOfJ/thebearcave/commit/a776913e47e05edcfd60e7c8c9784f015911b90f))
+* **fish:** remediate systemic breakage across all stack-* functions ([8689b62](https://github.com/WhispersOfJ/thebearcave/commit/8689b62878dc0555cb9df6a18989f05ceb2bcf12))
+
 ## [1.11.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.10.1...v1.11.0) (2026-08-28)
 
 
