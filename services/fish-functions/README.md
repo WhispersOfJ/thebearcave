@@ -42,12 +42,21 @@ tools); override with `<APP>_URL` / `PLEX_URL` env vars if needed.
 
 Run `stack-help` for the full list.
 
+Tab completions are generated for every command (descriptions, positional
+choices like `radarr|sonarr`, butler task names, `-y` flags, docker container
+names). Regenerate after changing a function:
+
+```fish
+fish scripts/gen-completions.fish            # regenerate completions/
+fish scripts/gen-completions.fish --check    # verify completions/ is current
+```
+
 ## Architecture
 
 ```
 functions/          # One .fish file per command
-completions/        # Manual tab completions
-scripts/            # install.sh, uninstall.sh
+completions/        # Tab completions — GENERATED via scripts/gen-completions.fish
+scripts/            # install.sh, uninstall.sh, gen-completions.fish
 ```
 
 Each function calls a service-specific helper (`__arr_api`, `__arr_api_url`,

@@ -17,8 +17,9 @@
 #   - stack-arr-logs (follows the log indefinitely)
 #
 # Usage:
-#   ./tests/fish/test_fish_functions.sh            # full suite
-#   ./tests/fish/test_fish_functions.sh --dry-run  # load/define checks only
+#   ./tests/fish/test_fish_functions.sh            # full suite (live stack)
+#   ./tests/fish/test_fish_functions.sh --offline  # static tier only (CI-safe)
+#   ./tests/fish/test_fish_functions.sh --dry-run  # alias of --offline
 # ============================================================================
 
 set -euo pipefail
@@ -49,7 +50,14 @@ if [ -f ".env" ]; then
 fi
 
 DRY_RUN=false
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=true
+case "${1:-}" in
+    "") ;;
+    --dry-run | --offline) DRY_RUN=true ;;
+    *)
+        echo "Unknown option: $1 (usage: $0 [--dry-run|--offline])" >&2
+        exit 2
+        ;;
+esac
 
 passed=0
 failed=0
@@ -170,8 +178,38 @@ else
     log_error "fmt_* helpers do not load"
 fi
 
+# --- Completion files: one per command, parseable, registering >=1 completion ---
+log_info "Completion checks (one file per command)..."
+COMP_DIR="$REPO_DIR/services/fish-functions/completions"
+comp_fail=0
+for f in "$FUNC_DIR"/stack-*.fish; do
+    base=$(basename "$f")
+    name="${base%.fish}"
+    cfile="$COMP_DIR/$base"
+    if [ ! -f "$cfile" ]; then
+        comp_fail=$((comp_fail + 1))
+        log_error "completion missing: $name"
+        continue
+    fi
+    if ! fish --no-execute "$cfile" 2>/dev/null; then
+        comp_fail=$((comp_fail + 1))
+        log_error "completion parse failure: $name"
+        continue
+    fi
+    if ! fish -c "source '$cfile'; test (count (complete -c '$name')) -ge 1" 2>/dev/null; then
+        comp_fail=$((comp_fail + 1))
+        log_error "completion registers nothing: $name"
+    fi
+done
+if [ "$comp_fail" -eq 0 ]; then
+    passed=$((passed + 1))
+    log_success "all completions present, parse, and register"
+else
+    failed=$((failed + comp_fail))
+fi
+
 if [ "$DRY_RUN" = true ]; then
-    log_warning "Dry run — skipping live/guard tiers."
+    log_warning "Offline mode — skipping live/guard tiers (CI-safe)."
     echo ""
     echo "Results: $passed passed, $failed failed"
     [ "$failed" -eq 0 ] || exit 1

@@ -19,10 +19,11 @@ services/fish-functions/
 │   ├── __plex_butler.fish      # Shared Plex butler task helper
 │   ├── stack-*.fish            # One file per command
 │   └── __stack_arr_app.fish    # Validates arr instance name
-├── completions/                # Manual tab completions
+├── completions/                # Tab completions (GENERATED — one file per command)
 ├── scripts/
 │   ├── install.sh              # Symlink functions + completions
-│   └── uninstall.sh            # Remove symlinks
+│   ├── uninstall.sh            # Remove symlinks
+│   └── gen-completions.fish    # Regenerates completions/ from function definitions
 └── README.md
 ```
 
@@ -52,6 +53,24 @@ in the Phase 2 migration.
 set -U STACK_COLOR true
 
 bash services/fish-functions/scripts/install.sh
+```
+
+### Tab completions
+
+Every `stack-*` command ships a completion file (command description, positional
+choices like `radarr|sonarr` or butler task names, `-y/--yes` flags, dynamic
+docker container names, and previously-tracked list URLs for the untrack
+commands). `install.sh` symlinks them into `~/.config/fish/completions/`, where
+fish autoloads them by command name.
+
+`completions/` is **generated** — never edit those files by hand. Argument
+completions live in the table inside `scripts/gen-completions.fish`; descriptions
+are extracted from each function's `--description`. After adding or changing a
+function:
+
+```fish
+fish services/fish-functions/scripts/gen-completions.fish          # regenerate
+fish services/fish-functions/scripts/gen-completions.fish --check  # CI drift gate
 ```
 
 Functions read API keys from the environment (`RADARR_API_KEY`, `SONARR_API_KEY`,
