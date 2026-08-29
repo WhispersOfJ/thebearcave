@@ -27,6 +27,12 @@
     ],
     [
       "radarr",
+      "sonarr",
+      "lidarr",
+      "readarr"
+    ],
+    [
+      "radarr",
       "sonarr"
     ],
     [
@@ -94,7 +100,9 @@
         "radarr",
         "sonarr",
         "bazarr",
-        "arr-dashboard"
+        "arr-dashboard",
+        "lidarr",
+        "readarr"
       ],
       "icon": "🔍",
       "docs": "docs/services/prowlarr.md"
@@ -187,7 +195,9 @@
         "radarr",
         "sonarr",
         "unpackerr",
-        "cleanuparr"
+        "cleanuparr",
+        "lidarr",
+        "readarr"
       ],
       "icon": "📥",
       "docs": "docs/services/nzbdav.md"
@@ -489,6 +499,44 @@
       "depended_by": [],
       "icon": "🏠",
       "docs": "docs/services/landing-page.md"
+    },
+    "lidarr": {
+      "name": "Lidarr",
+      "description": "Music management & downloads",
+      "port": 8686,
+      "category": "pipeline",
+      "health": {
+        "type": "http",
+        "url": "http://lidarr:8686/api/v1/system/status"
+      },
+      "dashboard": "http://{host}:8686",
+      "depends_on": [
+        "traefik",
+        "prowlarr",
+        "nzbdav"
+      ],
+      "depended_by": [],
+      "icon": "🎵",
+      "docs": "docs/services/lidarr.md"
+    },
+    "readarr": {
+      "name": "Readarr",
+      "description": "Book management & downloads",
+      "port": 8787,
+      "category": "pipeline",
+      "health": {
+        "type": "http",
+        "url": "http://readarr:8787/api/v1/system/status"
+      },
+      "dashboard": "http://{host}:8787",
+      "depends_on": [
+        "traefik",
+        "prowlarr",
+        "nzbdav"
+      ],
+      "depended_by": [],
+      "icon": "📚",
+      "docs": "docs/services/readarr.md"
     }
   }
 }

@@ -64,6 +64,8 @@ backup_configs() {
         "seerr"
         "cleanuparr"
         "bazarr"
+        "lidarr"
+        "readarr"
         "watchstate"
         "loki"
         "promtail"

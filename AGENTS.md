@@ -7,7 +7,7 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A unified media-acquisition-and-serving stack. 23 Docker Compose services, a Next.js
+A unified media-acquisition-and-serving stack. 25 Docker Compose services, a Next.js
 arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
 and CI/CD via GitHub Actions. Hosted on Linux.
 
@@ -64,11 +64,11 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
-- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 23 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
+- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 25 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
 
 ---
 
-## Services (23 containers)
+## Services (25 containers)
 
 | # | Service | Purpose | Port | Network |
 |---|---------|---------|------|---------|
@@ -85,16 +85,18 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 | 11 | `unpackerr` | Auto-extracts downloads | — | bearcave |
 | 12 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 | bearcave |
 | 13 | `bazarr` | Subtitle management | 6767 | bearcave |
+| 14 | `lidarr` | Music acquisition | 8686 | bearcave |
+| 15 | `readarr` | Ebook acquisition | 8787 | bearcave |
 | 14 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
-| 14 | `loki` | Log aggregation | 3100 | bearcave |
-| 15 | `promtail` | Log shipping to Loki | — | bearcave |
-| 16 | `grafana` | Dashboards + alerting | 3001 | bearcave |
-| 17 | `nzbdav-exporter` | NzbDAV config/queue metrics | 9200 | bearcave |
-| 18 | `prometheus` | Metrics collection | 9090 | bearcave |
-| 19 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 | host |
-| 20 | `cadvisor` | Container resource metrics | 8080 | bearcave |
-| 21 | `landing-page` | Nginx service portal | 8000 | bearcave |
-| 22 | `alertmanager` | Prometheus alert routing + Discord notifications | 9093 | bearcave |
+| 17 | `loki` | Log aggregation | 3100 | bearcave |
+| 18 | `promtail` | Log shipping to Loki | — | bearcave |
+| 19 | `grafana` | Dashboards + alerting | 3001 | bearcave |
+| 20 | `nzbdav-exporter` | NzbDAV config/queue metrics | 9200 | bearcave |
+| 21 | `prometheus` | Metrics collection | 9090 | bearcave |
+| 22 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 | host |
+| 23 | `cadvisor` | Container resource metrics | 8080 | bearcave |
+| 24 | `landing-page` | Nginx service portal | 8000 | bearcave |
+| 25 | `alertmanager` | Prometheus alert routing + Discord notifications | 9093 | bearcave |
 
 ### Network Topology
 
@@ -153,6 +155,8 @@ bouncer is a Traefik middleware plugin, not a sidecar (§4.8).
 9696  Prowlarr
 11011 Cleanuparr
 6767  Bazarr
+8686  Lidarr
+8787  Readarr
 41789 arr-dashboard (Next.js)
 
 # Planned (per stack-expansion-spec.md — add to the live map when deployed)

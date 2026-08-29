@@ -188,6 +188,69 @@ services:
       - "traefik.http.routers.sonarr.tls=true"
 
   # ==========================================================================
+  # Music & Books — Lidarr + Readarr
+  # ==========================================================================
+  lidarr:
+    <<: *common
+    image: ghcr.io/hotio/lidarr:nightly
+    container_name: lidarr
+    mem_limit: 512m
+    cpus: "0.5"
+    networks: [bearcave]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8686/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      nzbdav_rclone:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - *ca-mount
+      - ./config/lidarr:/config
+      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
+      - ./media/music:/data/music
+    ports:
+      - "8686:8686"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lidarr.rule=Host(`lidarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
+      - "traefik.http.routers.lidarr.tls=true"
+
+  readarr:
+    <<: *common
+    image: linuxserver/readarr:develop-0.4.18.2805-ls157
+    container_name: readarr
+    mem_limit: 256m
+    cpus: "0.5"
+    networks: [bearcave]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8787/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      nzbdav_rclone:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - *ca-mount
+      - ./config/readarr:/config
+      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
+      - ./media/books:/data/books
+    ports:
+      - "8787:8787"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.readarr.rule=Host(`readarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.readarr.loadbalancer.server.port=8787"
+      - "traefik.http.routers.readarr.tls=true"
+
+  # ==========================================================================
   # Subtitles — Bazarr
   # ==========================================================================
   bazarr:
