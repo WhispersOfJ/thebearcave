@@ -12,7 +12,7 @@ Everything you need to survive hardware failure, bad config edits, or a botched 
 | *arr DBs + Bazarr | `config/{radarr,sonarr,prowlarr,bazarr}/` plus `services/seerr/config/` | High — easily rebuilt but tedious |
 | InfiniDysk DB + queue | `config/nzbdav/` | High — **queue is not persistent across recreate** |
 | WatchState DB | `config/watchstate/` | Medium — redundant with Plex |
-| New service state | `config/{lidarr,readarr,audiobookshelf,komga,adguard,crowdsec,vaultwarden,n8n}/` | Medium — service-specific state and credentials |
+| New service state | `config/{lidarr,readarr,audiobookshelf,komga,adguard,crowdsec,vaultwarden}/` | Medium — service-specific state and credentials |
 | Metacache DB + images | `data/metacache/` | Low — regenerable via warm |
 | Grafana/Prometheus/Loki | `data/{grafana,prometheus,loki}/` | Low — regenerable |
 | Secrets | `secrets/` + `.env` | **Critical** — losing these is losing access |

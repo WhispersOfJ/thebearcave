@@ -125,8 +125,8 @@ individual ports behind a compose profile for debugging.
 for anything sharing the PID namespace, and in any crash dump. A `secrets/`
 directory exists and is gitignored, but no compose `secrets:` block was ever
 written.
-**Fix:** Move the highest-value four (`PLEX_TOKEN`, `DISCORD_WEBHOOK_URL`,
-`GRAFANA_ADMIN_PASSWORD`, `N8N_BASIC_AUTH_PASSWORD`) to compose file secrets,
+**Fix:** Move the highest-value secrets (`PLEX_TOKEN`, `DISCORD_WEBHOOK_URL`,
+`GRAFANA_ADMIN_PASSWORD`) to compose file secrets,
 and read `*_FILE` variants in the consuming app. Fully solving this
 is item 17 of the software section (SOPS).
 

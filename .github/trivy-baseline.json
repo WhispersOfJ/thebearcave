@@ -20,7 +20,6 @@
     "grafana/promtail:3.6.11": 0,
     "khak1s/arr-dashboard:2.24.1": 0,
     "linuxserver/readarr:develop-0.4.18.2805-ls157": 0,
-    "n8nio/n8n:2.36.8": 0,
     "nginx:1.31.4-alpine": 0,
     "plexinc/pms-docker@sha256:8aeb4a982ea564ad309861dd251cd9e218aac3f4e4d3da21375568341be1b16f": 0,
     "prom/alertmanager:v0.34.0": 0,

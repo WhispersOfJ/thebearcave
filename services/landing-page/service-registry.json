@@ -86,8 +86,7 @@
         "audiobookshelf",
         "komga",
         "adguard",
-        "vaultwarden",
-        "n8n"
+        "vaultwarden"
       ],
       "icon": "🔀",
       "docs": "docs/services/traefik.md"
@@ -619,23 +618,6 @@
       "depended_by": [],
       "icon": "🔐",
       "docs": "docs/services/vaultwarden.md"
-    },
-    "n8n": {
-      "name": "n8n",
-      "description": "Workflow automation & notifications",
-      "port": 5678,
-      "category": "data",
-      "health": {
-        "type": "http",
-        "url": "http://n8n:5678/healthz"
-      },
-      "dashboard": "https://n8n.{nip}.nip.io",
-      "depends_on": [
-        "traefik"
-      ],
-      "depended_by": [],
-      "icon": "⚙️",
-      "docs": "docs/services/n8n.md"
     },
     "alertmanager": {
       "name": "Alertmanager",

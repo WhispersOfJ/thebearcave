@@ -7,7 +7,7 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A unified media-acquisition-and-serving stack. 30 configured Compose services, a Next.js
+A unified media-acquisition-and-serving stack. 29 configured Compose services, a Next.js
 arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
 and CI/CD via GitHub Actions. Hosted on Linux.
 
@@ -52,7 +52,7 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
 | **ARR dashboard** | arr-dashboard |
 | **Landing page** | Nginx |
 | **Network/security** | AdGuard Home, CrowdSec |
-| **Utilities** | Vaultwarden, n8n |
+| **Utilities** | Vaultwarden |
 
 ### Dashboard Surface
 
@@ -66,11 +66,11 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
-- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 30 configured services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid and pipeline flow strip. Adding a service requires updating both files.
+- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 29 configured services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid and pipeline flow strip. Adding a service requires updating both files.
 
 ---
 
-## Services (30 configured services)
+## Services (29 configured services)
 
 | # | Service | Purpose | Port | Network |
 |---|---------|---------|------|---------|
@@ -93,17 +93,16 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 | 18 | `adguard` | LAN DNS ad/tracker blocker | 3003 | bearcave |
 | 19 | `crowdsec` | Intrusion detection | 18080 | bearcave |
 | 20 | `vaultwarden` | Self-hosted password manager | 8222 | bearcave |
-| 21 | `n8n` | Workflow automation | 5678 | bearcave |
-| 22 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
-| 23 | `loki` | Log aggregation | 3100 | bearcave |
-| 24 | `promtail` | Log shipping to Loki | — | bearcave |
-| 25 | `grafana` | Dashboards + alerting | 3001 | bearcave |
-| 26 | `nzbdav-exporter` | NzbDAV config/queue metrics | 9200 | bearcave |
-| 27 | `prometheus` | Metrics collection | 9090 | bearcave |
-| 28 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 | host |
-| 29 | `cadvisor` | Container resource metrics | 8080 | bearcave |
-| 30 | `landing-page` | Nginx service portal | 8000 | bearcave |
-| 31 | `alertmanager` | Prometheus alert routing + Discord notifications | 9093 | bearcave |
+| 21 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
+| 22 | `loki` | Log aggregation | 3100 | bearcave |
+| 23 | `promtail` | Log shipping to Loki | — | bearcave |
+| 24 | `grafana` | Dashboards + alerting | 3001 | bearcave |
+| 25 | `nzbdav-exporter` | NzbDAV config/queue metrics | 9200 | bearcave |
+| 26 | `prometheus` | Metrics collection | 9090 | bearcave |
+| 27 | `node-exporter` | Host CPU/RAM/disk metrics | 9100 | host |
+| 28 | `cadvisor` | Container resource metrics | 8080 | bearcave |
+| 29 | `landing-page` | Nginx service portal | 8000 | bearcave |
+| 30 | `alertmanager` | Prometheus alert routing + Discord notifications | 9093 | bearcave |
 
 
 ### Network Topology
@@ -117,11 +116,11 @@ DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networ
 
 ### Expansion Services (deployed — see `stack-expansion-spec.md`)
 
-The 10-service expansion in `stack-expansion-spec.md` is deployed: nine
+The 10-service expansion in `stack-expansion-spec.md` is deployed: eight
 services are live in `docker-compose.yml` (Lidarr, Readarr, Bazarr,
-Audiobookshelf, Komga, AdGuard Home, CrowdSec, Vaultwarden, n8n). The tenth,
-Uptime Kuma, was removed from scope by decision. Retired services and their
-re-adoption watchers are tracked in [docs/services/lifecycle.md](docs/services/lifecycle.md). Docs pages exist in
+Audiobookshelf, Komga, AdGuard Home, CrowdSec, Vaultwarden). The other two —
+Uptime Kuma and n8n — were removed from scope by decision. Retired services
+and their re-adoption watchers are tracked in [docs/services/lifecycle.md](docs/services/lifecycle.md). Docs pages exist in
 `docs/services/`:
 
 | Service | Purpose | Port | Docs |
@@ -134,7 +133,6 @@ re-adoption watchers are tracked in [docs/services/lifecycle.md](docs/services/l
 | `adguard` | LAN DNS ad/tracker blocker | 53, 3003 | [docs/services/adguard.md](docs/services/adguard.md) |
 | `crowdsec` | Intrusion detection (Traefik plugin bouncer) | 18080 | [docs/services/crowdsec.md](docs/services/crowdsec.md) |
 | `vaultwarden` | Self-hosted password manager | 8222 | [docs/services/vaultwarden.md](docs/services/vaultwarden.md) |
-| `n8n` | Workflow automation (Discord notifications first) | 5678 | [docs/services/n8n.md](docs/services/n8n.md) |
 
 Key cross-cutting items from the spec: the nzbdav category rollout (§15,
 queue-gated) preceded Phases 1 acquisitions; CVE posture gates some images
@@ -170,7 +168,6 @@ middleware plugin, not a sidecar (§4.8).
 3003  AdGuard Home
 18080 CrowdSec
 8222  Vaultwarden
-5678  n8n
 41789 arr-dashboard (Next.js)
 ```
 

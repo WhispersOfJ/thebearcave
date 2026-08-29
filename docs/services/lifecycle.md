@@ -23,6 +23,7 @@ was retired, why, and what it would take to bring it back.
 |---------|---------|--------|---------------------|---------------|
 | `cleanuparr` | 2026-08-29 | Torrent-only; no SABnzbd/Usenet client, so nothing to monitor in the Usenet-only stack | ✅ `cleanuparr-sabnzbd-watch.yml` | removed (no archive) |
 | `uptime-kuma` | 2026-08-29 | Dropped from expansion scope by decision (image still CVE-blocked at the time) | ❌ none (decision) | removed (no archive) |
+| `n8n` | 2026-08-29 | Workflow automation removed by decision — Discord notifications are handled by alertmanager/CrowdSec hooks; no workflow glue needed | ❌ none (decision) | removed (no archive) |
 | `control-panel` (Django) | 2026-08-27 | Django backend superseded — fish functions call services directly, landing page probes via nginx | ❌ none (archived) | `archive/control-panel/` |
 
 ## Services with an active re-adoption watcher
@@ -63,6 +64,15 @@ The Django control panel was removed in Phase 4 (commit `faf4127`) after its rol
 superseded: fish functions call the *arr/dashboard APIs directly, and the landing page
 probes health through nginx. Its files live in `archive/control-panel/` for reference.
 No watcher — this was a deliberate teardown, not a hold for return.
+
+### n8n
+
+Workflow automation was removed by decision (2026-08-29) — no workflows had shipped in
+production (the Discord-notifications first workflow from spec §10 Q2 was never built
+or activated), and Discord alerting is already covered by alertmanager + CrowdSec
+hooks, so the container, config dir, landing page entry, docs, and env vars were
+removed end to end. No watcher — if workflow glue is ever needed again, re-adopt
+from scratch.
 
 > **Convention:** `archive/` content is reference material and is never revived into the
 > active stack; any return must be a fresh, tracked implementation, not a copy.

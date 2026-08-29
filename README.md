@@ -1,6 +1,6 @@
 # The Bear Cave
 
-**A unified, Usenet-only media stack — 30 configured services, one `docker compose up -d`.**
+**A unified, Usenet-only media stack — 29 configured services, one `docker compose up -d`.**
 
 Combines the media-stack and metacacharr repos into a single deployment: Prowlarr
 indexing → *arr acquisition → NzbDAV/InfiniDysk Usenet downloads → rclone FUSE streaming →
@@ -15,7 +15,7 @@ Every download is streamed on demand — no media sits on local disk.
 
 | Metric | Value |
 |--------|-------|
-| Configured services | **30** (all running, `docker compose ps` shows every one up) |
+| Configured services | **29** (all running, `docker compose ps` shows every one up) |
 | Acquisition apps | 4 — Radarr, Sonarr, Lidarr, Readarr |
 | Indexers (via Prowlarr) | 3 — DrunkenSlug, NZBgeek, NzbPlanet |
 | Download client | NzbDAV (InfiniDysk) — SABnzbd-compatible |
@@ -52,7 +52,7 @@ Plex :32400 (host network) ─┬─ Metacache :8765 (metadata agent)
 Interactive mermaid versions of the topology, data flow, FUSE lifecycle, and dependency
 chains live in [docs/architecture.md](docs/architecture.md).
 
-## Services (30)
+## Services (29)
 
 | Service | Port | Purpose | Network |
 |---------|------|---------|---------|
@@ -85,7 +85,6 @@ chains live in [docs/architecture.md](docs/architecture.md).
 | **AdGuard Home** | 53, 3003 | LAN DNS filtering | bearcave |
 | **CrowdSec** | 18080 | Intrusion detection (Traefik bouncer) | bearcave |
 | **Vaultwarden** | 8222 | Private password manager | bearcave |
-| **n8n** | 5678 | Workflow automation | bearcave |
 
 ## How the apps connect
 
@@ -140,7 +139,7 @@ every push; the nightly-healthcheck workflow validates the live stack daily.
 
 ## Statistics
 
-- **30/30 services up** — the full `docker compose ps` set is healthy.
+- **29/29 services up** — the full `docker compose ps` set is healthy.
 - **4 acquisition apps** (Radarr/Sonarr/Lidarr/Readarr) sharing **3 indexers** through
   Prowlarr, all funneling downloads into a single NzbDAV client.
 - **~1,000 completed downloads** tracked in NzbDAV history, with movies and TV delivered
@@ -161,7 +160,7 @@ cp .env.template .env        # edit with real values (see .env.template)
 docker compose up -d
 
 # 3. Verify
-docker compose ps            # all 30 up
+docker compose ps            # all 29 up
 ./scripts/preflight.sh       # local CI-equivalent gate
 
 # Zero-to-streaming walkthrough: docs/quick-start.md

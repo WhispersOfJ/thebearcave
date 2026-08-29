@@ -7,14 +7,14 @@ read-only preparation and state-changing rollout steps.
 
 ## Current state
 
-- 31 services are configured and running in `docker-compose.yml`.
-- The 9 expansion services are deployed: Bazarr, Lidarr, Readarr,
-  Audiobookshelf, Komga, AdGuard Home, CrowdSec, Vaultwarden, and n8n.
-  (Uptime Kuma, the tenth planned service, was removed from scope by decision.)
+- 30 services are configured and running in `docker-compose.yml`.
+- 8 expansion services are deployed: Bazarr, Lidarr, Readarr, Audiobookshelf,
+  Komga, AdGuard Home, CrowdSec, and Vaultwarden. (Uptime Kuma and n8n were
+  removed from scope by decision.)
 - The nzbdav category rollout is applied: categories now support music, books,
   audiobooks, and comics alongside the original movie/TV paths.
-- `.env` contains locally generated values for Vaultwarden and n8n and is
-  gitignored with mode `0600`. Never commit or print those values.
+- `.env` contains locally generated values for Vaultwarden and is gitignored
+  with mode `0600`. Never commit or print those values.
 
 ## Read-only preflight
 
@@ -37,9 +37,6 @@ python3 - <<'PY'
 from pathlib import Path
 keys = {
     "VAULTWARDEN_ADMIN_TOKEN",
-    "N8N_ENCRYPTION_KEY",
-    "N8N_BASIC_AUTH_USER",
-    "N8N_BASIC_AUTH_PASSWORD",
 }
 values = {}
 for line in Path(".env").read_text().splitlines():
@@ -114,14 +111,6 @@ middleware, which is intentional.
 - Start Vaultwarden only after confirming the backup destination.
 - Create the first account and verify `/admin` protection.
 - Keep signups disabled after initial setup.
-
-### n8n
-
-- Confirm `N8N_ENCRYPTION_KEY` is stable and backed up securely.
-- Confirm native auth credentials are non-default.
-- Start n8n and verify the editor login.
-- Configure the Discord notification workflow only after webhook handling and
-  credential storage are reviewed.
 
 ## Rollback
 

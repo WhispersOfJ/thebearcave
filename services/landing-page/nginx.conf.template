@@ -127,13 +127,9 @@ server {
         proxy_read_timeout 5s;
     }
 
-    # Self-hosted apps — Vaultwarden, n8n
+    # Self-hosted apps — Vaultwarden
     location /health/vaultwarden {
         proxy_pass http://vaultwarden:80/alive;
-        proxy_read_timeout 5s;
-    }
-    location /health/n8n {
-        proxy_pass http://n8n:5678/healthz;
         proxy_read_timeout 5s;
     }
 

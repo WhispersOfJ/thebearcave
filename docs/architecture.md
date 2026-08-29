@@ -287,7 +287,6 @@ flowchart TB
 | `https://komga.HOST_IP.nip.io` | Komga (comics) | |
 | `https://adguard.HOST_IP.nip.io` | AdGuard Home (web UI; DNS on :53) | |
 | `https://vaultwarden.HOST_IP.nip.io` | Vaultwarden | |
-| `https://n8n.HOST_IP.nip.io` | n8n (workflows) | |
 
 Crowdsec has **no** nip.io route (LAPI is an API for bouncers/`cscli`, not a
 web UI — see `docs/services/crowdsec.md`). Add each row to the live table above

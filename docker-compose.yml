@@ -17,7 +17,7 @@
 # - Logging: Loki, Promtail, Grafana
 # - Metrics: Prometheus, Node Exporter, cAdvisor, nzbdav-exporter, Alertmanager
 # - Network/security: AdGuard Home, CrowdSec
-# - Utilities: Vaultwarden, n8n
+# - Utilities: Vaultwarden
 # - ARR dashboard: arr-dashboard
 # - Landing page: Nginx
 # - Reverse proxy: Traefik
@@ -522,7 +522,7 @@ services:
         --rc-pass=${NZBDAV_RCLONE_RC_PASS}
 
   # ==========================================================================
-  # Utilities — Vaultwarden + n8n
+  # Utilities — Vaultwarden
   # ==========================================================================
   vaultwarden:
     image: vaultwarden/server:1.37.2
@@ -555,44 +555,6 @@ services:
       - "traefik.http.routers.vaultwarden.middlewares=crowdsec@file"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
       - "traefik.http.routers.vaultwarden.tls=true"
-
-  n8n:
-    image: n8nio/n8n:2.36.8
-    container_name: n8n
-    mem_limit: 1g
-    cpus: "0.5"
-    restart: unless-stopped
-    logging: *common-logging
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      GENERIC_TIMEZONE: ${TZ}
-      NODE_OPTIONS: "--max-old-space-size=768"   # image auto-sizes heap off cgroup; 512m gave 259MB → startup OOM/SIGABRT
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      N8N_BASIC_AUTH_ACTIVE: "true"
-      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
-      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
-      N8N_HOST: n8n.${HOST_IP}.nip.io
-      N8N_PROXY_HOPS: "1"
-      N8N_SECURE_COOKIE: "false"
-    volumes:
-      - *ca-mount
-      - ./config/n8n:/home/node/.n8n
-    ports:
-      - "5678:5678"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`n8n.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.n8n.middlewares=crowdsec@file"
-      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
-      - "traefik.http.routers.n8n.tls=true"
 
   # ==========================================================================
   # Network & Security — AdGuard Home + CrowdSec

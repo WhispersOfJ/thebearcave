@@ -71,7 +71,6 @@ backup_configs() {
         "adguard"
         "crowdsec"
         "vaultwarden"
-        "n8n"
         "watchstate"
         "loki"
         "promtail"
