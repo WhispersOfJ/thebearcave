@@ -1,0 +1,103 @@
+name: Uptime Kuma CVE Gate Check
+# Pinned actions policy: third-party actions are pinned to full commit SHAs
+# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
+# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
+# update the SHA and the "# tag" comment on its uses: line.
+
+
+on:
+  schedule:
+    # Nightly 04:00 UTC — re-checks the slip-gated image (spec §14, tracking
+    # item §10 #10) so a cleared gate is noticed without a manual re-scan.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image tag to re-scan"
+        required: false
+        default: "louislam/uptime-kuma:2.5.3-slim-rootless"
+        type: string
+
+permissions:
+  contents: read
+  # issues: write — opens the gate-cleared issue once (deduped) so a cleared
+  # gate is actually reported instead of getting lost in the Actions tab.
+  issues: write
+
+jobs:
+  gate-check:
+    runs-on: ubuntu-latest
+    name: Re-scan uptime-kuma
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+
+      - name: Scan uptime-kuma image
+        id: scan
+        env:
+          IMAGE: ${{ github.event.inputs.image || 'louislam/uptime-kuma:2.5.3-slim-rootless' }}
+        run: |
+          # Same flags as the CI image gate (trivy-scan.yml): --ignore-unfixed
+          # means only fixable CVEs count, and the deploy gate requires 0
+          # CRITICAL (docs/services/uptime-kuma.md). A scan failure exits this
+          # step (default bash -e), so a failed scan can never report "cleared".
+          RESULT=$(trivy image --ignore-unfixed --scanners vuln --format json --severity CRITICAL,HIGH "$IMAGE" 2>/dev/null)
+          CRIT=$(echo "$RESULT" | jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' 2>/dev/null); CRIT=${CRIT:-0}
+          HIGH=$(echo "$RESULT" | jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' 2>/dev/null); HIGH=${HIGH:-0}
+          GATE=blocked
+          [ "$CRIT" -eq 0 ] && GATE=cleared
+          {
+            echo "image=$IMAGE"
+            echo "crit=$CRIT"
+            echo "high=$HIGH"
+            echo "gate=$GATE"
+          } >> "$GITHUB_OUTPUT"
+          echo "scanned=$IMAGE CRITICAL=$CRIT HIGH=$HIGH gate=$GATE"
+
+      - name: Write job summary
+        env:
+          IMAGE: ${{ steps.scan.outputs.image }}
+          CRIT: ${{ steps.scan.outputs.crit }}
+          HIGH: ${{ steps.scan.outputs.high }}
+          GATE: ${{ steps.scan.outputs.gate }}
+        run: |
+          {
+            echo "## Uptime Kuma CVE gate check"
+            echo ""
+            echo "- Image: \`$IMAGE\`"
+            echo "- Fixable CRITICAL: **$CRIT**"
+            echo "- HIGH: $HIGH"
+            if [ "$GATE" = "cleared" ]; then
+              echo "- Gate: **✅ CLEARED** — deployable per \`docs/services/uptime-kuma.md\`"
+            else
+              echo "- Gate: **❌ BLOCKED** (requires 0 fixable CRITICAL)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open gate-cleared issue
+        if: steps.scan.outputs.gate == 'cleared'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ steps.scan.outputs.image }}
+          CRIT: ${{ steps.scan.outputs.crit }}
+          HIGH: ${{ steps.scan.outputs.high }}
+          # literal ${HOST_IP} placeholder for the issue body (single-quoted
+          # printf format cannot expand it, and we don't want it expanded here)
+          HOST_IP_TPL: '${HOST_IP}'
+        run: |
+          TITLE="Uptime Kuma CVE gate cleared — deployable"
+          EXISTING=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            echo "Gate-cleared issue already open (#$EXISTING) — not duplicating"
+          else
+            BODY=$(printf 'Nightly scan found **%s** fixable CRITICAL / **%s** HIGH in %s — below the deploy gate of 0 fixable CRITICAL.\n\nPer docs/services/uptime-kuma.md, Uptime Kuma can now be deployed: add the compose service (louislam/uptime-kuma:2.5.3-slim-rootless, host port 3002), the Traefik router (uptime-kuma.%s.nip.io), the landing-page registry entry, and the nginx health proxy.\n' "$CRIT" "$HIGH" "$IMAGE" "$HOST_IP_TPL")
+            gh issue create --title "$TITLE" --body "$BODY"
+            echo "Opened gate-cleared issue"
+          fi

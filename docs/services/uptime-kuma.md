@@ -31,10 +31,15 @@ Self-hosted status/uptime monitoring — monitors services and pages with a nice
 
 ## Deploy gate (read before deploying)
 
-**No published tag clears the trivy CRITICAL gate as of 2026-08-28:**
+**No published tag clears the trivy CRITICAL gate as of 2026-08-29:**
 `:1`/`:latest` = EOL Debian 10 buster (13 C); `:2` = bookworm (134 C, worse);
 `2.5.3-slim-rootless` = best (bookworm, UID 1000, ~12 C — live jsonata /
 protobufjs / grpc deps that aren't ignorable under repo policy).
+
+**Re-scan 2026-08-29 (trivy 0.74.0, DB updated 2026-08-29, same flags as CI):**
+`2.5.3-slim-rootless` still fails the gate — **7 fixable CRITICAL**
+(`--ignore-unfixed`, the CI gate's metric; debian 12.14, Node.js, `cloudflared`).
+Still the newest published tag on Docker Hub. Still slipped — re-check each cycle.
 
 **Action at Phase 3 kickoff:** re-scan `louislam/uptime-kuma:2.5.3-slim-rootless`;
 deploy only if 0 CRITICAL, otherwise **slip Uptime Kuma to a later phase** and
