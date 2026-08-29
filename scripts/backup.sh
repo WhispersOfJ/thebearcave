@@ -68,6 +68,8 @@ backup_configs() {
         "readarr"
         "audiobookshelf"
         "komga"
+        "adguard"
+        "crowdsec"
         "watchstate"
         "loki"
         "promtail"

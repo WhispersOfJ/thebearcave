@@ -7,7 +7,7 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A unified media-acquisition-and-serving stack. 27 Docker Compose services, a Next.js
+A unified media-acquisition-and-serving stack. 29 Docker Compose services, a Next.js
 arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
 and CI/CD via GitHub Actions. Hosted on Linux.
 
@@ -64,11 +64,11 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
-- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 27 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
+- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 29 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
 
 ---
 
-## Services (27 containers)
+## Services (29 containers)
 
 | # | Service | Purpose | Port | Network |
 |---|---------|---------|------|---------|
@@ -89,6 +89,8 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 | 15 | `readarr` | Ebook acquisition | 8787 | bearcave |
 | 16 | `audiobookshelf` | Audiobook/podcast server | 13378 | bearcave |
 | 17 | `komga` | Comics/manga server | 25600 | bearcave |
+| 18 | `adguard` | LAN DNS ad/tracker blocker | 3003 | bearcave |
+| 19 | `crowdsec` | Intrusion detection | 18080 | bearcave |
 | 14 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
 | 19 | `loki` | Log aggregation | 3100 | bearcave |
 | 20 | `promtail` | Log shipping to Loki | — | bearcave |
@@ -161,6 +163,8 @@ bouncer is a Traefik middleware plugin, not a sidecar (§4.8).
 8787  Readarr
 13378 Audiobookshelf
 25600 Komga
+3003  AdGuard Home
+18080 CrowdSec
 41789 arr-dashboard (Next.js)
 
 # Planned (per stack-expansion-spec.md — add to the live map when deployed)

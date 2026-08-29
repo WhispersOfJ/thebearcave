@@ -145,6 +145,14 @@ check_komga() {
     check_container "komga" "Komga"
 }
 
+check_adguard() {
+    check_container "adguard" "AdGuard Home"
+}
+
+check_crowdsec() {
+    check_container "crowdsec" "CrowdSec"
+}
+
 check_nzbdav() {
     check_container "nzbdav" "InfiniDysk"
 }
@@ -262,6 +270,8 @@ main() {
             readarr) check_readarr ;;
             audiobookshelf) check_audiobookshelf ;;
             komga) check_komga ;;
+            adguard) check_adguard ;;
+            crowdsec) check_crowdsec ;;
             nzbdav) check_nzbdav ;;
             nzbdav-rclone) check_nzbdav_rclone ;;
             seerr) check_seerr ;;
@@ -295,6 +305,8 @@ main() {
         check_readarr
         check_audiobookshelf
         check_komga
+        check_adguard
+        check_crowdsec
         check_nzbdav
         check_nzbdav_rclone
         check_seerr

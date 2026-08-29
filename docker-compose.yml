@@ -508,6 +508,69 @@ services:
         --rc-pass=${NZBDAV_RCLONE_RC_PASS}
 
   # ==========================================================================
+  # Network & Security — AdGuard Home + CrowdSec
+  # ==========================================================================
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard
+    mem_limit: 128m
+    cpus: "0.25"
+    restart: unless-stopped
+    logging: *common-logging
+    networks: [bearcave]
+    environment:
+      <<: *ca-env
+      TZ: ${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+    volumes:
+      - *ca-mount
+      - ./config/adguard/conf:/opt/adguardhome/conf
+      - ./config/adguard/work:/opt/adguardhome/work
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "3003:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/control/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adguard.rule=Host(`adguard.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.adguard.loadbalancer.server.port=3000"
+      - "traefik.http.routers.adguard.tls=true"
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    mem_limit: 128m
+    cpus: "0.25"
+    restart: unless-stopped
+    logging: *common-logging
+    networks: [bearcave]
+    environment:
+      <<: *ca-env
+      TZ: ${TZ}
+      UID: ${PUID}
+      GID: ${PGID}
+      COLLECTIONS: crowdsecurity/linux crowdsecurity/traefik
+    volumes:
+      - *ca-mount
+      - ./config/crowdsec:/etc/crowdsec
+      - ./data/crowdsec:/var/lib/crowdsec/data
+    ports:
+      - "18080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "cscli lapi status >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
   # Requests
   # ==========================================================================
   seerr:

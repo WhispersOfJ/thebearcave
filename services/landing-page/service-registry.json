@@ -19,6 +19,11 @@
       "name": "Monitoring & Logs",
       "icon": "📈",
       "description": "Observability and alerting"
+    },
+    "security": {
+      "name": "Network & Security",
+      "icon": "🛡️",
+      "description": "Network protection and access control"
     }
   },
   "pipeline_flow": [
@@ -581,6 +586,37 @@
       "depended_by": [],
       "icon": "📖",
       "docs": "docs/services/komga.md"
+    },
+    "adguard": {
+      "name": "AdGuard Home",
+      "description": "Network-wide DNS filtering",
+      "port": 3003,
+      "category": "security",
+      "health": {
+        "type": "http",
+        "url": "http://adguard:3000/control/health"
+      },
+      "dashboard": "http://{host}:3003",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [],
+      "icon": "🛡️",
+      "docs": "docs/services/adguard.md"
+    },
+    "crowdsec": {
+      "name": "CrowdSec",
+      "description": "Intrusion detection and blocking",
+      "port": 18080,
+      "category": "security",
+      "health": {
+        "type": "none"
+      },
+      "dashboard": null,
+      "depends_on": [],
+      "depended_by": [],
+      "icon": "🚨",
+      "docs": "docs/services/crowdsec.md"
     }
   }
 }
