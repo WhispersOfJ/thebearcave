@@ -9,7 +9,7 @@ Everything you need to survive hardware failure, bad config edits, or a botched 
 | Data | Location | Criticality |
 |------|----------|-------------|
 | Plex library DB + metadata | `config/plex/` (~33 GB) | **Highest** — irreplaceable watch history |
-| *arr DBs | `services/{radarr,sonarr,prowlarr,seerr,cleanuparr}/config/` | High — easily rebuilt but tedious |
+| *arr DBs + Bazarr | `services/{radarr,sonarr,prowlarr,seerr,cleanuparr,bazarr}/config/` | High — easily rebuilt but tedious |
 | InfiniDysk DB + queue | `config/nzbdav/` | High — **queue is not persistent across recreate** |
 | WatchState DB | `config/watchstate/` | Medium — redundant with Plex |
 | Metacache DB + images | `data/metacache/` | Low — regenerable via warm |

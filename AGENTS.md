@@ -7,7 +7,7 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A unified media-acquisition-and-serving stack. 22 Docker Compose services, a Next.js
+A unified media-acquisition-and-serving stack. 23 Docker Compose services, a Next.js
 arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
 and CI/CD via GitHub Actions. Hosted on Linux.
 
@@ -64,11 +64,11 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
-- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 22 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
+- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 23 services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
 
 ---
 
-## Services (22 containers)
+## Services (23 containers)
 
 | # | Service | Purpose | Port | Network |
 |---|---------|---------|------|---------|
@@ -84,7 +84,8 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 | 10 | `arr-dashboard` | Next.js media operations dashboard | 41789 | bearcave |
 | 11 | `unpackerr` | Auto-extracts downloads | — | bearcave |
 | 12 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 | bearcave |
-| 13 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
+| 13 | `bazarr` | Subtitle management | 6767 | bearcave |
+| 14 | `watchstate` | Tracks what you've watched | 8705 | bearcave |
 | 14 | `loki` | Log aggregation | 3100 | bearcave |
 | 15 | `promtail` | Log shipping to Loki | — | bearcave |
 | 16 | `grafana` | Dashboards + alerting | 3001 | bearcave |
@@ -151,6 +152,7 @@ bouncer is a Traefik middleware plugin, not a sidecar (§4.8).
 9200  nzbdav-exporter
 9696  Prowlarr
 11011 Cleanuparr
+6767  Bazarr
 41789 arr-dashboard (Next.js)
 
 # Planned (per stack-expansion-spec.md — add to the live map when deployed)

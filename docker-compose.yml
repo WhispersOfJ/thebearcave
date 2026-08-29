@@ -188,6 +188,42 @@ services:
       - "traefik.http.routers.sonarr.tls=true"
 
   # ==========================================================================
+  # Subtitles — Bazarr
+  # ==========================================================================
+  bazarr:
+    <<: *common
+    image: ghcr.io/hotio/bazarr:release
+    container_name: bazarr
+    mem_limit: 128m
+    cpus: "0.25"
+    networks: [bearcave]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6767/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      nzbdav_rclone:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - *ca-mount
+      - ./config/bazarr:/config
+      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
+      - ./media/movies:/data/movies
+      - ./media/shows:/data/shows
+      - ./media/anime-movies:/data/anime-movies
+      - ./media/anime-shows:/data/anime-shows
+    ports:
+      - "6767:6767"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
+      - "traefik.http.routers.bazarr.tls=true"
+
+  # ==========================================================================
   # Usenet — InfiniDysk + rclone sidecar
   # ==========================================================================
   nzbdav:

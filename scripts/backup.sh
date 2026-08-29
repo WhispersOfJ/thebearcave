@@ -63,6 +63,7 @@ backup_configs() {
         "nzbdav-rclone"
         "seerr"
         "cleanuparr"
+        "bazarr"
         "watchstate"
         "loki"
         "promtail"

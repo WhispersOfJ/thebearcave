@@ -125,6 +125,10 @@ check_sonarr() {
     check_container "sonarr" "Sonarr"
 }
 
+check_bazarr() {
+    check_container "bazarr" "Bazarr"
+}
+
 check_nzbdav() {
     check_container "nzbdav" "InfiniDysk"
 }
@@ -237,6 +241,7 @@ main() {
             prowlarr) check_prowlarr ;;
             radarr) check_radarr ;;
             sonarr) check_sonarr ;;
+            bazarr) check_bazarr ;;
             nzbdav) check_nzbdav ;;
             nzbdav-rclone) check_nzbdav_rclone ;;
             seerr) check_seerr ;;
@@ -265,6 +270,7 @@ main() {
         check_prowlarr
         check_radarr
         check_sonarr
+        check_bazarr
         check_nzbdav
         check_nzbdav_rclone
         check_seerr
