@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.13.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.12.1...v1.13.0) (2026-08-29)
+
+
+### Features
+
+* add audiobook and comic servers ([2d21c89](https://github.com/WhispersOfJ/thebearcave/commit/2d21c89612aab27c76481a201407c9d80dc71513))
+* add Bazarr subtitle service ([8be99d4](https://github.com/WhispersOfJ/thebearcave/commit/8be99d44aa3b965b90fd7113ba6d52c9e774348f))
+* add Lidarr and Readarr services ([871643c](https://github.com/WhispersOfJ/thebearcave/commit/871643c45122341946682a1f909fc13fed556fc6))
+* add network security services ([879282a](https://github.com/WhispersOfJ/thebearcave/commit/879282a272c2ea4a2776e5a39ff23bc635c4b20f))
+* add Vaultwarden and n8n services ([4e6f494](https://github.com/WhispersOfJ/thebearcave/commit/4e6f494a3f0fcf42d394522901bd643e25c4a096))
+
+
+### Bug Fixes
+
+* sync secret manifest with workflow usage ([1aeda7f](https://github.com/WhispersOfJ/thebearcave/commit/1aeda7fcc950dcb6debe52807a2c7bdc7bb1085d))
+
 ## [1.12.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.12.0...v1.12.1) (2026-08-28)
 
 
