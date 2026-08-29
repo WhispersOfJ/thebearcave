@@ -12,7 +12,7 @@
 # - Usenet: InfiniDysk (nzbdav) + rclone sidecar
 # - Requests: Seerr
 # - Metadata: Metacache (custom Plex metadata provider)
-# - Queue mgmt: Unpackerr, Cleanuparr
+# - Queue mgmt: Unpackerr
 # - Watch state: WatchState
 # - Logging: Loki, Promtail, Grafana
 # - Metrics: Prometheus, Node Exporter, cAdvisor, nzbdav-exporter, Alertmanager
@@ -828,30 +828,6 @@ services:
       - *ca-mount
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./usenet:/usenet
-
-  cleanuparr:
-    <<: *common
-    image: ghcr.io/cleanuparr/cleanuparr:2.10.5
-    container_name: cleanuparr
-    mem_limit: 128m
-    cpus: "0.25"
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11011/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    depends_on:
-      nzbdav_rclone:
-        condition: service_healthy
-        restart: true
-    volumes:
-      - *ca-mount
-      - ./config/cleanuparr:/config
-      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
-    ports:
-      - "11011:11011"
 
   # ==========================================================================
   # Watch State

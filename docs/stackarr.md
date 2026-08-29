@@ -13,7 +13,7 @@ chat. It is the closest thing to purpose-built agent control for this exact
 stack.
 
 **Managed services (overlap with this stack bolded):** **Sonarr, Radarr,
-Lidarr, Prowlarr, Bazarr, Plex**, Jellyfin, Seerr, **Cleanuparr**, Immich,
+Lidarr, Prowlarr, Bazarr, Plex**, Jellyfin, Seerr, Immich,
 RomM, BookOrbit, Transmission, qBittorrent, Postgres, Cloudflare.
 
 **MCP design (its main strength):**
@@ -33,7 +33,7 @@ RomM, BookOrbit, Transmission, qBittorrent, Postgres, Cloudflare.
 ## Why it's tempting for this stack
 
 - **On-target scope:** it manages the core of this stack — Radarr, Sonarr,
-  Lidarr, Prowlarr, Bazarr, Plex, Seerr, Cleanuparr, backups — with typed
+  Lidarr, Prowlarr, Bazarr, Plex, Seerr, backups — with typed
   actions instead of raw API calls.
 - **It answers the Docker-socket problem better than raw Docker MCP servers:**
   a typed, approval-gated action surface is far safer than giving an agent a

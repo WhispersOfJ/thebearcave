@@ -158,7 +158,7 @@ flowchart TD
     C --> D[fusermount3 -uz cleanup<br/>clears stale mount corpse]
     D --> E[rclone mount nzbdav: /mnt/remote/nzbdav]
     E --> F{healthcheck<br/>mountpoint -q?}
-    F -- yes --> G[radarr, sonarr, plex, unpackerr, cleanuparr<br/>start in dependency order]
+    F -- yes --> G[radarr, sonarr, plex, unpackerr<br/>start in dependency order]
     F -- no, restart --> C
 
     style A fill:#1a1a2e,color:#fff
@@ -169,7 +169,7 @@ flowchart TD
 ### Critical rules
 
 1. **Never restart the mount owner alone.** Restart `nzbdav_rclone`, then every dependent
-   (radarr, sonarr, plex, unpackerr, cleanuparr) in order.
+   (radarr, sonarr, plex, unpackerr) in order.
 2. **`depends_on: restart: true`** means any nzbdav restart cascades to rclone and
    dependents automatically. This is by design.
 3. **Stale mount self-heal:** the entrypoint runs `fusermount3 -uz` / `umount -l` before
@@ -189,7 +189,6 @@ flowchart TB
     RCL --> Son[Sonarr]
     RCL --> Plex[Plex]
     RCL --> Unp[Unpackerr]
-    RCL --> Cln[Cleanuparr]
     Loki[Loki] --> Promtail[Promtail]
     Loki --> Graf[Grafana]
     Prom[Prometheus] --> Graf
@@ -204,7 +203,7 @@ flowchart TB
 | nzbdav_rclone | nzbdav healthy, restart | nzbdav restart → rclone restart |
 | radarr / sonarr | nzbdav_rclone healthy, restart | **any rclone restart → app restart** |
 | plex | nzbdav_rclone healthy, restart | same |
-| unpackerr / cleanuparr | nzbdav_rclone healthy, restart | same |
+| unpackerr | nzbdav_rclone healthy, restart | same |
 | promtail | loki healthy | — |
 | grafana | loki + prometheus healthy | — |
 | nzbdav-exporter | nzbdav healthy | — |

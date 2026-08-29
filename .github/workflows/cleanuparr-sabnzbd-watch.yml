@@ -1,0 +1,184 @@
+name: Cleanuparr SABnzbd Watch
+# Pinned actions policy: this workflow uses only `run:` steps and the
+# preinstalled `gh` CLI (no third-party actions), so there are no pins to
+# maintain. If a third-party action is added later, pin it to a full commit
+# SHA with the version as a trailing comment — see docs/ci-cd.md.
+
+# Watches upstream Cleanuparr (github.com/Cleanuparr/Cleanuparr) for
+# SABnzbd/Usenet download-client support (upstream feature request #137).
+# This stack is Usenet-only and Cleanuparr v2.x supports only torrent
+# clients, so it was removed; the moment SABnzbd support ships, the
+# workflow posts a Discord alert and opens an adoption issue (label
+# `cleanuparr-adopt`) so the stack can bring it back. Runs daily + on
+# demand. Idempotent: the alert fires once per adoption issue; when the
+# issue is open, later runs only confirm it still applies.
+#
+# Detection: "shipped" = the latest upstream release notes mention
+# SABnzbd/Usenet. Issue state is deliberately NOT used as a signal — #137
+# is closed as `not_planned` and its duplicates (#263/#273) closed as
+# duplicates, so closed-issue state does not mean shipped. There is active
+# upstream discussion of a user-submitted SABnzbd fix (last comment on
+# #137: 2026-08-25), so the watch also reports any open SABnzbd PR as an
+# informational "in progress" note without alerting.
+
+on:
+  schedule:
+    - cron: "23 6 * * *" # daily 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    name: Watch upstream SABnzbd support
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check upstream release and SABnzbd PRs
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_JSON=$(gh api repos/Cleanuparr/Cleanuparr/releases/latest 2>/dev/null || echo '{}')
+          TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty')
+          PUBLISHED=$(echo "$RELEASE_JSON" | jq -r '.published_at // empty')
+          BODY=$(echo "$RELEASE_JSON" | jq -r '.body // empty')
+
+          # The ONLY shipped signal: release notes mention SABnzbd/Usenet.
+          # Issue state is unreliable (#137 is not_planned, duplicates closed).
+          SHIPPED=no
+          if [ -n "$TAG" ]; then
+            echo "Latest release: $TAG (published $PUBLISHED)"
+            if echo "$BODY" | grep -qiE 'sabnzbd|usenet|\bsab\b'; then
+              echo "  -> release notes mention SABnzbd/Usenet"
+              SHIPPED=yes
+            else
+              echo "  -> release notes do not mention SABnzbd/Usenet"
+            fi
+          else
+            echo "No upstream release found"
+          fi
+
+          # Informational: any open upstream PR touching SABnzbd means the
+          # feature is actively in flight (no alert — just the summary note).
+          PR_IN_FLIGHT=no
+          OPEN_PR=$(gh search prs --repo Cleanuparr/Cleanuparr 'sabnzbd in:title,body' \
+            --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$OPEN_PR" ]; then
+            echo "Open SABnzbd PR upstream: #$OPEN_PR"
+            PR_IN_FLIGHT=yes
+          else
+            echo "No open SABnzbd PR upstream"
+          fi
+
+          ISSUE_STATE=$(gh api repos/Cleanuparr/Cleanuparr/issues/137 --jq .state 2>/dev/null || echo unknown)
+          echo "Issue #137 state: $ISSUE_STATE (informational only — not a shipped signal)"
+
+          { echo "shipped=$SHIPPED"; echo "tag=$TAG"; echo "published=$PUBLISHED"; echo "issue_state=$ISSUE_STATE"; echo "pr_in_flight=$PR_IN_FLIGHT"; } >> "$GITHUB_OUTPUT"
+
+      - name: Maintain adoption issue
+        id: state
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHIPPED="${{ steps.check.outputs.shipped }}"
+
+          # Existing open adoption issue (if any)
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --label cleanuparr-adopt --json number --jq '.[0].number // empty' 2>/dev/null || true)
+
+          if [ "$SHIPPED" = "yes" ]; then
+            if [ -n "$EXISTING" ]; then
+              echo "Adoption issue #$EXISTING already open — no new alert."
+              echo "action=exists" >> "$GITHUB_OUTPUT"
+            else
+              gh label create cleanuparr-adopt --force \
+                --color "1d76db" \
+                --description "Upstream Cleanuparr shipped SABnzbd/Usenet support — evaluate re-adoption into the stack" >/dev/null 2>&1 || true
+              gh issue create --repo "$GITHUB_REPOSITORY" \
+                --title "Adopt Cleanuparr: SABnzbd/Usenet support shipped upstream" \
+                --label cleanuparr-adopt \
+                --body "The Cleanuparr SABnzbd watch workflow detected that upstream
+                SABnzbd/Usenet support has shipped (feature request Cleanuparr/Cleanuparr#137).
+
+                - Latest release: **${{ steps.check.outputs.tag }}** (published ${{ steps.check.outputs.published }})
+                - Upstream issue #137 state: ${{ steps.check.outputs.issue_state }}
+                - Release notes: https://github.com/Cleanuparr/Cleanuparr/releases/latest
+
+                Cleanuparr was removed from the stack on 2026-08-29 (v2.x was torrent-only).
+                Re-adoption checklist:
+                1. Re-add the service to \`docker-compose.yml\` (was: ghcr.io/cleanuparr/cleanuparr:2.10.5, port 11011)
+                2. Add a SABnzbd-compatible download client pointing at NzbDAV (\`nzbdav:3000\`)
+                3. Restore \`CLEANUPARR_URL\` to \`.env.template\` and the landing page registry
+                4. Re-add docs/tests/fish helpers and the trivy baseline entry
+                5. Wire Prowlarr sync if needed
+                " >/dev/null
+              echo "Adoption issue created."
+              echo "action=created" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            if [ -n "$EXISTING" ]; then
+              gh issue close "$EXISTING" --repo "$GITHUB_REPOSITORY" --comment \
+                "Upstream no longer reports SABnzbd/Usenet support as shipped — closing the adoption tracker." >/dev/null
+              echo "Stale adoption issue #$EXISTING closed."
+              echo "action=closed" >> "$GITHUB_OUTPUT"
+            else
+              echo "Still watching — no upstream SABnzbd support detected."
+              echo "action=none" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Send Discord alert
+        if: steps.state.outputs.action == 'created'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TAG="${{ steps.check.outputs.tag }}"
+          ISSUE_URL="https://github.com/$GITHUB_REPOSITORY/issues?q=is%3Aopen+label%3Acleanuparr-adopt"
+
+          PAYLOAD=$(cat <<EOFPAYLOAD
+          {
+            "embeds": [{
+              "title": "🎉 Cleanuparr shipped SABnzbd support — adopt it",
+              "description": "Upstream Cleanuparr now supports SABnzbd/Usenet (feature request #137). The Usenet-only stack can bring it back.",
+              "color": 65280,
+              "fields": [
+                {"name": "Latest Release", "value": "${TAG}", "inline": true},
+                {"name": "Release Notes", "value": "https://github.com/Cleanuparr/Cleanuparr/releases/latest", "inline": false},
+                {"name": "Adoption Issue", "value": "${ISSUE_URL}", "inline": false}
+              ],
+              "footer": {"text": "The Bear Cave · Cleanuparr Watch"},
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            }]
+          }
+          EOFPAYLOAD
+          )
+
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -sf -X POST "$DISCORD_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
+            echo "Discord alert sent."
+          else
+            echo "DISCORD_WEBHOOK_URL not set — skipping Discord alert (adoption issue still created)."
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Cleanuparr SABnzbd Watch"
+            echo ""
+            echo "| Signal | Value |"
+            echo "|--------|-------|"
+            echo "| Shipped | ${{ steps.check.outputs.shipped }} |"
+            echo "| Latest release | ${{ steps.check.outputs.tag }} (${{ steps.check.outputs.published }}) |"
+            echo "| Upstream issue #137 | ${{ steps.check.outputs.issue_state }} (informational) |"
+            echo "| SABnzbd PR in flight | ${{ steps.check.outputs.pr_in_flight }} |"
+            echo "| Action | ${{ steps.state.outputs.action }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

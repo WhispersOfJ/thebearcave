@@ -259,8 +259,6 @@ run_live stack-plex-recently-added.fish 2
 run_live stack-watchstate-status.fish
 run_live stack-watchstate-history.fish 5
 run_live stack-seerr-requests.fish pending
-run_live stack-cleanuparr-instances.fish
-run_live stack-cleanuparr-strikes.fish 5
 run_live stack-rating-imdb.fish tt0068646
 run_live stack-rating-mdblist.fish tt0068646
 

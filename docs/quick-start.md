@@ -96,7 +96,7 @@ docker compose ps
 docker compose logs -f nzbdav nzbdav_rclone   # the critical path
 ```
 
-The FUSE mount is the gate: radarr/sonarr/plex/unpackerr/cleanuparr all wait for
+The FUSE mount is the gate: radarr/sonarr/plex/unpackerr all wait for
 `nzbdav_rclone` to report healthy.
 
 ---

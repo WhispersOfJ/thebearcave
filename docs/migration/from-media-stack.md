@@ -31,7 +31,7 @@ DST=/home/bear/TheBearCave
 mkdir -p $DST/services
 
 for app in prowlarr radarr sonarr nzbdav nzbdav-rclone seerr \
-           plex cleanuparr watchstate; do
+           plex watchstate; do
   if [ -d "$SRC/config/$app" ]; then
     mkdir -p "$DST/services/$app"
     cp -a "$SRC/config/$app" "$DST/services/$app/config"

@@ -17,7 +17,7 @@ tree at `/mnt/remote/nzbdav` and every media consumer reads through it.
 ## Role
 
 - FUSE-mounts InfiniDysk's WebDAV tree at `/mnt/remote/nzbdav`
-- Serves that mount to radarr, sonarr, plex, unpackerr, cleanuparr via `:rslave`
+- Serves that mount to radarr, sonarr, plex, unpackerr via `:rslave`
   bind mounts
 - VFS cache (full mode, up to 50 GB) makes repeated reads cheap
 
@@ -61,17 +61,16 @@ flowchart LR
     RCL -->|depends_on healthy + restart| Son[sonarr]
     RCL -->|depends_on healthy + restart| Plex[plex]
     RCL -->|depends_on healthy + restart| Unp[unpackerr]
-    RCL -->|depends_on healthy + restart| Cln[cleanuparr]
 ```
 
-`restart: true` means any nzbdav restart cascades through rclone to all five dependents.
+`restart: true` means any nzbdav restart cascades through rclone to all four dependents.
 That's the designed recovery path — don't fight it.
 
 ## Troubleshooting
 
 - **`mountpoint` fails / mount gone** — restart the owner:
   `docker compose restart nzbdav nzbdav_rclone` then dependents:
-  `docker compose restart radarr sonarr plex unpackerr cleanuparr`
+  `docker compose restart radarr sonarr plex unpackerr`
 - **"directory already mounted" loop** — the self-heal preamble should clear it; if not,
   check for a real FUSE mount on the host with `mount | grep nzbdav` and unmount it
   (`umount -l /mnt/remote/nzbdav` — never `sudo umount` a live FUSE mountpoint that

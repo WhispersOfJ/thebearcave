@@ -185,10 +185,6 @@ check_unpackerr() {
     check_container "unpackerr" "Unpackerr"
 }
 
-check_cleanuparr() {
-    check_container "cleanuparr" "Cleanuparr"
-}
-
 check_watchstate() {
     check_container "watchstate" "WatchState"
 }
@@ -288,7 +284,6 @@ main() {
             plex) check_plex ;;
             metacache) check_metacache ;;
             unpackerr) check_unpackerr ;;
-            cleanuparr) check_cleanuparr ;;
             watchstate) check_watchstate ;;
             loki) check_loki ;;
             promtail) check_promtail ;;
@@ -325,7 +320,6 @@ main() {
         check_plex
         check_metacache
         check_unpackerr
-        check_cleanuparr
         check_watchstate
         check_loki
         check_promtail

@@ -7,7 +7,7 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A unified media-acquisition-and-serving stack. 31 configured Compose services, a Next.js
+A unified media-acquisition-and-serving stack. 30 configured Compose services, a Next.js
 arr-dashboard, Prometheus/Grafana monitoring, Traefik reverse proxy,
 and CI/CD via GitHub Actions. Hosted on Linux.
 
@@ -45,7 +45,7 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
 | **Requests** | Seerr |
 | **Media server** | Plex (host network, VAAPI transcoding), Audiobookshelf, Komga |
 | **Metadata** | Metacache (built from source, TMDB/TVDB cache) |
-| **Queue mgmt** | Unpackerr, Cleanuparr |
+| **Queue mgmt** | Unpackerr |
 | **Watch state** | WatchState |
 | **Logging** | Loki, Promtail, Grafana |
 | **Metrics** | Prometheus, Node Exporter, cAdvisor, nzbdav-exporter |
@@ -66,11 +66,11 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
-- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 31 configured services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid and pipeline flow strip. Adding a service requires updating both files.
+- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 30 configured services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid and pipeline flow strip. Adding a service requires updating both files.
 
 ---
 
-## Services (31 configured services)
+## Services (30 configured services)
 
 | # | Service | Purpose | Port | Network |
 |---|---------|---------|------|---------|
@@ -85,7 +85,6 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 | 9 | `metacache` | Metadata cache proxy for Plex | 8765 | bearcave |
 | 10 | `arr-dashboard` | Next.js media operations dashboard | 41789 | bearcave |
 | 11 | `unpackerr` | Auto-extracts downloads | — | bearcave |
-| 12 | `cleanuparr` | Cleans orphaned files + failed downloads | 11011 | bearcave |
 | 13 | `bazarr` | Subtitle management | 6767 | bearcave |
 | 14 | `lidarr` | Music acquisition | 8686 | bearcave |
 | 15 | `readarr` | Ebook acquisition | 8787 | bearcave |
@@ -162,7 +161,6 @@ middleware plugin, not a sidecar (§4.8).
 9100  node-exporter
 9200  nzbdav-exporter
 9696  Prowlarr
-11011 Cleanuparr
 6767  Bazarr
 8686  Lidarr
 8787  Readarr
@@ -320,7 +318,7 @@ Run `./scripts/setup.sh` to generate secrets.
 
 7. **rclone.conf requires `rclone obscure`** — Passwords in rclone.conf must be rclone-obfuscated, not plaintext.
 
-8. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, Cleanuparr, traefik labels.
+8. **App removal checklists must be exhaustive** — Every removal touches: compose, config, env vars, Prowlarr sync, traefik labels.
 
 ---
 

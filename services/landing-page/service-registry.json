@@ -77,7 +77,6 @@
         "arr-dashboard",
         "metacache",
         "watchstate",
-        "cleanuparr",
         "grafana",
         "prometheus",
         "landing-page",
@@ -135,7 +134,6 @@
       "depended_by": [
         "seerr",
         "watchstate",
-        "cleanuparr",
         "arr-dashboard",
         "bazarr"
       ],
@@ -160,7 +158,6 @@
       "depended_by": [
         "seerr",
         "watchstate",
-        "cleanuparr",
         "arr-dashboard",
         "bazarr"
       ],
@@ -185,7 +182,6 @@
         "radarr",
         "sonarr",
         "unpackerr",
-        "cleanuparr",
         "lidarr",
         "readarr",
         "audiobookshelf",
@@ -330,26 +326,6 @@
       "depended_by": [],
       "icon": "✅",
       "docs": "docs/services/watchstate.md"
-    },
-    "cleanuparr": {
-      "name": "Cleanuparr",
-      "description": "Stale download cleanup",
-      "port": 11011,
-      "category": "data",
-      "health": {
-        "type": "http",
-        "url": "http://cleanuparr:11011/health"
-      },
-      "dashboard": "http://{host}:11011",
-      "depends_on": [
-        "traefik",
-        "nzbdav",
-        "radarr",
-        "sonarr"
-      ],
-      "depended_by": [],
-      "icon": "🧹",
-      "docs": "docs/services/cleanuparr.md"
     },
     "grafana": {
       "name": "Grafana",

@@ -31,7 +31,7 @@ docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav; echo $?   # nonzero 
 Recovery:
 ```bash
 docker compose restart nzbdav nzbdav_rclone          # mount owner first
-docker compose restart radarr sonarr plex unpackerr cleanuparr  # then dependents
+docker compose restart radarr sonarr plex unpackerr  # then dependents
 # Trigger a Plex rescan (web UI or API)
 ```
 

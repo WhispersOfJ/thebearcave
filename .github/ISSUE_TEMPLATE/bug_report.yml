@@ -26,7 +26,6 @@ body:
         - Traefik
         - WatchState
         - Unpackerr
-        - Cleanuparr
         - Monitoring (Grafana/Prometheus/Loki)
         - Docker Compose / Startup
         - Other

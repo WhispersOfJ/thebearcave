@@ -22,6 +22,7 @@ and the two policies every operator must know: **actions are SHA-pinned** and
 | `cert-expiry-check.yml` | weekly + dispatch | Probes the Traefik HTTPS certificate and alerts via Discord before it expires |
 | `disk-cleanup.yml` | weekly + dispatch | Prunes Docker images/volumes/build cache when disk usage crosses a threshold, alerts via Discord |
 | `pin-drift-check.yml` | weekly + dispatch | Verifies all third-party action pins are current; opens/closes a `pin-drift` issue |
+| `cleanuparr-sabnzbd-watch.yml` | daily + dispatch | Watches upstream Cleanuparr for SABnzbd/Usenet support (issue #137); opens a `cleanuparr-adopt` issue + Discord alert when it ships |
 | `quality.yml` | pull requests | Dependency review, Dockerfile lint, YAML lint, and Metacache tests |
 | `scorecard.yml` | main pushes + weekly | OpenSSF Scorecard supply-chain analysis and SARIF upload |
 

@@ -66,12 +66,6 @@ server {
         proxy_read_timeout 5s;
     }
 
-    # Cleanuparr
-    location /health/cleanuparr {
-        proxy_pass http://cleanuparr:11011/health;
-        proxy_read_timeout 5s;
-    }
-
     # arr-dashboard
     location /health/arr-dashboard {
         proxy_pass http://arr-dashboard:3000/health;

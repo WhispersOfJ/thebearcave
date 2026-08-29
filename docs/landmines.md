@@ -9,7 +9,7 @@ Active issues that affect operations **today**. Read before touching the stack.
 ### 1. FUSE mount cascade
 
 `nzbdav_rclone` is the keystone. Restarting it (or nzbdav, which restarts it) cascades
-to radarr, sonarr, plex, unpackerr, cleanuparr via `depends_on: restart: true`.
+to radarr, sonarr, plex, unpackerr via `depends_on: restart: true`.
 
 - **Never** restart the mount owner alone and leave dependents running — they hold
   defunct handles.
@@ -32,24 +32,19 @@ items. Always confirm the queue is empty before touching the container.
 
 ## High
 
-### 4. Cleanuparr doesn't auto-register
-
-It discovers *arr apps but needs explicit instance registration in its `arr_instances`
-table. Register Radarr + Sonarr after first boot or restores.
-
-### 5. Watchtower only updates channel-tagged images
+### 4. Watchtower only updates channel-tagged images
 
 `ghcr.io/hotio/*:release` images auto-update nightly at 04:00. Digest-pinned images
-(seerr, unpackerr) and versioned tags (cleanuparr:2.10.5) are **excluded by design** —
+(seerr, unpackerr) are **excluded by design** —
 bump them deliberately.
 
-### 6. App removal must be exhaustive
+### 5. App removal must be exhaustive
 
 Removing an app touches: compose block, config dir, `.env` vars, Prowlarr sync,
-Cleanuparr rows, Traefik labels, tests. Miss one and you get
+Traefik labels, tests. Miss one and you get
 a half-removed service.
 
-### 7. rclone.conf needs `rclone obscure`
+### 6. rclone.conf needs `rclone obscure`
 
 The WebDAV password in `config/nzbdav-rclone/rclone.conf` must be rclone-obfuscated
 (`rclone obscure "pass"`), not plaintext. The file is gitignored — the committed

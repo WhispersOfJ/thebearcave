@@ -41,7 +41,6 @@ in the Phase 2 migration.
 | NzbDAV | 5 | `__nzbdav_api` | `stack-nzbdav-queue` |
 | WatchState | 3 | `__watchstate_api` | `stack-watchstate-status` |
 | Seerr | 1 | direct API | `stack-seerr-requests` |
-| Cleanuparr | 2 | direct API | `stack-cleanuparr-strikes` |
 | Ratings/external | 2 | OMDb/MDBList API | `stack-rating-imdb` |
 | Letterboxd/MDBList | 10 | local file tracking | `stack-letterboxd-import` |
 | Loop detection | 3 | Arr grab history | `stack-loop-candidates` |
@@ -76,7 +75,7 @@ fish services/fish-functions/scripts/gen-completions.fish --check  # CI drift ga
 Functions read API keys from the environment (`RADARR_API_KEY`, `SONARR_API_KEY`,
 `PROWLARR_API_KEY`, `PLEX_TOKEN`, `FRONTEND_BACKEND_API_KEY`, `WS_API_KEY`,
 `MDBLIST_KEY`, `OMDB_KEY`, `SEERR_API_KEY`) and honor `<APP>_URL` / `PLEX_URL` /
-`NZBDAV_URL` / `WATCHSTATE_URL` / `CLEANUPARR_URL` / `SEERR_URL` overrides.
+`NZBDAV_URL` / `WATCHSTATE_URL` / `SEERR_URL` overrides.
 Defaults target the host-published `localhost` ports — these are host-shell
 tools; docker service names will not resolve from outside the compose network.
 

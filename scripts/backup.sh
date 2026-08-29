@@ -63,7 +63,6 @@ backup_configs() {
         "nzbdav"
         "nzbdav-rclone"
         "seerr"
-        "cleanuparr"
         "bazarr"
         "lidarr"
         "readarr"
