@@ -66,7 +66,7 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 - **Metadata:** Metacache (:8765) caches TMDB/TVDB lookups locally so Plex refreshes hit cache
 - **Observability:** Prometheus scrapes node-exporter, cadvisor, nzbdav-exporter, metacache. Loki ingests Docker logs via Promtail. Grafana queries both.
 - **Reverse proxy:** Traefik routes all services except Plex (which uses host network) via Host-based routing with automatic HTTPS.
-- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 31 configured services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid, pipeline flow strip, and Mermaid dependency graph. Adding a service requires updating both files.
+- **Landing page is registry-driven:** `services/landing-page/service-registry.json` is the single source of truth for all 31 configured services (name, port, category, dependencies, health endpoint, dashboard URL). An inline copy in `index.html` powers the card grid and pipeline flow strip. Adding a service requires updating both files.
 
 ---
 
@@ -116,30 +116,30 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 Plex is the only service on host network — it cannot be behind Traefik because GDM,
 DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networking.
 
-### Expansion Services (configured but not yet deployed — see `stack-expansion-spec.md`)
+### Expansion Services (deployed — see `stack-expansion-spec.md`)
 
-The expansion specification covers 10 services. Nine are now configured in
-`docker-compose.yml`; they remain undeployed until explicitly activated. The
-remaining planned service is Uptime Kuma, whose image is still CVE-gated. Docs
-pages exist in `docs/services/`:
+The 10-service expansion in `stack-expansion-spec.md` is deployed: nine
+services are live in `docker-compose.yml` (Lidarr, Readarr, Bazarr,
+Audiobookshelf, Komga, AdGuard Home, CrowdSec, Vaultwarden, n8n). The tenth,
+Uptime Kuma, was removed from scope by decision. Docs pages exist in
+`docs/services/`:
 
-| # | Service | Purpose | Port | Phase | Docs |
-|---|---------|---------|------|-------|------|
-| P1 | `lidarr` | Music acquisition | 8686 | 1 | [docs/services/lidarr.md](docs/services/lidarr.md) |
-| P2 | `readarr` | Ebook acquisition | 8787 | 1 | [docs/services/readarr.md](docs/services/readarr.md) |
-| P3 | `bazarr` | Subtitles for movies/shows | 6767 | 1 | [docs/services/bazarr.md](docs/services/bazarr.md) |
-| P4 | `audiobookshelf` | Audiobook/podcast server | 13378 | 1 | [docs/services/audiobookshelf.md](docs/services/audiobookshelf.md) |
-| P5 | `komga` | Comics/manga server | 25600 | 1 | [docs/services/komga.md](docs/services/komga.md) |
-| P6 | `adguard` | LAN DNS ad/tracker blocker | 53, 3003 | 2 | [docs/services/adguard.md](docs/services/adguard.md) |
-| P7 | `crowdsec` | Intrusion detection (Traefik plugin bouncer) | 18080 | 2 | [docs/services/crowdsec.md](docs/services/crowdsec.md) |
-| P8 | `uptime-kuma` | Status/uptime monitoring (**slip-gated** CVE hold) | 3002 | 3 | [docs/services/uptime-kuma.md](docs/services/uptime-kuma.md) |
-| P9 | `vaultwarden` | Self-hosted password manager | 8222 | 3 | [docs/services/vaultwarden.md](docs/services/vaultwarden.md) |
-| P10 | `n8n` | Workflow automation (Discord notifications first) | 5678 | 3 | [docs/services/n8n.md](docs/services/n8n.md) |
+| Service | Purpose | Port | Docs |
+|---------|---------|------|------|
+| `lidarr` | Music acquisition | 8686 | [docs/services/lidarr.md](docs/services/lidarr.md) |
+| `readarr` | Ebook acquisition | 8787 | [docs/services/readarr.md](docs/services/readarr.md) |
+| `bazarr` | Subtitles for movies/shows | 6767 | [docs/services/bazarr.md](docs/services/bazarr.md) |
+| `audiobookshelf` | Audiobook/podcast server | 13378 | [docs/services/audiobookshelf.md](docs/services/audiobookshelf.md) |
+| `komga` | Comics/manga server | 25600 | [docs/services/komga.md](docs/services/komga.md) |
+| `adguard` | LAN DNS ad/tracker blocker | 53, 3003 | [docs/services/adguard.md](docs/services/adguard.md) |
+| `crowdsec` | Intrusion detection (Traefik plugin bouncer) | 18080 | [docs/services/crowdsec.md](docs/services/crowdsec.md) |
+| `vaultwarden` | Self-hosted password manager | 8222 | [docs/services/vaultwarden.md](docs/services/vaultwarden.md) |
+| `n8n` | Workflow automation (Discord notifications first) | 5678 | [docs/services/n8n.md](docs/services/n8n.md) |
 
 Key cross-cutting items from the spec: the nzbdav category rollout (§15,
-queue-gated) precedes Phases 1 acquisitions; CVE posture gates some images
-(§14 — lidarr `:nightly`, komga `1.x`, uptime-kuma slip); the Crowdsec
-bouncer is a Traefik middleware plugin, not a sidecar (§4.8).
+queue-gated) preceded Phases 1 acquisitions; CVE posture gates some images
+(§14 — lidarr `:nightly`, komga `1.x`); the Crowdsec bouncer is a Traefik
+middleware plugin, not a sidecar (§4.8).
 
 ---
 
@@ -173,15 +173,8 @@ bouncer is a Traefik middleware plugin, not a sidecar (§4.8).
 8222  Vaultwarden
 5678  n8n
 41789 arr-dashboard (Next.js)
-
-# Planned (per stack-expansion-spec.md — not yet in active Compose)
-53    adguard (DNS; tcp+udp)         3003  adguard (web UI)
-8686  lidarr                        8787  readarr
-6767  bazarr                        13378 audiobookshelf
-25600 komga                         18080 crowdsec (LAPI)
-3002  uptime-kuma                   8222  vaultwarden
-5678  n8n
 ```
+
 
 ---
 

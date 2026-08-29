@@ -7,14 +7,12 @@ read-only preparation and state-changing rollout steps.
 
 ## Current state
 
-- 31 services are configured in `docker-compose.yml`.
-- 9 expansion services are configured but not started by this change:
-  Bazarr, Lidarr, Readarr, Audiobookshelf, Komga, AdGuard Home, CrowdSec,
-  Vaultwarden, and n8n.
-- Uptime Kuma remains deferred because its current image fails the CRITICAL CVE
-  gate.
-- The nzbdav category rollout is not applied. Its categories currently support
-  the original movie/TV paths only.
+- 31 services are configured and running in `docker-compose.yml`.
+- The 9 expansion services are deployed: Bazarr, Lidarr, Readarr,
+  Audiobookshelf, Komga, AdGuard Home, CrowdSec, Vaultwarden, and n8n.
+  (Uptime Kuma, the tenth planned service, was removed from scope by decision.)
+- The nzbdav category rollout is applied: categories now support music, books,
+  audiobooks, and comics alongside the original movie/TV paths.
 - `.env` contains locally generated values for Vaultwarden and n8n and is
   gitignored with mode `0600`. Never commit or print those values.
 

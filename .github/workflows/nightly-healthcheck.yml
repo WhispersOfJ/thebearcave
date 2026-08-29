@@ -172,3 +172,15 @@ jobs:
             exit 1
           fi
           echo "✅ All compose vars covered in .env.template"
+
+  backup-restore:
+    name: Backup Restore Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # backup.sh --configs-only warns (not fails) when .env is absent, so no
+      # dummy .env is needed here — and the test's placeholder check expects
+      # none. Only the tracked config/ tree exists in CI, keeping the copy fast.
+      - name: Run backup-restore test
+        run: bash tests/integration/test_backup_restore.sh

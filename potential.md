@@ -497,8 +497,8 @@ validates compose syntax only
 **Problem:** If Traefik dies, or the host loses network, or Prometheus itself
 stops, no alert can leave the machine to say so. Alertmanager's notification
 path runs on the same host it is monitoring.
-**Fix:** Gatus or Uptime Kuma on a second device, or an external dead-man's
-switch (healthchecks.io) pinged by a host cron. See software section.
+**Fix:** Gatus on a second device, or an external dead-man's switch
+(healthchecks.io) pinged by a host cron. See software section.
 
 ### 43. `services/watchtower/` is an empty directory
 **Severity:** LOW · **Effort:** S
@@ -741,9 +741,6 @@ backup formats to recover from.
 **Gatus** — a lightweight status page and synthetic checker, ideally on a second
 device. Answers item 42: it checks the stack from outside, so a total host
 failure produces an alert rather than silence. Config is a single YAML file.
-
-**Uptime Kuma** — richer UI, more notification integrations, heavier. Choose
-Gatus for config-as-code, Kuma for click-to-configure.
 
 **blackbox-exporter** — Prometheus-native probing. Feeds the TLS-expiry and
 external-endpoint alerts from item 39 into the Alertmanager path already

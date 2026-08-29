@@ -39,12 +39,11 @@ mount, healthcheck — mirroring radarr/sonarr.
 | 6 | **AdGuard Home** | Network-wide DNS ad/tracker blocking | Becomes **the LAN DNS** via router DHCP (router config change) |
 | 7 | **Crowdsec** | Intrusion detection | **Active blocking** — LAPI + bouncer in front of Traefik |
 
-### Phase 3 — Utilities (3)
+### Phase 3 — Utilities (2)
 | # | Service | Purpose | Notes |
 |---|---------|---------|-------|
-| 8 | **Uptime Kuma** | Service status / uptime dashboard | |
-| 9 | **Vaultwarden** | Self-hosted password manager | Native admin token auth |
-| 10 | **n8n** | Workflow automation | First workflow: **Discord notifications** (import/grab/failure events → Discord webhook) |
+| 8 | **Vaultwarden** | Self-hosted password manager | Native admin token auth |
+| 9 | **n8n** | Workflow automation | First workflow: **Discord notifications** (import/grab/failure events → Discord webhook) |
 
 > **Syncthing removed from scope** by user decision on 2026-08-28 (no offsite/LAN peer wanted).
 
@@ -200,8 +199,7 @@ Risks/notes:
 
 **Phase 2 — network layer:** AdGuard Home (needs router DHCP change — coordinate timing; brief DNS disruption when switching) + Crowdsec (LAPI + bouncer).
 
-**Phase 3 — utilities:** Uptime Kuma (**slip-gated** — CVE hold, §10 #10),
-Vaultwarden, n8n (first workflow: Discord notifications).
+**Phase 3 — utilities:** Vaultwarden, n8n (first workflow: Discord notifications).
 
 Rationale: dependencies first (Bazarr needs nothing new; Lidarr/Readarr share pipeline work; servers build on the extended categories; network tools change topology so they land after media settles; utilities are independent).
 
@@ -220,16 +218,15 @@ Existing host ports in use (live `ss` + `docker ps`, 2026-08-28): 80/443 (traefi
 | Komga | 25600 | 25600 | |
 | AdGuard Home | 53 + 3000 web | 53/53 (tcp+udp), **3003** | 3000 host taken by nzbdav → map web to 3003 |
 | Crowdsec LAPI | 8080 | **18080** | 8080 host taken by cadvisor |
-| Uptime Kuma | 3001 | **3002** | 3001 host taken by grafana |
 | Vaultwarden | 80 | **8222** | |
 | n8n | 5678 | 5678 | |
 
 > All ports must be re-verified at implementation; the list above is the proposal.
 
-### Live validation (2026-08-28) — ✅ all 10 proposed ports FREE
+### Live validation (2026-08-28) — ✅ all 9 proposed ports FREE
 
 Checked every proposed host port against the live `ss` table and `docker ps`:
-`8686, 8787, 6767, 13378, 25600, 3003, 18080, 3002, 8222, 5678` — all free, no
+`8686, 8787, 6767, 13378, 25600, 3003, 18080, 8222, 5678` — all free, no
 collisions with the existing 19 published ports or non-stack listeners.
 Ephemeral range is 32768–60999, so none of the proposals (all < 32000) clash
 with outbound connections.
@@ -252,7 +249,7 @@ resolve afterward, that rule is the first place to look.
 
 | Tier | Limit | Services |
 |------|-------|----------|
-| Tiny | 128m / 0.25 CPU | AdGuard, Uptime Kuma, Crowdsec LAPI, Bazarr |
+| Tiny | 128m / 0.25 CPU | AdGuard, Crowdsec LAPI, Bazarr |
 | Small | 256m / 0.5 CPU | Vaultwarden, Readarr |
 | Medium | 512m / 0.5–1.0 CPU | Lidarr, Audiobookshelf, n8n |
 | Larger | 1g / 1.0 CPU | Komga |
@@ -294,7 +291,6 @@ N8N_BASIC_AUTH_PASSWORD=changeme
 ./config/komga/
 ./config/adguard/         # Phase 2
 ./config/crowdsec/
-./config/uptime-kuma/     # Phase 3 (SQLite)
 ./config/vaultwarden/     # SQLite + attachments
 ./config/n8n/
 
@@ -319,17 +315,7 @@ N8N_BASIC_AUTH_PASSWORD=changeme
 6. **Bazarr + Plex path** — Bazarr needs access to the media folders to place subs; wire the same FUSE/mount paths as sonarr/radarr.
 7. **AdGuard router change timing** — plan the DHCP/DNS cutover window with the user.
 8. **Per-service health endpoints** — confirm each image's healthcheck path at implementation.
-9. **Image source** — hotio for Lidarr (**:nightly**, release lags .NET — §14)/Bazarr (matches stack); **linuxserver for Readarr** (no hotio image); official upstream for Audiobookshelf/Komga/AdGuard/Vaultwarden/n8n; Uptime Kuma `louislam/uptime-kuma:2.5.3-slim-rootless` (**slip candidate**, §14); Crowdsec `crowdsecurity/crowdsec` + Traefik plugin. Pin where CVE-prone or unstable (Readarr!, komga `1.x`). See §14.
-10. **⚠️ TRACKING — uptime-kuma Phase 3 slip (decision 2026-08-28):** no published
-    tag clears the trivy CRITICAL gate. `:1`/`:latest` = EOL Debian 10 buster
-    (13 C); `:2`/`:2.5.3` = bookworm (134 C — worse); **best = `2.5.3-slim-rootless`**
-    (bookworm, UID 1000, 12 C — live jsonata/protobufjs/grpc JS deps, not
-    ignorable under repo policy). **Action at Phase 3 kickoff:** re-scan
-    `louislam/uptime-kuma:2.5.3-slim-rootless`; deploy only if 0 CRITICAL,
-    otherwise **slip Uptime Kuma to a later phase** and re-check each cycle.
-    Full matrix + CVE detail in §14. Uptime Kuma is the **only** service with
-    this status — everything else resolves or deploys as-is.
-
+9. **Image source** — hotio for Lidarr (**:nightly**, release lags .NET — §14)/Bazarr (matches stack); **linuxserver for Readarr** (no hotio image); official upstream for Audiobookshelf/Komga/AdGuard/Vaultwarden/n8n; Crowdsec `crowdsecurity/crowdsec` + Traefik plugin. Pin where CVE-prone or unstable (Readarr!, komga `1.x`). See §14.
 ---
 
 ## 11. Definition of Done (per phase)
@@ -345,9 +331,6 @@ For every service in the phase:
 - [ ] Config dir added to the backup playbook (config-only scope)
 - [ ] `AGENTS.md` service table + port map updated
 - [ ] Phase 1 additionally: nzbdav categories + Prowlarr registration verified end-to-end with a real test grab
-- [ ] **Phase 3 gate:** Uptime Kuma deployed **only if** re-scan of
-      `2.5.3-slim-rootless` is 0 CRITICAL — else slipped (tracking item §10 #10)
-
 ---
 
 ## 12. Summary of User Preferences (single source of truth)
@@ -668,46 +651,7 @@ Traefik labels). **Not for deployment until approved.**
 > 5. Optional CAPI enroll for community blocklists: `cscli console enroll`.
 >    Acquisitions/parsers configured in `./config/crowdsec` (acquis.d, profiles.yaml).
 
-### Phase 3 blocks — Uptime Kuma, Vaultwarden, n8n
-
-### Uptime Kuma (status/uptime dashboard) — ⚠️ flagged for Phase 3 slip (§14)
-
-```yaml
-  uptime-kuma:
-    # ⚠️ CVE gate: NO tag clears CRITICAL (2026-08-28). Best = slim-rootless
-    # (bookworm, UID 1000, 12 CRITICAL — live jsonata/protobufjs/grpc deps).
-    # Re-check before Phase 3; if still red, this service slips (see §14).
-    image: louislam/uptime-kuma:2.5.3-slim-rootless
-    container_name: uptime-kuma
-    mem_limit: 128m
-    cpus: "0.25"
-    restart: unless-stopped
-    logging: *common-logging
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-    volumes:
-      - *ca-mount
-      - ./config/uptime-kuma:/app/data
-    ports:
-      - "3002:3001"      # web UI: container 3001, host 3001 taken by grafana → 3002
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/ >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.uptime-kuma.rule=Host(`uptime-kuma.${HOST_IP}.nip.io`)"
-      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
-      - "traefik.http.routers.uptime-kuma.tls=true"
-```
-
-> `2.5.3-slim-rootless` runs as UID 1000 (no PUID/PGID env needed; no root).
-> **Deploy only if re-scan is green or the slip decision is made** — see the
-> §14 tag-sweep table. Watch the 128m cap (Node + SQLite — §7 may need a bump).
+### Phase 3 blocks — Vaultwarden, n8n
 
 ### Vaultwarden (self-hosted password manager)
 
@@ -813,9 +757,6 @@ Traefik labels). **Not for deployment until approved.**
   (seconds-long route blip); stage it outside the AdGuard DHCP cutover window.
 - 128m/0.25 for Crowdsec is tight — watch `docker stats` after 48h (§7 tier may
   need a bump; parsers + acquisition can spike).
-- **Uptime Kuma** at 128m/0.25 is also tight (Node + SQLite) — likely needs a
-  Small-tier bump after 48h of real use; port 3002/container 3001 confirmed in
-  §6. No PUID/PGID env support (runs as root; verify data-dir ownership).
 - **Vaultwarden** native admin auth via `VAULTWARDEN_ADMIN_TOKEN` (§8) — no
   Traefik basic-auth layer per §3; `SIGNUPS_ALLOWED` flipped true once at setup.
 - **n8n** needs `N8N_ENCRYPTION_KEY` before first start (§8) — generated once,
@@ -838,7 +779,6 @@ All 10 deployable images re-verified live with `docker manifest inspect` on
 | `gotson/komga:1.x` | ✅ | `sha256:e755c9691aa8ec38e2…` | Official; **`1.x` pin** — passes CVE gate with draft ignores (§14) |
 | `adguard/adguardhome:latest` | ✅ | `sha256:678640ae9987aff621…` | |
 | `crowdsecurity/crowdsec:latest` | ✅ | `sha256:95a25d0f0fb92d9620…` | Bouncer: **Traefik middleware plugin** (see §4.8) — no sidecar container needed |
-| `louislam/uptime-kuma:2.5.3-slim-rootless` | ✅ | — | Best tag (bookworm, UID 1000) — **slip candidate** if gate stays red (§14) |
 | `vaultwarden/server:latest` | ✅ | `sha256:5d326778c22f063d09…` | |
 | `n8nio/n8n:latest` | ✅ | `sha256:6b3a46d63a081e0c7f…` | |
 | `linuxserver/readarr:develop-0.4.18.2805-ls157` | ✅ | `sha256:fc5552ceaa09cd31a4…` | **Use this pinned tag**; bump deliberately (0.4.x = revived-project dev builds) |
@@ -859,7 +799,6 @@ until remediated. Current stack baseline: 20 images, **0 CRITICAL** (the
 
 | Image | CRITICAL | HIGH | Notable CVEs (CRITICAL) |
 |-------|----------|------|-------------------------|
-| `louislam/uptime-kuma:1` | **13** | 220 | stdlib v1.20.5/v1.24.4 (CVE-2024-24790, CVE-2025-68121), zlib1g CVE-2023-45853, protobufjs, liquidjs, jsonata, fast-xml-parser, grpc |
 | `gotson/komga:latest` | **9** | 207 | stdlib v1.17.8 (CVE-2023-24538/24540, CVE-2024-24790, CVE-2025-68121), linux-libc-dev 7.0 (5×) |
 | `ghcr.io/hotio/lidarr:release` | **5** | 76 | ASP.NET Core 8.0.12 (CVE-2025-55315) — hotio image lags .NET runtime |
 | `vaultwarden/server:latest` | **4** | 68 | libmariadb3 11.8.6 (CVE-2026-44172, CVE-2026-49261) |
@@ -876,9 +815,8 @@ until remediated. Current stack baseline: 20 images, **0 CRITICAL** (the
    some CRITICALs (e.g. hotio lidarr's stale .NET 8.0.12) may clear on an
    upstream rebuild. The digests above pin what was scanned 2026-08-28.
 2. **Prioritize by reachability:** resolved since the initial scan — komga
-   (9) via `1.x` + draft ignores; uptime-kuma (13) via slip decision (§10 #10);
-   lidarr (5) via `:nightly`. Remaining open: crowdsec + audiobookshelf
-   (4, upstream-wait) — see matrix below.
+   (9) via `1.x` + draft ignores; lidarr (5) via `:nightly`. Remaining open:
+   crowdsec + audiobookshelf (4, upstream-wait) — see matrix below.
 3. **Suppress only with justification** per existing `.trivyignore` policy
    (e.g. `linux-libc-dev` in komga = host-kernel headers, not shipped binaries).
 4. **Merge order:** land the compose changes in a PR and let the trivy scan
@@ -891,9 +829,9 @@ Verified reachability in the actual images (2026-08-28). **Only dead-code and
 scan-artifact findings are drafted below** — the 11 entries cover 13 findings
 (komga 9: 5 linux-libc-dev + 4 Go-stdlib; vaultwarden 4: 2 CVE IDs ×
 libmariadb3+mariadb-common). Of the 35 scanned CRITICALs, lidarr's 5 are
-resolved via `:nightly` (above); the remaining **17 are live runtime code and
-must NOT be ignored** (uptime-kuma 13 — slip decision §10 #10; crowdsec 2 +
-audiobookshelf 2 — upstream-wait, deploy-as-is).
+resolved via `:nightly` (above); the remaining **4 are live runtime code and
+must NOT be ignored** (crowdsec 2 + audiobookshelf 2 — upstream-wait,
+deploy-as-is).
 
 Apply the block below to `.trivyignore` **in the same change that adds the
 images to compose** — never before (policy: entries are current findings only):
@@ -930,28 +868,15 @@ CVE-2026-44172 # vaultwarden libmariadb3 — unused (SQLite backend)
 CVE-2026-49261 # vaultwarden libmariadb3 — unused (SQLite backend)
 ```
 
-**Tag-sweep results (2026-08-28) — newer tags don't save uptime-kuma; komga
-passes with the draft ignores:**
+**Tag-sweep results (2026-08-28) — komga passes with the draft ignores:**
 
 | Image | Tag | Base | CRITICAL | Verdict |
 |-------|-----|------|----------|---------|
-| uptime-kuma | `:1` / `:latest` | **Debian 10 buster (EOL)** | 13 | Red |
-| uptime-kuma | `:2` / `:2.5.3` | bookworm | **134** | Red (worse) |
-| uptime-kuma | `2.5.3-slim` | bookworm | **12** | Best option, still red |
-| uptime-kuma | `2.5.3-slim-rootless` | bookworm | ~12 (same base), **UID 1000** | Best + least privilege, still red |
 | komga | `latest` / `1.x` / `1.26.3` | Ubuntu 26.04 | 9 | **Green if draft ignores applied** (all 9 = suppressible) |
 
 - **komga: resolved.** `1.x` matches `latest` (9 CRITICAL, all in the draft
   block: 5 linux-libc-dev headers + 4 Go-stdlib scan artifacts, verified no
   Go binary ships). Pin `gotson/komga:1.x` and the gate passes.
-- **uptime-kuma: unresolved — recommend Phase 3 slip.** No tag clears the
-  gate: `:1` is EOL-buster; `:2` jumps to 134; the **`2.5.3-slim-rootless`**
-  (bookworm, UID 1000 — best security posture) still has 12, and several are
-  live app deps (jsonata 2.1.1 ×3, protobufjs, grpc in the JS bundle —
-  reachable; verified no Go toolchain so the 2 stdlib hits are artifacts, and
-  node isn't linked against system sqlite/gnutls/zlib, but the JS-deps alone
-  keep it red under repo policy). Re-check `2.5.3-slim-rootless` at Phase 3
-  time; slip if still red. Do NOT ignore live JSON-parsing deps to force green.
 
 **lidarr resolved (2026-08-28):** CVE-2025-55315 (.NET Security Feature
 Bypass) is fixed in **.NET 8.0.21**; hotio's `:release` image (rebuilt
@@ -966,7 +891,6 @@ runtime.
 
 | Image | CVEs | Why not ignorable |
 |-------|------|-------------------|
-| uptime-kuma 2.5.3-slim-rootless | 12 (jsonata, protobufjs, grpc, sqlite3, gnutls, zlib, stdlib) | 2 stdlib = scan artifacts; rest = live app/base deps — see slip note above |
 | ~~hotio/lidarr:release~~ | ~~5 (CVE-2025-55315)~~ | **Resolved** — use `:nightly` (0 CRITICAL), see note above |
 | crowdsec (all tags) | 2 (kin-openapi GHSA-r277-6w6q-xmqw) | **No tag clears it** — swept `latest`/`slim`/`v1.7.8-slim`/`v1.8.0-rc2-slim`/`dev`: all ship kin-openapi v0.137.0; fix exists (0.144.0) but Crowdsec hasn't rebuilt. Deploy as-is (LAN-only, LAPI) and track upstream release |
 | audiobookshelf (all tags) | 2 (form-data CVE-2025-7783, sequelize CVE-2026-69240) | **No tag clears it** — swept `latest`/`2.36.0`/`edge`: all ship form-data 4.0.0 (fixed 4.0.4) + sequelize 6.35.2 (fixed 6.37.4); upstream hasn't bumped. Deploy as-is and track upstream |
@@ -975,8 +899,7 @@ runtime.
 Fixes exist upstream but neither project has rebuilt an image with them. Neither
 is ignorable (live runtime code) and neither has an alternative tag — so Phase
 1/2 deploy them with the CVE tracking documented here, and remove the notes
-when the upstream rebuild lands. These are the last two open CVE items besides
-the uptime-kuma slip.
+when the upstream rebuild lands. These are the last two open CVE items.
 
 ---
 

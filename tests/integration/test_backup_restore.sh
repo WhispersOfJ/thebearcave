@@ -39,32 +39,34 @@ else
     exit 1
 fi
 
-# Step 2: Find the latest backup archive
-LATEST_BACKUP=$(find "$REPO_DIR/backups" -maxdepth 1 -name 'bearcave_backup_*.tar.gz' -printf '%T@\t%p\n' 2>/dev/null | sort -rn | head -1 | cut -f2-)
+# Step 2: Find the latest backup directory (backup.sh writes a directory tree,
+# not a tarball)
+LATEST_BACKUP=$(find "$REPO_DIR/backups" -maxdepth 1 -type d -name 'bearcave_backup_*' -printf '%T@\t%p\n' 2>/dev/null | sort -rn | head -1 | cut -f2-)
 if [ -z "$LATEST_BACKUP" ]; then
-    fail "No backup archive found in backups/"
+    fail "No backup directory found in backups/"
     echo ""
     echo "Results: $PASS passed, $FAIL failed"
     exit 1
 fi
-pass "Found backup archive: $(basename "$LATEST_BACKUP") ($(du -h "$LATEST_BACKUP" | cut -f1))"
+pass "Found backup: $(basename "$LATEST_BACKUP") ($(du -sh "$LATEST_BACKUP" | cut -f1))"
 
-# Step 3: Verify archive integrity
+# Step 3: Verify backup structure — a configs/ tree must exist with content
 echo ""
-echo "Step 2: Verifying archive integrity..."
-if tar -tzf "$LATEST_BACKUP" > /dev/null 2>&1; then
-    pass "Archive is valid tar.gz"
+echo "Step 2: Verifying backup structure..."
+CONFIG_COUNT=$(find "$LATEST_BACKUP/configs" -type f 2>/dev/null | wc -l)
+if [ "$CONFIG_COUNT" -gt 0 ]; then
+    pass "Backup contains configs/ with $CONFIG_COUNT files"
 else
-    fail "Archive is corrupted (tar -tzf failed)"
+    fail "Backup missing configs/ content"
 fi
 
-# Step 4: Extract to scratch directory
+# Step 4: Restore into scratch directory (simulate a restore: copy the tree)
 echo ""
-echo "Step 3: Extracting to scratch directory..."
-if tar -xzf "$LATEST_BACKUP" -C "$SCRATCH_DIR" 2>/dev/null; then
-    pass "Archive extracted successfully"
+echo "Step 3: Restoring into scratch directory..."
+if cp -r "$LATEST_BACKUP/." "$SCRATCH_DIR/" 2>/dev/null; then
+    pass "Backup restored successfully"
 else
-    fail "Extraction failed"
+    fail "Restore failed"
 fi
 
 # Step 5: Verify expected files exist
