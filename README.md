@@ -119,6 +119,8 @@ Plex runs on host network for GDM/DLNA/remote access. Access directly at `http:/
 | [Security](docs/security.md) | Secrets model, exposure, tradeoffs, incident response |
 | [CI/CD](docs/ci-cd.md) | Workflows, pinned-actions policy, actionlint gate, release automation |
 | [Testing](docs/testing.md) | Health checks, integration pipeline, live tests |
+| [MCP](docs/mcp.md) | Freebuff Desktop MCP setup — Connectors UI, `~/.agents/mcp.json` |
+| [Stackarr](docs/stackarr.md) | Evaluation of the media-stack MCP control plane — watch, don't adopt yet |
 | [Migration](docs/migration/) | from-media-stack / from-metacacharr guides |
 | [AGENTS.md](AGENTS.md) | Full system reference for AI agents |
 
