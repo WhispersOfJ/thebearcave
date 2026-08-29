@@ -488,8 +488,8 @@ def main():
             results[f"{store}/{name}"] = {"ok": ok, "lines": lines}
             all_ok = all_ok and ok
             if not quiet:
-                for l in lines:
-                    print(l)
+                for line in lines:
+                    print(line)
 
     live_report = {
         "ok": all_ok,
