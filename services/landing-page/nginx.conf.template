@@ -100,6 +100,55 @@ server {
         proxy_read_timeout 5s;
     }
 
+    # Expansion services — media (Lidarr, Readarr, Bazarr, Audiobookshelf, Komga)
+    location /health/lidarr {
+        proxy_pass http://lidarr:8686/ping;
+        proxy_read_timeout 5s;
+    }
+    location /health/readarr {
+        proxy_pass http://readarr:8787/ping;
+        proxy_read_timeout 5s;
+    }
+    location /health/bazarr {
+        proxy_pass http://bazarr:6767/api/health;
+        proxy_read_timeout 5s;
+    }
+    location /health/audiobookshelf {
+        proxy_pass http://audiobookshelf:80/;
+        proxy_read_timeout 5s;
+    }
+    location /health/komga {
+        proxy_pass http://komga:25600/actuator/health;
+        proxy_read_timeout 5s;
+    }
+
+    # Network & Security — AdGuard Home (login page is the only unauth 200),
+    # CrowdSec (LAPI /health returns {"status":"up"})
+    location /health/adguard {
+        proxy_pass http://adguard:3000/login.html;
+        proxy_read_timeout 5s;
+    }
+    location /health/crowdsec {
+        proxy_pass http://crowdsec:8080/health;
+        proxy_read_timeout 5s;
+    }
+
+    # Self-hosted apps — Vaultwarden, n8n
+    location /health/vaultwarden {
+        proxy_pass http://vaultwarden:80/alive;
+        proxy_read_timeout 5s;
+    }
+    location /health/n8n {
+        proxy_pass http://n8n:5678/healthz;
+        proxy_read_timeout 5s;
+    }
+
+    # Alertmanager
+    location /health/alertmanager {
+        proxy_pass http://alertmanager:9093/-/healthy;
+        proxy_read_timeout 5s;
+    }
+
     # Plex & Node Exporter (host network — reachable via host.docker.internal)
     location /health/plex {
         proxy_pass http://host.docker.internal:32400/identity;

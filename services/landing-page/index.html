@@ -110,14 +110,6 @@
       transition: background 0.2s;
     }
     .detail-link:hover { background: rgba(108,92,231,0.3); }
-    /* ── Graph ── */
-    .graph-section { margin-bottom: 2.5rem; }
-    .graph-container {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 1.5rem; overflow-x: auto;
-    }
-    .graph-container svg { max-width: 100%; height: auto; }
-    .mermaid { text-align: center; }
     /* ── Docs grid ── */
     .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
     .doc-card {
@@ -197,14 +189,6 @@
     </div>
   </header>
   <main>
-    <!-- Ecosystem graph (filled by JS) -->
-    <h2>Ecosystem</h2>
-    <div class="graph-section">
-      <div class="graph-container">
-        <div class="mermaid" id="ecosystem-graph"></div>
-      </div>
-    </div>
-
     <!-- Pipeline flow strip (filled by JS) -->
     <h2>Content Pipeline</h2>
     <div class="pipeline-flow" id="pipeline-flow"></div>
@@ -325,22 +309,6 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     🐻 The Bear Cave · <a href="https://github.com/WhispersOfJ/thebearcave">GitHub</a>
   </footer>
 
-  <!-- Mermaid.js: lazy-loaded when graph scrolls into view -->
-  <script>
-    function loadMermaid() {
-      if (typeof mermaid !== 'undefined') return;
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
-      s.onload = () => { if (typeof renderGraph === 'function') renderGraph(); };
-      document.head.appendChild(s);
-    }
-    // Load when graph section is visible
-    const graphObs = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) { loadMermaid(); graphObs.disconnect(); }
-    }, { rootMargin: '200px' });
-    graphObs.observe(document.getElementById('ecosystem-graph'));
-  </script>
-
   <script>
     // ══════════════════════════════════════════════════════════
     // SERVICE REGISTRY — single source of truth
@@ -348,9 +316,8 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
     // ══════════════════════════════════════════════════════════
     let REGISTRY = null;
     const HOST = location.hostname;
-    let healthStatus = {};  // populated by checkAll(), used by renderGraph()
 
-    const INLINE_REGISTRY = {"categories":{"infrastructure":{"name":"Infrastructure","icon":"📡","description":"Core platform services"},"pipeline":{"name":"Media Pipeline","icon":"🎬","description":"Content acquisition and delivery"},"data":{"name":"Data & Metadata","icon":"📊","description":"Metadata, state, and analytics"},"monitoring":{"name":"Monitoring & Logs","icon":"📈","description":"Observability and alerting"},"security":{"name":"Network & Security","icon":"🛡️","description":"Network protection and access control"}},"pipeline_flow":[["prowlarr"],["radarr","sonarr","lidarr","readarr"],["bazarr"],["audiobookshelf","komga"],["nzbdav"],["nzbdav_rclone"],["plex"]],"services":{"traefik":{"name":"Traefik","description":"Reverse proxy with automatic HTTPS","port":443,"ports":[80,443],"category":"infrastructure","health":{"type":"none"},"dashboard":null,"depends_on":[],"depended_by":["radarr","sonarr","prowlarr","nzbdav","seerr","arr-dashboard","metacache","watchstate","cleanuparr","grafana","prometheus","landing-page","bazarr","lidarr","readarr","audiobookshelf","komga","adguard","vaultwarden","n8n"],"icon":"🔀","docs":"docs/services/traefik.md"},"prowlarr":{"name":"Prowlarr","description":"Indexer management & search","port":9696,"category":"pipeline","health":{"type":"http","url":"http://prowlarr:9696/api/v1/system/status"},"dashboard":"http://{host}:9696","depends_on":["traefik"],"depended_by":["radarr","sonarr","arr-dashboard","bazarr","lidarr","readarr"],"icon":"🔍","docs":"docs/services/prowlarr.md"},"radarr":{"name":"Radarr","description":"Movie management & downloads","port":7878,"category":"pipeline","health":{"type":"http","url":"http://radarr:7878/api/v3/system/status"},"dashboard":"http://{host}:7878","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":["seerr","watchstate","cleanuparr","arr-dashboard","bazarr"],"icon":"🎬","docs":"docs/services/radarr.md"},"sonarr":{"name":"Sonarr","description":"TV show management & downloads","port":8989,"category":"pipeline","health":{"type":"http","url":"http://sonarr:8989/api/v3/system/status"},"dashboard":"http://{host}:8989","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":["seerr","watchstate","cleanuparr","arr-dashboard","bazarr"],"icon":"📺","docs":"docs/services/sonarr.md"},"nzbdav":{"name":"NzbDAV","description":"Usenet queue & WebDAV mount","port":3000,"category":"pipeline","health":{"type":"http","url":"http://nzbdav:3000/?mode=get_cats&output=json"},"dashboard":"http://{host}:3000","depends_on":["traefik"],"depended_by":["nzbdav_rclone","radarr","sonarr","unpackerr","cleanuparr","lidarr","readarr","audiobookshelf","komga"],"icon":"📥","docs":"docs/services/nzbdav.md"},"nzbdav_rclone":{"name":"NzbDAV Rclone","description":"FUSE mount — streams on demand","port":null,"category":"pipeline","health":{"type":"none"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":["plex","bazarr","lidarr","readarr","audiobookshelf","komga"],"icon":"🔗","docs":"docs/services/nzbdav-rclone.md"},"seerr":{"name":"Seerr","description":"Request management & discovery","port":5055,"category":"pipeline","health":{"type":"http","url":"http://seerr:5055/api/v1/status"},"dashboard":"http://{host}:5055","depends_on":["traefik","radarr","sonarr"],"depended_by":[],"icon":"📋","docs":"docs/services/seerr.md"},"plex":{"name":"Plex","description":"Media server & streaming","port":32400,"category":"pipeline","health":{"type":"http","url":"http://host.docker.internal:32400/identity"},"dashboard":"http://{host}:32400","depends_on":["nzbdav_rclone","metacache"],"depended_by":["watchstate"],"icon":"🎥","docs":"docs/services/plex.md"},"unpackerr":{"name":"Unpackerr","description":"Auto-extracts downloads","port":null,"category":"pipeline","health":{"type":"none"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":[],"icon":"📦","docs":"docs/services/unpackerr.md"},"metacache":{"name":"Metacache","description":"Plex metadata cache & matching","port":8765,"category":"data","health":{"type":"http","url":"http://metacache:8765/healthz"},"dashboard":"http://{host}:8765/dashboard","depends_on":["traefik"],"depended_by":["plex"],"icon":"🗄️","docs":"docs/services/metacache.md"},"arr-dashboard":{"name":"arr-dashboard","description":"Queue, calendar & TRaSH Guides","port":41789,"category":"data","health":{"type":"http","url":"http://arr-dashboard:3000/health"},"dashboard":"http://{host}:41789","depends_on":["traefik","radarr","sonarr","prowlarr"],"depended_by":[],"icon":"📊","docs":"docs/services/arr-dashboard.md"},"watchstate":{"name":"Watchstate","description":"Watch history sync","port":8705,"category":"data","health":{"type":"http","url":"http://watchstate:8080/"},"dashboard":"http://{host}:8705","depends_on":["traefik","plex","radarr","sonarr"],"depended_by":[],"icon":"✅","docs":"docs/services/watchstate.md"},"cleanuparr":{"name":"Cleanuparr","description":"Stale download cleanup","port":11011,"category":"data","health":{"type":"http","url":"http://cleanuparr:11011/health"},"dashboard":"http://{host}:11011","depends_on":["traefik","nzbdav","radarr","sonarr"],"depended_by":[],"icon":"🧹","docs":"docs/services/cleanuparr.md"},"grafana":{"name":"Grafana","description":"Metrics dashboards & visualization","port":3001,"category":"monitoring","health":{"type":"http","url":"http://grafana:3000/api/health"},"dashboard":"http://{host}:3001","depends_on":["traefik","prometheus","loki"],"depended_by":[],"icon":"📈","docs":"docs/services/monitoring.md"},"prometheus":{"name":"Prometheus","description":"Metrics collection & alerting","port":9090,"category":"monitoring","health":{"type":"http","url":"http://prometheus:9090/-/healthy"},"dashboard":"http://{host}:9090","depends_on":["traefik"],"depended_by":["grafana"],"icon":"🔥","docs":"docs/services/monitoring.md"},"loki":{"name":"Loki","description":"Log aggregation","port":3100,"category":"monitoring","health":{"type":"http","url":"http://loki:3100/ready"},"dashboard":null,"depends_on":["traefik"],"depended_by":["grafana","promtail"],"icon":"📝","docs":"docs/services/monitoring.md"},"promtail":{"name":"Promtail","description":"Log shipping to Loki","port":null,"category":"monitoring","health":{"type":"none"},"dashboard":null,"depends_on":["loki"],"depended_by":[],"icon":"🚛","docs":"docs/services/monitoring.md"},"node-exporter":{"name":"Node Exporter","description":"Host CPU, RAM & disk metrics","port":9100,"category":"monitoring","health":{"type":"http","url":"http://host.docker.internal:9100/metrics"},"dashboard":null,"depends_on":[],"depended_by":["prometheus"],"icon":"🖥️","docs":"docs/services/monitoring.md"},"cadvisor":{"name":"cAdvisor","description":"Container resource metrics","port":8080,"category":"monitoring","health":{"type":"http","url":"http://cadvisor:8080/healthz"},"dashboard":null,"depends_on":["traefik"],"depended_by":["prometheus"],"icon":"🐳","docs":"docs/services/monitoring.md"},"nzbdav-exporter":{"name":"NzbDAV Exporter","description":"NzbDAV config & queue metrics","port":9200,"category":"monitoring","health":{"type":"http","url":"http://nzbdav-exporter:9200/metrics"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":["prometheus"],"icon":"📊","docs":"docs/services/monitoring.md"},"landing-page":{"name":"Landing Page","description":"Nginx service portal","port":8000,"category":"infrastructure","health":{"type":"http","url":"http://localhost:8000/healthz"},"dashboard":"http://{host}:8000","depends_on":["traefik"],"depended_by":[],"icon":"🏠","docs":"docs/services/landing-page.md"},"bazarr":{"name":"Bazarr","description":"Subtitle search & downloads","port":6767,"category":"pipeline","health":{"type":"http","url":"http://bazarr:6767/api/health"},"dashboard":"http://{host}:6767","depends_on":["traefik","radarr","sonarr","nzbdav_rclone"],"depended_by":[],"icon":"📝","docs":"docs/services/bazarr.md"},"lidarr":{"name":"Lidarr","description":"Music management & downloads","port":8686,"category":"pipeline","health":{"type":"http","url":"http://lidarr:8686/api/v1/system/status"},"dashboard":"http://{host}:8686","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":[],"icon":"🎵","docs":"docs/services/lidarr.md"},"readarr":{"name":"Readarr","description":"Book management & downloads","port":8787,"category":"pipeline","health":{"type":"http","url":"http://readarr:8787/api/v1/system/status"},"dashboard":"http://{host}:8787","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":[],"icon":"📚","docs":"docs/services/readarr.md"},"audiobookshelf":{"name":"Audiobookshelf","description":"Audiobook & podcast server","port":13378,"category":"pipeline","health":{"type":"http","url":"http://audiobookshelf:80/"},"dashboard":"http://{host}:13378","depends_on":["traefik","nzbdav_rclone"],"depended_by":[],"icon":"🎧","docs":"docs/services/audiobookshelf.md"},"komga":{"name":"Komga","description":"Comics & manga reader","port":25600,"category":"pipeline","health":{"type":"http","url":"http://komga:25600/actuator/health"},"dashboard":"http://{host}:25600","depends_on":["traefik","nzbdav_rclone"],"depended_by":[],"icon":"📖","docs":"docs/services/komga.md"},"adguard":{"name":"AdGuard Home","description":"Network-wide DNS filtering","port":3003,"ports":[53,3003],"category":"security","health":{"type":"http","url":"http://adguard:3000/control/health"},"dashboard":"http://{host}:3003","depends_on":["traefik"],"depended_by":[],"icon":"🛡️","docs":"docs/services/adguard.md"},"crowdsec":{"name":"CrowdSec","description":"Intrusion detection and blocking","port":18080,"category":"security","health":{"type":"none"},"dashboard":null,"depends_on":[],"depended_by":[],"icon":"🚨","docs":"docs/services/crowdsec.md"},"vaultwarden":{"name":"Vaultwarden","description":"Self-hosted password manager","port":8222,"category":"data","health":{"type":"http","url":"http://vaultwarden:80/alive"},"dashboard":"http://{host}:8222","depends_on":["traefik"],"depended_by":[],"icon":"🔐","docs":"docs/services/vaultwarden.md"},"n8n":{"name":"n8n","description":"Workflow automation & notifications","port":5678,"category":"data","health":{"type":"http","url":"http://n8n:5678/healthz"},"dashboard":"http://{host}:5678","depends_on":["traefik"],"depended_by":[],"icon":"⚙️","docs":"docs/services/n8n.md"},"alertmanager":{"name":"Alertmanager","description":"Prometheus alert routing & Discord notifications","port":9093,"category":"monitoring","health":{"type":"http","url":"http://alertmanager:9093/-/healthy"},"dashboard":"http://{host}:9093","depends_on":["prometheus"],"depended_by":[],"icon":"🚦","docs":"docs/services/monitoring.md"}}};
+    const INLINE_REGISTRY = {"categories":{"infrastructure":{"name":"Infrastructure","icon":"📡","description":"Core platform services"},"pipeline":{"name":"Media Pipeline","icon":"🎬","description":"Content acquisition and delivery"},"data":{"name":"Data & Metadata","icon":"📊","description":"Metadata, state, and analytics"},"monitoring":{"name":"Monitoring & Logs","icon":"📈","description":"Observability and alerting"},"security":{"name":"Network & Security","icon":"🛡️","description":"Network protection and access control"}},"pipeline_flow":[["prowlarr"],["radarr","sonarr","lidarr","readarr"],["bazarr"],["audiobookshelf","komga"],["nzbdav"],["nzbdav_rclone"],["plex"]],"services":{"traefik":{"name":"Traefik","description":"Reverse proxy with automatic HTTPS","port":443,"ports":[80,443],"category":"infrastructure","health":{"type":"none"},"dashboard":null,"depends_on":[],"depended_by":["radarr","sonarr","prowlarr","nzbdav","seerr","arr-dashboard","metacache","watchstate","cleanuparr","grafana","prometheus","landing-page","bazarr","lidarr","readarr","audiobookshelf","komga","adguard","vaultwarden","n8n"],"icon":"🔀","docs":"docs/services/traefik.md"},"prowlarr":{"name":"Prowlarr","description":"Indexer management & search","port":9696,"category":"pipeline","health":{"type":"http","url":"http://prowlarr:9696/api/v1/system/status"},"dashboard":"http://{host}:9696","depends_on":["traefik"],"depended_by":["radarr","sonarr","arr-dashboard","bazarr","lidarr","readarr"],"icon":"🔍","docs":"docs/services/prowlarr.md"},"radarr":{"name":"Radarr","description":"Movie management & downloads","port":7878,"category":"pipeline","health":{"type":"http","url":"http://radarr:7878/api/v3/system/status"},"dashboard":"http://{host}:7878","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":["seerr","watchstate","cleanuparr","arr-dashboard","bazarr"],"icon":"🎬","docs":"docs/services/radarr.md"},"sonarr":{"name":"Sonarr","description":"TV show management & downloads","port":8989,"category":"pipeline","health":{"type":"http","url":"http://sonarr:8989/api/v3/system/status"},"dashboard":"http://{host}:8989","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":["seerr","watchstate","cleanuparr","arr-dashboard","bazarr"],"icon":"📺","docs":"docs/services/sonarr.md"},"nzbdav":{"name":"NzbDAV","description":"Usenet queue & WebDAV mount","port":3000,"category":"pipeline","health":{"type":"http","url":"http://nzbdav:3000/?mode=get_cats&output=json"},"dashboard":"http://{host}:3000","depends_on":["traefik"],"depended_by":["nzbdav_rclone","radarr","sonarr","unpackerr","cleanuparr","lidarr","readarr","audiobookshelf","komga"],"icon":"📥","docs":"docs/services/nzbdav.md"},"nzbdav_rclone":{"name":"NzbDAV Rclone","description":"FUSE mount — streams on demand","port":null,"category":"pipeline","health":{"type":"none"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":["plex","bazarr","lidarr","readarr","audiobookshelf","komga"],"icon":"🔗","docs":"docs/services/nzbdav-rclone.md"},"seerr":{"name":"Seerr","description":"Request management & discovery","port":5055,"category":"pipeline","health":{"type":"http","url":"http://seerr:5055/api/v1/status"},"dashboard":"http://{host}:5055","depends_on":["traefik","radarr","sonarr"],"depended_by":[],"icon":"📋","docs":"docs/services/seerr.md"},"plex":{"name":"Plex","description":"Media server & streaming","port":32400,"category":"pipeline","health":{"type":"http","url":"http://host.docker.internal:32400/identity"},"dashboard":"http://{host}:32400","depends_on":["nzbdav_rclone","metacache"],"depended_by":["watchstate"],"icon":"🎥","docs":"docs/services/plex.md"},"unpackerr":{"name":"Unpackerr","description":"Auto-extracts downloads","port":null,"category":"pipeline","health":{"type":"none"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":[],"icon":"📦","docs":"docs/services/unpackerr.md"},"metacache":{"name":"Metacache","description":"Plex metadata cache & matching","port":8765,"category":"data","health":{"type":"http","url":"http://metacache:8765/healthz"},"dashboard":"http://{host}:8765/dashboard","depends_on":["traefik"],"depended_by":["plex"],"icon":"🗄️","docs":"docs/services/metacache.md"},"arr-dashboard":{"name":"arr-dashboard","description":"Queue, calendar & TRaSH Guides","port":41789,"category":"data","health":{"type":"http","url":"http://arr-dashboard:3000/health"},"dashboard":"http://{host}:41789","depends_on":["traefik","radarr","sonarr","prowlarr"],"depended_by":[],"icon":"📊","docs":"docs/services/arr-dashboard.md"},"watchstate":{"name":"Watchstate","description":"Watch history sync","port":8705,"category":"data","health":{"type":"http","url":"http://watchstate:8080/"},"dashboard":"http://{host}:8705","depends_on":["traefik","plex","radarr","sonarr"],"depended_by":[],"icon":"✅","docs":"docs/services/watchstate.md"},"cleanuparr":{"name":"Cleanuparr","description":"Stale download cleanup","port":11011,"category":"data","health":{"type":"http","url":"http://cleanuparr:11011/health"},"dashboard":"http://{host}:11011","depends_on":["traefik","nzbdav","radarr","sonarr"],"depended_by":[],"icon":"🧹","docs":"docs/services/cleanuparr.md"},"grafana":{"name":"Grafana","description":"Metrics dashboards & visualization","port":3001,"category":"monitoring","health":{"type":"http","url":"http://grafana:3000/api/health"},"dashboard":"http://{host}:3001","depends_on":["traefik","prometheus","loki"],"depended_by":[],"icon":"📈","docs":"docs/services/monitoring.md"},"prometheus":{"name":"Prometheus","description":"Metrics collection & alerting","port":9090,"category":"monitoring","health":{"type":"http","url":"http://prometheus:9090/-/healthy"},"dashboard":"http://{host}:9090","depends_on":["traefik"],"depended_by":["grafana"],"icon":"🔥","docs":"docs/services/monitoring.md"},"loki":{"name":"Loki","description":"Log aggregation","port":3100,"category":"monitoring","health":{"type":"http","url":"http://loki:3100/ready"},"dashboard":null,"depends_on":["traefik"],"depended_by":["grafana","promtail"],"icon":"📝","docs":"docs/services/monitoring.md"},"promtail":{"name":"Promtail","description":"Log shipping to Loki","port":null,"category":"monitoring","health":{"type":"none"},"dashboard":null,"depends_on":["loki"],"depended_by":[],"icon":"🚛","docs":"docs/services/monitoring.md"},"node-exporter":{"name":"Node Exporter","description":"Host CPU, RAM & disk metrics","port":9100,"category":"monitoring","health":{"type":"http","url":"http://host.docker.internal:9100/metrics"},"dashboard":null,"depends_on":[],"depended_by":["prometheus"],"icon":"🖥️","docs":"docs/services/monitoring.md"},"cadvisor":{"name":"cAdvisor","description":"Container resource metrics","port":8080,"category":"monitoring","health":{"type":"http","url":"http://cadvisor:8080/healthz"},"dashboard":null,"depends_on":["traefik"],"depended_by":["prometheus"],"icon":"🐳","docs":"docs/services/monitoring.md"},"nzbdav-exporter":{"name":"NzbDAV Exporter","description":"NzbDAV config & queue metrics","port":9200,"category":"monitoring","health":{"type":"http","url":"http://nzbdav-exporter:9200/metrics"},"dashboard":null,"depends_on":["nzbdav"],"depended_by":["prometheus"],"icon":"📊","docs":"docs/services/monitoring.md"},"landing-page":{"name":"Landing Page","description":"Nginx service portal","port":8000,"category":"infrastructure","health":{"type":"http","url":"http://localhost:8000/healthz"},"dashboard":"http://{host}:8000","depends_on":["traefik"],"depended_by":[],"icon":"🏠","docs":"docs/services/landing-page.md"},"bazarr":{"name":"Bazarr","description":"Subtitle search & downloads","port":6767,"category":"pipeline","health":{"type":"http","url":"http://bazarr:6767/api/health"},"dashboard":"http://{host}:6767","depends_on":["traefik","radarr","sonarr","nzbdav_rclone"],"depended_by":[],"icon":"📝","docs":"docs/services/bazarr.md"},"lidarr":{"name":"Lidarr","description":"Music management & downloads","port":8686,"category":"pipeline","health":{"type":"http","url":"http://lidarr:8686/ping"},"dashboard":"http://{host}:8686","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":[],"icon":"🎵","docs":"docs/services/lidarr.md"},"readarr":{"name":"Readarr","description":"Book management & downloads","port":8787,"category":"pipeline","health":{"type":"http","url":"http://readarr:8787/ping"},"dashboard":"http://{host}:8787","depends_on":["traefik","prowlarr","nzbdav"],"depended_by":[],"icon":"📚","docs":"docs/services/readarr.md"},"audiobookshelf":{"name":"Audiobookshelf","description":"Audiobook & podcast server","port":13378,"category":"pipeline","health":{"type":"http","url":"http://audiobookshelf:80/"},"dashboard":"http://{host}:13378","depends_on":["traefik","nzbdav_rclone"],"depended_by":[],"icon":"🎧","docs":"docs/services/audiobookshelf.md"},"komga":{"name":"Komga","description":"Comics & manga reader","port":25600,"category":"pipeline","health":{"type":"http","url":"http://komga:25600/actuator/health"},"dashboard":"http://{host}:25600","depends_on":["traefik","nzbdav_rclone"],"depended_by":[],"icon":"📖","docs":"docs/services/komga.md"},"adguard":{"name":"AdGuard Home","description":"Network-wide DNS filtering","port":3003,"ports":[53,3003],"category":"security","health":{"type":"http","url":"http://adguard:3000/login.html"},"dashboard":"http://{host}:3003","depends_on":["traefik"],"depended_by":[],"icon":"🛡️","docs":"docs/services/adguard.md"},"crowdsec":{"name":"CrowdSec","description":"Intrusion detection and blocking","port":18080,"category":"security","health":{"type":"http","url":"http://crowdsec:8080/health"},"dashboard":null,"depends_on":[],"depended_by":[],"icon":"🚨","docs":"docs/services/crowdsec.md"},"vaultwarden":{"name":"Vaultwarden","description":"Self-hosted password manager","port":8222,"category":"data","health":{"type":"http","url":"http://vaultwarden:80/alive"},"dashboard":"http://{host}:8222","depends_on":["traefik"],"depended_by":[],"icon":"🔐","docs":"docs/services/vaultwarden.md"},"n8n":{"name":"n8n","description":"Workflow automation & notifications","port":5678,"category":"data","health":{"type":"http","url":"http://n8n:5678/healthz"},"dashboard":"http://{host}:5678","depends_on":["traefik"],"depended_by":[],"icon":"⚙️","docs":"docs/services/n8n.md"},"alertmanager":{"name":"Alertmanager","description":"Prometheus alert routing & Discord notifications","port":9093,"category":"monitoring","health":{"type":"http","url":"http://alertmanager:9093/-/healthy"},"dashboard":"http://{host}:9093","depends_on":["prometheus"],"depended_by":[],"icon":"🚦","docs":"docs/services/monitoring.md"}}};
 
     async function loadRegistry() {
       try {
@@ -380,7 +347,7 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
       const container = document.getElementById('service-categories');
       const svc = REGISTRY.services;
       const cats = REGISTRY.categories;
-      const order = ['infrastructure', 'pipeline', 'data', 'monitoring'];
+      const order = ['infrastructure', 'pipeline', 'data', 'monitoring', 'security'];
       let html = '';
       for (const catId of order) {
         const cat = cats[catId];
@@ -432,58 +399,6 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
       }
       el.innerHTML = html;
     }
-
-    // ══════════════════════════════════════════════════════════
-    // RENDER: Mermaid ecosystem graph
-    // ══════════════════════════════════════════════════════════
-    function renderGraph() {
-      if (typeof mermaid === 'undefined') return;
-      try {
-      const svc = REGISTRY.services;
-      const seen = new Set();
-      let edges = '';
-      for (const [id, s] of Object.entries(svc)) {
-        for (const dep of (s.depends_on || [])) {
-          const key = `${dep}->${id}`;
-          if (!seen.has(key) && svc[dep]) {
-            seen.add(key);
-            const depName = dep.replace(/[^a-zA-Z0-9]/g, '_');
-            const thisName = id.replace(/[^a-zA-Z0-9]/g, '_');
-            edges += `    ${depName} --> ${thisName}\n`;
-          }
-        }
-      }
-      // Build node definitions with labels and live status colors
-      let nodes = '';
-      let styles = '';
-      for (const [id, s] of Object.entries(svc)) {
-        const safeId = id.replace(/[^a-zA-Z0-9]/g, '_');
-        nodes += `    ${safeId}["${s.icon} ${s.name}"]\n`;
-        const h = healthStatus[id];
-        if (h === 'up') {
-          styles += `    style ${safeId} fill:#2d6a4f,stroke:#40916c,color:#fff\n`;
-        } else if (h === 'down') {
-          styles += `    style ${safeId} fill:#6a2d2d,stroke:#914040,color:#fff\n`;
-        }
-      }
-      const graph = `flowchart LR\n${nodes}${edges}${styles}`;
-      document.getElementById('ecosystem-graph').textContent = graph;
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: 'dark',
-        themeVariables: {
-          primaryColor: '#1a1d27',
-          primaryTextColor: '#e4e6f0',
-          lineColor: '#6c5ce7',
-          primaryBorderColor: '#2a2d3a',
-          fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
-        },
-        flowchart: { curve: 'basis', padding: 15 }
-      });
-      mermaid.run({ nodes: [document.getElementById('ecosystem-graph')] });
-      } catch (e) { console.warn('Mermaid graph unavailable:', e); }
-    }
-
     // ══════════════════════════════════════════════════════════
     // INTERACTION: toggle card detail panel
     // ══════════════════════════════════════════════════════════
@@ -520,16 +435,13 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
       });
       const results = await Promise.all(checks);
       let up = 0;
-      healthStatus = {};
       for (const [name, status] of results) {
-        healthStatus[name] = status;
         const el = document.getElementById('status-' + name);
         if (el) el.className = status === 'up' ? 'card-status up' : 'card-status down';
         if (status === 'up') up++;
       }
       document.getElementById('online-count').textContent = up;
       document.getElementById('offline-count').textContent = cards.length - up;
-      renderGraph();
       document.getElementById('last-checked').textContent = new Date().toLocaleTimeString();
     }
 
@@ -584,7 +496,6 @@ certutil -addstore -f "ROOT" rootCA.pem</code></pre>
       validateRegistry(REGISTRY);
       renderCategories();
       renderPipeline();
-      renderGraph();
       checkAll();
       setInterval(checkAll, 15000);
     })();

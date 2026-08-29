@@ -524,7 +524,7 @@
       "category": "pipeline",
       "health": {
         "type": "http",
-        "url": "http://lidarr:8686/api/v1/system/status"
+        "url": "http://lidarr:8686/ping"
       },
       "dashboard": "http://{host}:8686",
       "depends_on": [
@@ -543,7 +543,7 @@
       "category": "pipeline",
       "health": {
         "type": "http",
-        "url": "http://readarr:8787/api/v1/system/status"
+        "url": "http://readarr:8787/ping"
       },
       "dashboard": "http://{host}:8787",
       "depends_on": [
@@ -602,7 +602,7 @@
       "category": "security",
       "health": {
         "type": "http",
-        "url": "http://adguard:3000/control/health"
+        "url": "http://adguard:3000/login.html"
       },
       "dashboard": "http://{host}:3003",
       "depends_on": [
@@ -618,7 +618,8 @@
       "port": 18080,
       "category": "security",
       "health": {
-        "type": "none"
+        "type": "http",
+        "url": "http://crowdsec:8080/health"
       },
       "dashboard": null,
       "depends_on": [],
