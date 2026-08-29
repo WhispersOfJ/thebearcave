@@ -51,7 +51,7 @@ for arg in "$@"; do
 done
 
 # Containers that must be healthy again before we call the update done.
-DEPENDENTS=(radarr sonarr plex unpackerr cleanuparr)
+DEPENDENTS=(radarr sonarr lidarr readarr bazarr plex unpackerr cleanuparr)
 WAIT_MAX_SECONDS=300
 POLL_SECONDS=5
 
