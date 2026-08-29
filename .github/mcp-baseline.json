@@ -44,14 +44,6 @@
         "  chrome-devtools: PASS \u2014 handshake OK (chrome_devtools 1.8.0)",
         "    tools (29): click, close_page, drag, emulate, evaluate_script, fill, fill_form, get_console_message, get_network_request, handle_dialog, hover, lighthouse_audit..."
       ]
-    },
-    "claude/caveman": {
-      "ok": true,
-      "tools": 5,
-      "detail": [
-        "  caveman: PASS \u2014 handshake OK (caveman dev)",
-        "    tools (5): caveman_compress, caveman_retrieve, caveman_stats, caveman_toon_encode, caveman_toon_decode"
-      ]
     }
   }
 }
