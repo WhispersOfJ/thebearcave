@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.14.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.13.0...v1.14.0) (2026-08-29)
+
+
+### Features
+
+* add Traefik dashboard link to landing page ([ffb56ac](https://github.com/WhispersOfJ/thebearcave/commit/ffb56ac4537f0dd46e62ec17ca80b86ea2740f43))
+* deploy 9 new stack services with crowdsec bouncer and nzbdav categories ([3d25969](https://github.com/WhispersOfJ/thebearcave/commit/3d2596909c1daa7051bbca99e7c920d40cf7c3e2))
+* switch landing page dashboard links to HTTPS nip.io hostnames ([69b18b7](https://github.com/WhispersOfJ/thebearcave/commit/69b18b78c2daba25b101e03bd722d299532e3ad7))
+* update landing page with new services, health probes, and links ([b2bc2a8](https://github.com/WhispersOfJ/thebearcave/commit/b2bc2a8651692002261854b442856a60889d9cd9))
+
+
+### Bug Fixes
+
+* add missing ADGUARD_ADMIN_* vars to .env.template ([64ec98c](https://github.com/WhispersOfJ/thebearcave/commit/64ec98c764bbddf7544175734747128d1cdcc617))
+* keep digests in trivy image extraction and re-key baseline to pins ([d06c333](https://github.com/WhispersOfJ/thebearcave/commit/d06c3338017600d91f0bd2dc9d455331276cc1db))
+* sync update-nzbdav.sh dependents with compose cascade ([293523e](https://github.com/WhispersOfJ/thebearcave/commit/293523e747e3ced9b9580cba9717f4dbcdbf2f44))
+
 ## [1.13.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.12.1...v1.13.0) (2026-08-29)
 
 
