@@ -62,36 +62,47 @@ jobs:
           echo "Found $(wc -l < /tmp/images.txt) images"
           cat /tmp/images.txt
 
-      - name: Scan all images and gate on CRITICAL
+      - name: Scan all images and gate on CRITICAL regression
         run: |
+          BASELINE_FILE=".github/trivy-baseline.json"
           CRITICAL_TOTAL=0
           HIGH_TOTAL=0
+          REGRESS=0
+          : > /tmp/regressions.txt
           while IFS= read -r image; do
             [ -z "$image" ] && continue
             echo "::group::Scanning $image"
             SEVERITY="${{ github.event.inputs.severity || 'CRITICAL,HIGH' }}"
-            RESULT=$(trivy image --scanners vuln --format json --severity "$SEVERITY" "$image" 2>/dev/null || echo '{}')
-            CRIT=$(echo "$RESULT" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' 2>/dev/null || echo 0)
-            HIGH=$(echo "$RESULT" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' 2>/dev/null || echo 0)
+            # --ignore-unfixed drops CRITICALs with no upstream fix yet
+            # (e.g. host-kernel / base-mariadb CVEs on floating tags that are
+            # already at their newest release). Only fixable CRITICALs count.
+            RESULT=$(trivy image --ignore-unfixed --scanners vuln --format json --severity "$SEVERITY" "$image" 2>/dev/null || echo '{}')
+            CRIT=$(echo "$RESULT" | jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' 2>/dev/null); CRIT=${CRIT:-0}
+            HIGH=$(echo "$RESULT" | jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' 2>/dev/null); HIGH=${HIGH:-0}
             CRITICAL_TOTAL=$((CRITICAL_TOTAL + CRIT))
             HIGH_TOTAL=$((HIGH_TOTAL + HIGH))
-            echo "  CRITICAL: $CRIT, HIGH: $HIGH (running total: C=$CRITICAL_TOTAL H=$HIGH_TOTAL)"
+            # Regression gate: fail if this image reports more fixable
+            # CRITICALs than its committed baseline. Missing entry = 0, so a
+            # newly-added image with any CRITICAL is a regression.
+            if [ -f "$BASELINE_FILE" ]; then
+              BASE=$(jq -r --arg img "$image" '.images[$img] // 0' "$BASELINE_FILE")
+            else
+              BASE=0
+            fi
+            if [ "$CRIT" -gt "$BASE" ]; then
+              echo "$image: CRIT=$CRIT exceeds baseline=$BASE" >> /tmp/regressions.txt
+              REGRESS=$((REGRESS + CRIT - BASE))
+            fi
+            echo "  CRITICAL: $CRIT, HIGH: $HIGH (baseline=$BASE, total C=$CRITICAL_TOTAL H=$HIGH_TOTAL)"
             echo "::endgroup::"
           done < /tmp/images.txt
           echo "=== TOTAL: CRITICAL=$CRITICAL_TOTAL HIGH=$HIGH_TOTAL ==="
-          SEVERITY="${{ github.event.inputs.severity || 'CRITICAL,HIGH' }}"
-          if [ "$SEVERITY" = "CRITICAL" ]; then
-            # Only gate on CRITICAL when severity is CRITICAL-only
-            GATE_COUNT=$CRITICAL_TOTAL
-          else
-            # Gate on CRITICAL (always) regardless of HIGH/MEDIUM
-            GATE_COUNT=$CRITICAL_TOTAL
-          fi
-          if [ "$GATE_COUNT" -gt 0 ]; then
-            echo "❌ $CRITICAL_TOTAL CRITICAL CVEs detected across all images"
+          if [ "$REGRESS" -gt 0 ]; then
+            echo "❌ CRITICAL regression versus baseline ($BASELINE_FILE):"
+            cat /tmp/regressions.txt
             exit 1
           else
-            echo "✅ No CRITICAL CVEs found"
+            echo "✅ No CRITICAL regression versus baseline."
             exit 0
           fi
 
@@ -141,7 +152,9 @@ jobs:
   report:
     runs-on: ubuntu-latest
     name: Generate CVE Report
-    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # Only record a new baseline when the gate passes; a failing scan must
+    # never be auto-approved by re-committing a worse baseline.
+    if: ${{ success() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule') }}
     needs: scan
     permissions:
       contents: write
@@ -168,16 +181,31 @@ jobs:
           grep -oP '^\s+image:\s+\K[^\s@\n]+' docker-compose.yml | sort -u | while read -r image; do
             {
               echo "## $image"
-              trivy image --severity CRITICAL,HIGH --format table "$image" 2>/dev/null || echo "Scan failed"
+              trivy image --ignore-unfixed --severity CRITICAL,HIGH --format table "$image" 2>/dev/null || echo "Scan failed"
               echo ""
             } >> STAGE-4-CVE-BASELINE.md
           done
+
+      - name: Generate machine-readable baseline
+        # Per-image fixable CRITICAL count, matching the scan gate's
+        # --ignore-unfixed semantics. The .md is human-readable; this JSON is
+        # what the gate diffs against on the next run.
+        run: |
+          grep -oP '^\s+image:\s+\K[^\s@\n]+' docker-compose.yml | sort -u | while read -r img; do
+            [ -z "$img" ] && continue
+            C=$(trivy image --ignore-unfixed --scanners vuln --format json --severity CRITICAL "$img" 2>/dev/null | jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length')
+            C=${C:-0}
+            printf '%s\t%s\n' "$img" "$C"
+          done > /tmp/baseline_pairs.tsv
+          jq -Rs 'split("\n") | map(select(length>0)) | map(split("\t")) | map({(.[0]): (.[1]|tonumber)}) | add | {description: "Per-image Trivy CRITICAL counts using --ignore-unfixed. The scan gate fails when a compose-listed image reports a higher count than here.", images: .}' /tmp/baseline_pairs.tsv > .github/trivy-baseline.json
+          echo "Wrote .github/trivy-baseline.json"
+          jq . .github/trivy-baseline.json
 
       - name: Commit report
         run: |
           git config user.name "Trivy Scanner Bot"
           git config user.email "trivy@bot.local"
-          git add STAGE-4-CVE-BASELINE.md || true
+          git add STAGE-4-CVE-BASELINE.md .github/trivy-baseline.json || true
           if ! git diff --cached --quiet; then
             git commit -m "docs: update CVE baseline scan report"
             # Another push (e.g. release-please) can land during the scan;
