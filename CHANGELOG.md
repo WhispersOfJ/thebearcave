@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.16.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.15.0...v1.16.0) (2026-08-29)
+
+
+### Features
+
+* wire MCP baseline alerting, preflight gate, and unpackerr connections ([a92fe8a](https://github.com/WhispersOfJ/thebearcave/commit/a92fe8af374dd2cee79ea0d6a155429e8312122e))
+
+
+### Bug Fixes
+
+* guard cd in preflight.sh against failure ([a34439d](https://github.com/WhispersOfJ/thebearcave/commit/a34439d7cacbe9907451e671e1cc5c36a092a853))
+
 ## [1.15.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.14.0...v1.15.0) (2026-08-29)
 
 
