@@ -1,5 +1,8 @@
 # Migrating from metacacharr
 
+> **Historical** — this merge completed 2026-08-26 (see [HISTORY.md](../../HISTORY.md#pre-merge-history)).
+> Kept for reference if the migration ever needs to be re-run.
+
 The Metacache service from the metacacharr repo is now **built from source inside**
 The Bear Cave at `services/metacache/`. If you ran Metacache standalone, here's how
 to carry its cache over.

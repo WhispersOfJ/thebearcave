@@ -1,5 +1,8 @@
 # Migrating from media-stack
 
+> **Historical** — this merge completed 2026-08-26 (see [HISTORY.md](../../HISTORY.md#pre-merge-history)).
+> Kept for reference if the migration ever needs to be re-run; the stack today is 29 services.
+
 Moving an existing media-stack deployment into The Bear Cave. The goal: zero data loss,
 zero library re-matching, one uninterrupted evening.
 
@@ -9,7 +12,7 @@ zero library re-matching, one uninterrupted evening.
 
 | | media-stack | The Bear Cave |
 |---|---|---|
-| Compose file | `docker-compose.yml` at repo root | same, but 22 services (added Traefik) |
+| Compose file | `docker-compose.yml` at repo root | same, but grew from 22 services at merge to 29 today |
 | Config layout | `./config/<app>/` | `./services/<app>/config/` |
 | Network | `stacknet` | `bearcave` + `traefik` |
 | Reverse proxy | none | Traefik :80/:443 |

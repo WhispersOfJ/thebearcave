@@ -150,7 +150,7 @@ See [docs/tls.md](tls.md) for the full model, renewal, and troubleshooting.
 # All containers healthy?
 docker compose ps
 
-# Automated health checks (all 22 services)
+# Automated health checks (all 29 services)
 ./tests/health/run-all.sh
 
 # Integration pipeline test (Plex, rclone, Radarr/Sonarr, InfiniDysk, Metacache)
@@ -167,7 +167,7 @@ docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav && echo "MOUNT OK"
 - Point Seerr/Radarr/Sonarr at your Usenet providers via Prowlarr
 - Configure WatchState to back up Plex watch history
 - Import your old stack data — see [Migration guides](migration/from-media-stack.md)
-- Explore the dashboards — see [Monitoring](operations/monitoring.md)
+- Explore the dashboards — see [Monitoring](services/monitoring.md)
 
 ---
 

@@ -7,7 +7,7 @@ read-only preparation and state-changing rollout steps.
 
 ## Current state
 
-- 30 services are configured and running in `docker-compose.yml`.
+- 29 services are configured and running in `docker-compose.yml`.
 - 8 expansion services are deployed: Bazarr, Lidarr, Readarr, Audiobookshelf,
   Komga, AdGuard Home, CrowdSec, and Vaultwarden. (Uptime Kuma and n8n were
   removed from scope by decision.)

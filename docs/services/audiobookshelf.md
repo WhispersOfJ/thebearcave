@@ -45,7 +45,7 @@ Audiobook and podcast server — serves its own content with a built-in player (
 No *arr exists for audiobooks — manual NZB grabs into nzbdav (`audiobooks`
 category) land in `/mnt/remote/nzbdav/audiobooks`, then get
 imported/symlinked into `media/audiobooks/` (or the ABS watch folder scans them).
-Requires the nzbdav category rollout first (see `stack-expansion-spec.md` §15).
+Requires the nzbdav category rollout first (see [HISTORY.md](../../HISTORY.md#the-2026-08-28-expansion) — nzbdav category rollout).
 
 ## Notes
 

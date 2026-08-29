@@ -43,7 +43,7 @@ Comics and manga server — serves its own content with a built-in reader (does 
 No *arr exists for comics — manual NZB grabs into nzbdav (`comics` category)
 land in `/mnt/remote/nzbdav/comics`, then get imported/symlinked into
 `media/comics/` (Komga scans the library folder). Requires the nzbdav category
-rollout first (see `stack-expansion-spec.md` §15).
+rollout first (see [HISTORY.md](../../HISTORY.md#the-2026-08-28-expansion) — nzbdav category rollout).
 
 ## Notes
 

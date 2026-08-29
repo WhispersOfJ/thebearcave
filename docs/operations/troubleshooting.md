@@ -148,7 +148,7 @@ Validate: `docker compose exec grafana cat /etc/grafana/provisioning/datasources
 ## Escalation order
 
 1. `docker compose ps` → find the first unhealthy in dependency order
-2. Fix the root cause, not the symptom (a FUSE restart fixes 5 containers at once)
+2. Fix the root cause, not the symptom (a FUSE restart fixes 8 containers at once — mount owner + 7 dependents)
 3. Restart dependents after mount-owner changes
 4. If nothing obvious: `docker compose logs --tail=200 <service>`
 5. Data loss? Stop immediately, see [Backup & Restore](backup-restore.md)

@@ -5,7 +5,7 @@ and manual live tests.
 
 ---
 
-## Automated health checks (all 22 services)
+## Automated health checks (all 29 services)
 
 ```bash
 ./tests/health/run-all.sh                # everything

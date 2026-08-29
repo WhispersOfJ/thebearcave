@@ -114,9 +114,9 @@ Talks independently to Radarr/Sonarr/Prowlarr APIs.
 Plex is the only service on host network — it cannot be behind Traefik because GDM,
 DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networking.
 
-### Expansion Services (deployed — see `stack-expansion-spec.md`)
+### Expansion Services (deployed — see [HISTORY.md](HISTORY.md#the-2026-08-28-expansion))
 
-The 10-service expansion in `stack-expansion-spec.md` is deployed: eight
+The 10-service expansion in [HISTORY.md](HISTORY.md#the-2026-08-28-expansion) is deployed: eight
 services are live in `docker-compose.yml` (Lidarr, Readarr, Bazarr,
 Audiobookshelf, Komga, AdGuard Home, CrowdSec, Vaultwarden). The other two —
 Uptime Kuma and n8n — were removed from scope by decision. Retired services

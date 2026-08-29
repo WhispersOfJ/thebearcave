@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A unified media infrastructure stack combining all services from media-stack and metacacharr into a single, cohesive Docker Compose deployment. 22 containers, one `docker compose up -d`.
+A unified media infrastructure stack combining all services from media-stack and metacacharr into a single, cohesive Docker Compose deployment. 29 containers, one `docker compose up -d`.
 
 ## How to Work
 

@@ -41,7 +41,7 @@ Ebook acquisition — tracks books and monitors authors, downloading through the
 4. Copy the generated API key into `.env`, `docker compose up -d --force-recreate readarr`
 5. Indexers arrive automatically via Prowlarr push-sync
 
-Requires the nzbdav category rollout first (see `stack-expansion-spec.md` §15).
+Requires the nzbdav category rollout first (see [HISTORY.md](../../HISTORY.md#the-2026-08-28-expansion) — nzbdav category rollout).
 
 ## Troubleshooting
 

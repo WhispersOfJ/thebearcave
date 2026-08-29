@@ -1,6 +1,6 @@
 # Architecture
 
-The Bear Cave is a single-host media acquisition and serving stack: 22 containers
+The Bear Cave is a single-host media acquisition and serving stack: 29 containers
 orchestrated by one `docker-compose.yml`, fronted by Traefik, served by Plex.
 
 ---
