@@ -508,6 +508,76 @@ services:
         --rc-pass=${NZBDAV_RCLONE_RC_PASS}
 
   # ==========================================================================
+  # Utilities — Vaultwarden + n8n
+  # ==========================================================================
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    mem_limit: 256m
+    cpus: "0.5"
+    restart: unless-stopped
+    logging: *common-logging
+    networks: [bearcave]
+    environment:
+      <<: *ca-env
+      TZ: ${TZ}
+      VAULTWARDEN_ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
+      SIGNUPS_ALLOWED: "false"
+      WEBSOCKET_ENABLED: "true"
+    volumes:
+      - *ca-mount
+      - ./config/vaultwarden:/data
+    ports:
+      - "8222:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/alive >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+      - "traefik.http.routers.vaultwarden.tls=true"
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    mem_limit: 512m
+    cpus: "0.5"
+    restart: unless-stopped
+    logging: *common-logging
+    networks: [bearcave]
+    environment:
+      <<: *ca-env
+      TZ: ${TZ}
+      GENERIC_TIMEZONE: ${TZ}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_HOST: n8n.${HOST_IP}.nip.io
+      N8N_PROXY_HOPS: "1"
+      N8N_SECURE_COOKIE: "false"
+    volumes:
+      - *ca-mount
+      - ./config/n8n:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      - "traefik.http.routers.n8n.tls=true"
+
+  # ==========================================================================
   # Network & Security — AdGuard Home + CrowdSec
   # ==========================================================================
   adguard:

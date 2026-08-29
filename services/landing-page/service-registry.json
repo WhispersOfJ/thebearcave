@@ -617,6 +617,40 @@
       "depended_by": [],
       "icon": "🚨",
       "docs": "docs/services/crowdsec.md"
+    },
+    "vaultwarden": {
+      "name": "Vaultwarden",
+      "description": "Self-hosted password manager",
+      "port": 8222,
+      "category": "data",
+      "health": {
+        "type": "http",
+        "url": "http://vaultwarden:80/alive"
+      },
+      "dashboard": "http://{host}:8222",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [],
+      "icon": "🔐",
+      "docs": "docs/services/vaultwarden.md"
+    },
+    "n8n": {
+      "name": "n8n",
+      "description": "Workflow automation & notifications",
+      "port": 5678,
+      "category": "data",
+      "health": {
+        "type": "http",
+        "url": "http://n8n:5678/healthz"
+      },
+      "dashboard": "http://{host}:5678",
+      "depends_on": [
+        "traefik"
+      ],
+      "depended_by": [],
+      "icon": "⚙️",
+      "docs": "docs/services/n8n.md"
     }
   }
 }

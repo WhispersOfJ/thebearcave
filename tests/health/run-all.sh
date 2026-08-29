@@ -153,6 +153,14 @@ check_crowdsec() {
     check_container "crowdsec" "CrowdSec"
 }
 
+check_vaultwarden() {
+    check_container "vaultwarden" "Vaultwarden"
+}
+
+check_n8n() {
+    check_container "n8n" "n8n"
+}
+
 check_nzbdav() {
     check_container "nzbdav" "InfiniDysk"
 }
@@ -272,6 +280,8 @@ main() {
             komga) check_komga ;;
             adguard) check_adguard ;;
             crowdsec) check_crowdsec ;;
+            vaultwarden) check_vaultwarden ;;
+            n8n) check_n8n ;;
             nzbdav) check_nzbdav ;;
             nzbdav-rclone) check_nzbdav_rclone ;;
             seerr) check_seerr ;;
@@ -307,6 +317,8 @@ main() {
         check_komga
         check_adguard
         check_crowdsec
+        check_vaultwarden
+        check_n8n
         check_nzbdav
         check_nzbdav_rclone
         check_seerr

@@ -70,6 +70,8 @@ backup_configs() {
         "komga"
         "adguard"
         "crowdsec"
+        "vaultwarden"
+        "n8n"
         "watchstate"
         "loki"
         "promtail"
