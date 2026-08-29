@@ -137,6 +137,14 @@ check_readarr() {
     check_container "readarr" "Readarr"
 }
 
+check_audiobookshelf() {
+    check_container "audiobookshelf" "Audiobookshelf"
+}
+
+check_komga() {
+    check_container "komga" "Komga"
+}
+
 check_nzbdav() {
     check_container "nzbdav" "InfiniDysk"
 }
@@ -252,6 +260,8 @@ main() {
             bazarr) check_bazarr ;;
             lidarr) check_lidarr ;;
             readarr) check_readarr ;;
+            audiobookshelf) check_audiobookshelf ;;
+            komga) check_komga ;;
             nzbdav) check_nzbdav ;;
             nzbdav-rclone) check_nzbdav_rclone ;;
             seerr) check_seerr ;;
@@ -283,6 +293,8 @@ main() {
         check_bazarr
         check_lidarr
         check_readarr
+        check_audiobookshelf
+        check_komga
         check_nzbdav
         check_nzbdav_rclone
         check_seerr

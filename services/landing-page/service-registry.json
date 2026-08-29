@@ -39,6 +39,10 @@
       "bazarr"
     ],
     [
+      "audiobookshelf",
+      "komga"
+    ],
+    [
       "bazarr"
     ],
     [
@@ -197,7 +201,9 @@
         "unpackerr",
         "cleanuparr",
         "lidarr",
-        "readarr"
+        "readarr",
+        "audiobookshelf",
+        "komga"
       ],
       "icon": "📥",
       "docs": "docs/services/nzbdav.md"
@@ -215,7 +221,9 @@
         "nzbdav"
       ],
       "depended_by": [
-        "plex"
+        "plex",
+        "audiobookshelf",
+        "komga"
       ],
       "icon": "🔗",
       "docs": "docs/services/nzbdav-rclone.md"
@@ -537,6 +545,42 @@
       "depended_by": [],
       "icon": "📚",
       "docs": "docs/services/readarr.md"
+    },
+    "audiobookshelf": {
+      "name": "Audiobookshelf",
+      "description": "Audiobook & podcast server",
+      "port": 13378,
+      "category": "pipeline",
+      "health": {
+        "type": "http",
+        "url": "http://audiobookshelf:80/"
+      },
+      "dashboard": "http://{host}:13378",
+      "depends_on": [
+        "traefik",
+        "nzbdav_rclone"
+      ],
+      "depended_by": [],
+      "icon": "🎧",
+      "docs": "docs/services/audiobookshelf.md"
+    },
+    "komga": {
+      "name": "Komga",
+      "description": "Comics & manga reader",
+      "port": 25600,
+      "category": "pipeline",
+      "health": {
+        "type": "http",
+        "url": "http://komga:25600/actuator/health"
+      },
+      "dashboard": "http://{host}:25600",
+      "depends_on": [
+        "traefik",
+        "nzbdav_rclone"
+      ],
+      "depended_by": [],
+      "icon": "📖",
+      "docs": "docs/services/komga.md"
     }
   }
 }

@@ -188,6 +188,74 @@ services:
       - "traefik.http.routers.sonarr.tls=true"
 
   # ==========================================================================
+  # Audiobookshelf — Audiobook and podcast server
+  # ==========================================================================
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    mem_limit: 512m
+    cpus: "0.5"
+    user: "${PUID}:${PGID}"
+    restart: unless-stopped
+    logging: *common-logging
+    networks: [bearcave]
+    environment:
+      <<: *ca-env
+      TZ: ${TZ}
+    volumes:
+      - *ca-mount
+      - ./config/audiobookshelf:/config
+      - ./media/audiobooks:/audiobooks
+      - ./media/books:/books
+      - ./media/podcasts:/podcasts
+    ports:
+      - "13378:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.audiobookshelf.rule=Host(`audiobookshelf.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
+      - "traefik.http.routers.audiobookshelf.tls=true"
+
+  # ==========================================================================
+  # Komga — Comics and manga server
+  # ==========================================================================
+  komga:
+    image: gotson/komga:1.x
+    container_name: komga
+    mem_limit: 1g
+    cpus: "1.0"
+    user: "${PUID}:${PGID}"
+    restart: unless-stopped
+    logging: *common-logging
+    networks: [bearcave]
+    environment:
+      <<: *ca-env
+      TZ: ${TZ}
+    volumes:
+      - *ca-mount
+      - ./config/komga:/config
+      - ./media/comics:/comics
+    ports:
+      - "25600:25600"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:25600/actuator/health | grep -q UP || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.komga.rule=Host(`komga.${HOST_IP}.nip.io`)"
+      - "traefik.http.services.komga.loadbalancer.server.port=25600"
+      - "traefik.http.routers.komga.tls=true"
+
+  # ==========================================================================
   # Music & Books — Lidarr + Readarr
   # ==========================================================================
   lidarr:

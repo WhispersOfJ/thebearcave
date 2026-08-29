@@ -66,6 +66,8 @@ backup_configs() {
         "bazarr"
         "lidarr"
         "readarr"
+        "audiobookshelf"
+        "komga"
         "watchstate"
         "loki"
         "promtail"
