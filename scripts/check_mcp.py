@@ -23,6 +23,9 @@ Usage:
   python3 scripts/check_mcp.py --claude       # only ~/.claude.json (Claude Code)
   python3 scripts/check_mcp.py --json         # machine-readable report; always exit 0
   python3 scripts/check_mcp.py --no-live      # skip the live orchestrator state check
+  python3 scripts/check_mcp.py --baseline     # diff live probe against .github/mcp-baseline.json;
+                                              # exit 1 on any divergence (or --baseline PATH)
+  python3 scripts/check_mcp.py --write-baseline PATH  # capture live probe as a fresh baseline file
 """
 
 import argparse
@@ -236,6 +239,129 @@ def live_state(port, token, config_key):
     return None
 
 
+DEFAULT_BASELINE = Path(__file__).resolve().parent.parent / ".github" / "mcp-baseline.json"
+
+# Patterns for facts embedded in probe detail lines, so baseline comparison
+# does not depend on the exact human-readable wording.
+#
+# The baseline stores only STABLE facts. The orchestrator's live line also
+# carries status + a session-scoped tool count (connected/idle, tools=N) that
+# change whenever a chat session starts or stops — those are transient and
+# would open spurious PRs on every re-capture, so they are normalized out.
+_RE_TOOLS = re.compile(r"tools \((\d+)\):")
+_RE_LIVE = re.compile(
+    r"live: enabled=(\w+) approvedLaunch=(\w+) approvedTools=(\w+)"
+)
+
+
+def facts_from_detail(detail):
+    """Extract {tools, enabled, approvedLaunch, approvedTools} from detail lines."""
+    facts = {}
+    for line in detail:
+        m = _RE_TOOLS.search(line)
+        if m:
+            facts["tools"] = int(m.group(1))
+        m = _RE_LIVE.search(line)
+        if m:
+            facts["enabled"] = m.group(1) == "True"
+            facts["approvedLaunch"] = m.group(2) == "True"
+            facts["approvedTools"] = m.group(3) == "True"
+    return facts
+
+
+def write_baseline(live_report, baseline_path):
+    """Write a fresh baseline file from a live probe report.
+
+    Mirrors the shape of .github/mcp-baseline.json: description,
+    capturedAt (today), and per-server ok/tools/detail. Returns the
+    written path.
+    """
+    import datetime
+
+    baseline = {
+        "description": (
+            "Expected MCP server state for scripts/check_mcp.py. "
+            "The probe (python3 scripts/check_mcp.py) exits non-zero if any "
+            "configured server fails the spawn/initialize/tools-list handshake "
+            "or diverges from the live Freebuff orchestrator approval state "
+            "recorded here. Re-capture after adding/approving servers with: "
+            "python3 scripts/check_mcp.py --write-baseline .github/mcp-baseline.json"
+        ),
+        "capturedAt": datetime.date.today().isoformat(),
+        "servers": {},
+    }
+    # Preserve probe order (store order, then config-file order) so a
+    # re-capture with unchanged state produces an identical file — sorted
+    # keys would reorder servers and create a spurious PR on every run.
+    for key, val in live_report.get("servers", {}).items():
+        facts = facts_from_detail(val.get("detail", []))
+        baseline["servers"][key] = {
+            "ok": val.get("ok"),
+            "tools": facts.get("tools"),
+            "detail": val.get("detail", []),
+        }
+    baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+    return baseline_path
+
+
+def compare_to_baseline(live_report, baseline_path):
+    """Diff the live probe report against a baseline file.
+
+    Returns (divergences, notes) where divergences is a list of
+    human-readable strings describing every difference between the live
+    state and the baseline: missing/extra servers, handshake failures,
+    tool-count drift, and approval-state changes.
+    """
+    if not baseline_path.exists():
+        return [f"baseline file not found: {baseline_path}"], []
+    try:
+        baseline = json.loads(baseline_path.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        return [f"baseline file unreadable ({e}): {baseline_path}"], []
+
+    base_servers = baseline.get("servers", {})
+    live_servers = live_report.get("servers", {})
+    divergences = []
+    notes = []
+
+    for key in sorted(set(live_servers) | set(base_servers)):
+        live = live_servers.get(key)
+        base = base_servers.get(key)
+        if base is None:
+            notes.append(f"{key}: present in live probe but not in baseline (new server — re-capture baseline)")
+            continue
+        if live is None:
+            divergences.append(f"{key}: missing from live probe but expected by baseline (removed/renamed?)")
+            continue
+
+        lf = facts_from_detail(live.get("detail", []))
+        bf = facts_from_detail(base.get("detail", []))
+        btools = base.get("tools")
+        bok = base.get("ok")
+
+        if not live.get("ok"):
+            divergences.append(f"{key}: handshake FAILS now (baseline ok={bok})")
+        elif bok is False:
+            notes.append(f"{key}: baseline recorded a failure but live probe passes now")
+
+        if "tools" in lf and btools is not None and lf["tools"] != btools:
+            divergences.append(f"{key}: tool count changed {btools} -> {lf['tools']}")
+
+        # Approval-state drift is only meaningful for servers the live
+        # orchestrator knows about (the live line exists) AND the baseline
+        # recorded a live line (so we have a before/after).
+        if "enabled" in lf and "enabled" in bf:
+            for field in ("enabled", "approvedLaunch", "approvedTools"):
+                if lf[field] != bf[field]:
+                    divergences.append(
+                        f"{key}: {field} changed {bf[field]} -> {lf[field]}"
+                    )
+        elif "enabled" in lf and "enabled" not in bf:
+            notes.append(f"{key}: has live orchestrator state but baseline predates it")
+
+    return divergences, notes
+
+
 def probe_server(store, name, cfg, check_live=True):
     """Probe one server; return (ok, detail_lines)."""
     lines = []
@@ -267,16 +393,25 @@ def probe_server(store, name, cfg, check_live=True):
         if client:
             client.close()
 
-    if check_live:
+    # Only the Freebuff orchestrator exposes live state, and it only ever
+    # tracks servers from ~/.agents/mcp.json (configKey = bare server name).
+    # A claude-store entry with the same name (e.g. playwright exists in
+    # both stores) must NOT be credited with the freebuff entry's live
+    # state — the live line it would get belongs to the other store, and
+    # later approval changes there would falsely flag this entry as
+    # diverged. So the live check is gated to the freebuff store.
+    if check_live and store == "freebuff":
         port, token = find_freebuff_orchestrator()
         if port and token:
             state = live_state(port, token, name)
             if state:
+                # Stable fields only — status/toolCount are session-scoped and
+                # transient; storing them in the baseline would produce spurious
+                # divergences whenever a chat session starts or stops.
                 lines.append(
-                    f"    live: enabled={state.get('enabled')} status={state.get('status')} "
+                    f"    live: enabled={state.get('enabled')} "
                     f"approvedLaunch={state.get('approvedLaunch')} "
-                    f"approvedTools={state.get('approvedTools')} "
-                    f"tools={state.get('toolCount')}"
+                    f"approvedTools={state.get('approvedTools')}"
                 )
                 if state.get("error"):
                     lines.append(f"    live error: {state['error']}")
@@ -295,6 +430,20 @@ def main():
     ap.add_argument("--claude", action="store_true", help="only ~/.claude.json (Claude Code)")
     ap.add_argument("--json", action="store_true", help="machine-readable report; always exit 0")
     ap.add_argument("--no-live", action="store_true", help="skip the live orchestrator state check")
+    ap.add_argument(
+        "--baseline",
+        nargs="?",
+        const=str(DEFAULT_BASELINE),
+        default=None,
+        metavar="PATH",
+        help="diff live probe against the MCP baseline (default: %(const)s); exit 1 on divergence",
+    )
+    ap.add_argument(
+        "--write-baseline",
+        metavar="PATH",
+        default=None,
+        help="capture the live probe as a fresh baseline file at PATH (no comparison)",
+    )
     args = ap.parse_args()
 
     stores = load_servers()
@@ -304,6 +453,23 @@ def main():
         stores = {k: v for k, v in stores.items() if k == "claude"}
 
     if not stores:
+        # Still honor --write-baseline / --baseline with an empty report so a
+        # total removal of servers is captured as a state change rather than
+        # silently ignored by the early return.
+        empty_report = {"ok": True, "servers": {}}
+        if args.write_baseline:
+            path = write_baseline(empty_report, Path(args.write_baseline))
+            print(f"wrote baseline: {path}")
+            return 0
+        if args.baseline:
+            divergences, notes = compare_to_baseline(empty_report, Path(args.baseline))
+            for note in notes:
+                print(f"  NOTE: {note}")
+            for d in divergences:
+                print(f"  DIVERGENCE: {d}")
+            print(f"\n  baseline: {args.baseline}")
+            print(f"  {len(divergences)} divergence(s), {len(notes)} note(s)")
+            return 1 if divergences else 0
         msg = "No MCP servers configured (checked ~/.agents/mcp.json and ~/.claude.json)."
         if args.json:
             print(json.dumps({"ok": True, "servers": [], "message": msg}))
@@ -311,27 +477,45 @@ def main():
             print(msg)
         return 0
 
+    quiet = args.json or args.baseline or args.write_baseline
     results = {}
     all_ok = True
     for store, servers in stores.items():
-        if not args.json:
+        if not quiet:
             print(f"\n=== {store} ({len(servers)} server(s)) ===")
         for name, cfg in servers.items():
             ok, lines = probe_server(store, name, cfg, check_live=not args.no_live)
             results[f"{store}/{name}"] = {"ok": ok, "lines": lines}
             all_ok = all_ok and ok
-            if not args.json:
+            if not quiet:
                 for l in lines:
                     print(l)
 
+    live_report = {
+        "ok": all_ok,
+        "servers": {k: {"ok": v["ok"], "detail": v["lines"]} for k, v in results.items()},
+    }
+
+    if args.write_baseline:
+        path = write_baseline(live_report, Path(args.write_baseline))
+        print(f"wrote baseline: {path}")
+        # Exit non-zero if any server failed the handshake so a workflow that
+        # re-captures and opens a PR does not cement a broken baseline as the
+        # new expected state (set -euo pipefail aborts before the PR step).
+        return 0 if all_ok else 1
+
+    if args.baseline:
+        divergences, notes = compare_to_baseline(live_report, Path(args.baseline))
+        for note in notes:
+            print(f"  NOTE: {note}")
+        for d in divergences:
+            print(f"  DIVERGENCE: {d}")
+        print(f"\n  baseline: {args.baseline}")
+        print(f"  {len(divergences)} divergence(s), {len(notes)} note(s)")
+        return 1 if divergences else 0
+
     if args.json:
-        report = {
-            "ok": all_ok,
-            "servers": {
-                k: {"ok": v["ok"], "detail": v["lines"]} for k, v in results.items()
-            },
-        }
-        print(json.dumps(report, indent=1))
+        print(json.dumps(live_report, indent=1))
         return 0
 
     print("\n===== SUMMARY =====")

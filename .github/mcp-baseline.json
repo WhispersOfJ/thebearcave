@@ -1,5 +1,5 @@
 {
-  "description": "Expected MCP server state for scripts/check_mcp.py, captured 2026-08-29. The probe (python3 scripts/check_mcp.py) exits non-zero if any configured server fails the spawn/initialize/tools-list handshake or diverges from the live Freebuff orchestrator approval state recorded here. Re-capture after adding/approving servers with: python3 scripts/check_mcp.py --json",
+  "description": "Expected MCP server state for scripts/check_mcp.py. The probe (python3 scripts/check_mcp.py) exits non-zero if any configured server fails the spawn/initialize/tools-list handshake or diverges from the live Freebuff orchestrator approval state recorded here. Re-capture after adding/approving servers with: python3 scripts/check_mcp.py --write-baseline .github/mcp-baseline.json",
   "capturedAt": "2026-08-29",
   "servers": {
     "freebuff/context7": {
@@ -8,7 +8,7 @@
       "detail": [
         "  context7: PASS \u2014 handshake OK (Context7 4.0.4)",
         "    tools (2): resolve-library-id, query-docs",
-        "    live: enabled=True status=connected approvedLaunch=True approvedTools=True tools=2"
+        "    live: enabled=True approvedLaunch=True approvedTools=True"
       ]
     },
     "freebuff/playwright": {
@@ -17,7 +17,7 @@
       "detail": [
         "  playwright: PASS \u2014 handshake OK (Playwright 1.63.0-alpha-2026-08-05)",
         "    tools (24): browser_close, browser_resize, browser_console_messages, browser_handle_dialog, browser_evaluate, browser_file_upload, browser_drop, browser_find, browser_fill_form, browser_press_key, browser_type, browser_navigate...",
-        "    live: enabled=True status=connected approvedLaunch=True approvedTools=True tools=24"
+        "    live: enabled=True approvedLaunch=True approvedTools=True"
       ]
     },
     "freebuff/chrome-devtools": {
@@ -26,7 +26,7 @@
       "detail": [
         "  chrome-devtools: PASS \u2014 handshake OK (chrome_devtools 1.8.0)",
         "    tools (29): click, close_page, drag, emulate, evaluate_script, fill, fill_form, get_console_message, get_network_request, handle_dialog, hover, lighthouse_audit...",
-        "    live: enabled=True status=connected approvedLaunch=True approvedTools=True tools=29"
+        "    live: enabled=True approvedLaunch=True approvedTools=True"
       ]
     },
     "claude/playwright": {
@@ -34,8 +34,7 @@
       "tools": 24,
       "detail": [
         "  playwright: PASS \u2014 handshake OK (Playwright 1.63.0-alpha-2026-08-05)",
-        "    tools (24): browser_close, browser_resize, browser_console_messages, browser_handle_dialog, browser_evaluate, browser_file_upload, browser_drop, browser_find, browser_fill_form, browser_press_key, browser_type, browser_navigate...",
-        "    live: enabled=True status=connected approvedLaunch=True approvedTools=True tools=24"
+        "    tools (24): browser_close, browser_resize, browser_console_messages, browser_handle_dialog, browser_evaluate, browser_file_upload, browser_drop, browser_find, browser_fill_form, browser_press_key, browser_type, browser_navigate..."
       ]
     },
     "claude/chrome-devtools": {
@@ -43,8 +42,7 @@
       "tools": 29,
       "detail": [
         "  chrome-devtools: PASS \u2014 handshake OK (chrome_devtools 1.8.0)",
-        "    tools (29): click, close_page, drag, emulate, evaluate_script, fill, fill_form, get_console_message, get_network_request, handle_dialog, hover, lighthouse_audit...",
-        "    live: enabled=True status=connected approvedLaunch=True approvedTools=True tools=29"
+        "    tools (29): click, close_page, drag, emulate, evaluate_script, fill, fill_form, get_console_message, get_network_request, handle_dialog, hover, lighthouse_audit..."
       ]
     },
     "claude/caveman": {
@@ -52,8 +50,7 @@
       "tools": 5,
       "detail": [
         "  caveman: PASS \u2014 handshake OK (caveman dev)",
-        "    tools (5): caveman_compress, caveman_retrieve, caveman_stats, caveman_toon_encode, caveman_toon_decode",
-        "    live: not registered in the running Freebuff orchestrator (normal for Claude Code servers)"
+        "    tools (5): caveman_compress, caveman_retrieve, caveman_stats, caveman_toon_encode, caveman_toon_decode"
       ]
     }
   }

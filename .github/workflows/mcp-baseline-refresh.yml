@@ -1,0 +1,163 @@
+name: MCP Baseline Refresh
+# Pinned actions policy: third-party actions are pinned to full commit SHAs
+# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
+# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
+# update the SHA and the "# tag" comment on its uses: line.
+
+# Re-captures .github/mcp-baseline.json from the live MCP probe and opens a
+# PR when server state changed (new server, tool-count drift, approval
+# changes). Manual only (workflow_dispatch) — the probe needs the running
+# Freebuff Desktop orchestrator, so this job MUST run on a self-hosted runner
+# on the machine where the desktop app is running:
+#
+#   - No self-hosted runner is registered yet: `gh api repos/{owner}/{repo}
+#     /actions/runners` returns none. Register one (GitHub docs: "Adding a
+#     self-hosted runner") and label it `self-hosted` before dispatching.
+#   - The desktop app must be running during the run so the probe can read
+#     the live orchestrator state (per-boot consent token via /proc).
+#   - Re-capturing on a runner without the desktop produces a baseline with
+#     "Freebuff Desktop not running" live lines — approve servers first.
+#
+# Supply-chain note: the probe spawns each configured MCP server, and the
+# Freebuff/Claude configs execute unpinned `npx -y <pkg>@latest` packages
+# (see ~/.agents/mcp.json). On this self-hosted runner that code runs with
+# repo-write permissions (GH_TOKEN/RELEASE_PLEASE_TOKEN in env) on the host
+# machine — pin MCP package versions in the configs (e.g. @upstash/
+# context7-mcp@4.0.4) before enabling the scheduled run, and keep the runner
+# on a least-privilege account.
+#
+# GitHub-hosted runners (ubuntu-latest) CANNOT run this: the probe reads
+# ~/.agents/mcp.json and ~/.claude.json (user home) and finds the
+# orchestrator's ephemeral API port in /proc.
+
+on:
+  workflow_dispatch:
+    # inputs: (none) — captures whatever the live state is; the PR body
+    # reports the divergence between the old and new baseline.
+  # schedule:
+  #   - cron: "0 4 * * 1" # Monday 04:00 UTC — uncomment once a self-hosted
+  #                        # runner is registered and always-on
+
+permissions:
+  contents: write # push the refreshed baseline branch
+  pull-requests: write # open/update the PR
+
+env:
+  PR_BRANCH: mcp-baseline-refresh
+
+jobs:
+  refresh:
+    name: Refresh MCP Baseline
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # need the full history to diff the baseline cleanly
+
+      - name: Re-capture baseline from live probe
+        id: capture
+        run: |
+          set -euo pipefail
+          cp .github/mcp-baseline.json /tmp/mcp-baseline.before.json
+          # Exits 1 if any server failed its handshake — the probe then aborts
+          # here (set -e) instead of cementing a broken baseline as expected.
+          python3 scripts/check_mcp.py --write-baseline .github/mcp-baseline.json
+          # Decide "changed" on the servers section only: capturedAt and the
+          # description rotate every run, so a whole-file git diff would open
+          # a spurious PR every day even with identical server state.
+          python3 - <<'EOF'
+          import json
+          old = json.load(open('/tmp/mcp-baseline.before.json'))
+          new = json.load(open('.github/mcp-baseline.json'))
+          changed = old.get('servers') != new.get('servers')
+          print(f"changed={'true' if changed else 'false'}", file=open(
+              __import__('os').environ['GITHUB_OUTPUT'], 'a'))
+          EOF
+
+      - name: Summarize divergence
+        if: steps.capture.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          echo "=== baseline diff ==="
+          git diff -- .github/mcp-baseline.json
+          echo "=== human-readable divergence report ==="
+          python3 scripts/check_mcp.py --baseline /tmp/mcp-baseline.before.json || true
+
+      - name: Open or update baseline PR
+        if: steps.capture.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+
+          pr_open() {
+            gh pr list --head "$PR_BRANCH" --state open --json number \
+              --jq 'length' 2>/dev/null || echo 0
+          }
+
+          DIFF_SUMMARY=$(git diff --stat -- .github/mcp-baseline.json | tail -1 || true)
+          NEW_CAPTURED=$(python3 -c "import json;print(json.load(open('.github/mcp-baseline.json'))['capturedAt'])" 2>/dev/null || echo "unknown")
+
+          git config user.name "MCP Baseline Bot"
+          git config user.email "mcp-baseline@bot.local"
+          # Branch from the current working tree — the fresh capture is already
+          # in .github/mcp-baseline.json. Do NOT checkout the file from any
+          # commit here: that would restore the old baseline and produce a
+          # zero-diff PR.
+          git checkout -b "$PR_BRANCH" 2>/dev/null || git checkout -B "$PR_BRANCH"
+          git add .github/mcp-baseline.json
+
+          MSG=$(cat <<EOF
+          chore: refresh MCP server baseline ($NEW_CAPTURED)
+
+          Re-captured from the live probe. State changed since the last
+          baseline: $DIFF_SUMMARY
+          EOF
+          )
+          git commit -m "$MSG"
+          git push -f origin "$PR_BRANCH"
+
+          BODY=$(cat <<EOF
+          The live MCP probe reported a different server state than the
+          committed baseline (captured $NEW_CAPTURED), so this PR refreshes
+          \`.github/mcp-baseline.json\`.
+
+          Divergence details:
+          \`\`\`
+          $DIFF_SUMMARY
+          \`\`\`
+
+          Likely causes: a server was added/removed from
+          \`~/.agents/mcp.json\`, a server's tool count changed (package
+          upgrade), or approval state changed in Freebuff Desktop's
+          Connectors.
+
+          _Generated by the MCP Baseline Refresh workflow on
+          $(date -u +%F)._
+          EOF
+          )
+
+          if [ "$(pr_open)" -gt 0 ]; then
+            PR_NUM=$(gh pr list --head "$PR_BRANCH" --state open --json number --jq '.[0].number')
+            gh pr edit "$PR_NUM" --body "$BODY" --title "chore: refresh MCP server baseline ($NEW_CAPTURED)"
+            echo "Updated PR #$PR_NUM with the refreshed baseline."
+          else
+            gh pr create --base main --head "$PR_BRANCH" \
+              --title "chore: refresh MCP server baseline ($NEW_CAPTURED)" \
+              --body "$BODY"
+          fi
+
+      - name: Close stale baseline PR (no change)
+        if: steps.capture.outputs.changed == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          PR_NUM=$(gh pr list --head "$PR_BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
+            gh pr close "$PR_NUM" --comment \
+              "Superseded: the live MCP probe now matches the committed baseline (no state change). Re-checked $(date -u +%F)."
+            echo "Closed PR #$PR_NUM (state reverted to baseline)."
+          else
+            echo "No open baseline PR; nothing to close."
+          fi
