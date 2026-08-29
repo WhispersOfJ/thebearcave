@@ -33,9 +33,9 @@ longer true of the running stack, it belongs here.
 
 ## The 2026-08-28 Expansion
 
-The 10-service expansion (documented at the time in `stack-expansion-spec.md`, now a
-stub) added media acquisition/serving, network security, and utility services in three
-phases. All decisions came from a 4-round user interview.
+The 10-service expansion (documented at the time in `stack-expansion-spec.md`, removed
+2026-08-29 after its content was consolidated here) added media acquisition/serving,
+network security, and utility services in three phases. All decisions came from a 4-round user interview.
 
 ### What was planned vs. delivered
 
@@ -224,11 +224,13 @@ Key pre-merge milestones (from `archive/media-stack/HISTORY.md`):
 
 ## Where old ideas went
 
-- **`potential.md`** (now a stub) held 90 evidence-backed improvement recommendations —
+- **`potential.md`** (removed 2026-08-29 after its content was consolidated here) held
+  90 evidence-backed improvement recommendations —
   security audit findings, software to remove, and software worth adding. Completed
   items shipped across v1.1–1.16 (see Release history); outstanding items were
   re-filed as GitHub issues/PRs where actionable.
-- **`stack-expansion-spec.md`** (now a stub) held the full 10-container expansion design
+- **`stack-expansion-spec.md`** (removed 2026-08-29 after its content was consolidated
+  here) held the full 10-container expansion design
   — interview decisions, port allocations, draft compose blocks, image verification
   findings, and the nzbdav category rollout runbook. Its deployment outcome is
   summarized in [The 2026-08-28 Expansion](#the-2026-08-28-expansion).
