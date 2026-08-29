@@ -2,6 +2,15 @@
 # The Bear Cave — Traefik Static Configuration
 # ============================================================================
 
+# CrowdSec bouncer — in-process middleware plugin (spec §4.8). Traefik
+# downloads the module at startup, then needs a restart (seconds-long route
+# blip). Pinned to v1.7.1; bump deliberately.
+experimental:
+  plugins:
+    bouncer:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      version: v1.7.1
+
 # API
 api:
   dashboard: true

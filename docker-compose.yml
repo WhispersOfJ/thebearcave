@@ -82,6 +82,7 @@ services:
       - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
       - ./config/traefik/certs:/etc/traefik/certs:ro
+      - ./config/crowdsec/bouncer-key:/etc/traefik/crowdsec/bouncer-key:ro
       - traefik-certs:/certs
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
@@ -92,8 +93,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`traefik.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.dashboard.middlewares=auth,crowdsec@file"
       - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=auth"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
 
@@ -119,6 +120,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.prowlarr.middlewares=crowdsec@file"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
       - "traefik.http.routers.prowlarr.tls=true"
 
@@ -153,6 +155,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.radarr.rule=Host(`radarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.radarr.middlewares=crowdsec@file"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
       - "traefik.http.routers.radarr.tls=true"
 
@@ -184,6 +187,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarr.rule=Host(`sonarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.sonarr.middlewares=crowdsec@file"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
       - "traefik.http.routers.sonarr.tls=true"
 
@@ -202,6 +206,7 @@ services:
     environment:
       <<: *ca-env
       TZ: ${TZ}
+      METADATA_PATH: /config/metadata   # image default /metadata is root-owned; non-root user can't mkdir (EACCES crash)
     volumes:
       - *ca-mount
       - ./config/audiobookshelf:/config
@@ -219,6 +224,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.audiobookshelf.rule=Host(`audiobookshelf.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.audiobookshelf.middlewares=crowdsec@file"
       - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
       - "traefik.http.routers.audiobookshelf.tls=true"
 
@@ -252,6 +258,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.komga.rule=Host(`komga.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.komga.middlewares=crowdsec@file"
       - "traefik.http.services.komga.loadbalancer.server.port=25600"
       - "traefik.http.routers.komga.tls=true"
 
@@ -285,6 +292,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.lidarr.rule=Host(`lidarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.lidarr.middlewares=crowdsec@file"
       - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
       - "traefik.http.routers.lidarr.tls=true"
 
@@ -315,6 +323,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.readarr.rule=Host(`readarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.readarr.middlewares=crowdsec@file"
       - "traefik.http.services.readarr.loadbalancer.server.port=8787"
       - "traefik.http.routers.readarr.tls=true"
 
@@ -351,6 +360,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.bazarr.rule=Host(`bazarr.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.bazarr.middlewares=crowdsec@file"
       - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
       - "traefik.http.routers.bazarr.tls=true"
 
@@ -381,7 +391,7 @@ services:
       TZ: ${TZ}
       FRONTEND_BACKEND_API_KEY: ${FRONTEND_BACKEND_API_KEY}
       NZBDAV_CONFIG__API__KEY: ${FRONTEND_BACKEND_API_KEY}
-      NZBDAV_CONFIG__API__CATEGORIES: "tv,movies,anime-movies,anime-shows"
+      NZBDAV_CONFIG__API__CATEGORIES: "tv,movies,anime-movies,anime-shows,music,books,audiobooks,comics"
       NZBDAV_CONFIG__API__IMPORT_STRATEGY: "symlinks"
       NZBDAV_CONFIG__WEBDAV__USER: ${NZBDAV_WEBDAV_USER}
       NZBDAV_CONFIG__WEBDAV__PASS: ${NZBDAV_WEBDAV_PASS}
@@ -444,6 +454,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.nzbdav.rule=Host(`nzbdav.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.nzbdav.middlewares=crowdsec@file"
       - "traefik.http.services.nzbdav.loadbalancer.server.port=3000"
       - "traefik.http.routers.nzbdav.tls=true"
 
@@ -530,7 +541,7 @@ services:
     ports:
       - "8222:80"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:80/alive >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:80/alive >/dev/null 2>&1 || exit 1"]   # wget not in image; curl is
       interval: 30s
       timeout: 10s
       retries: 3
@@ -538,13 +549,14 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.vaultwarden.middlewares=crowdsec@file"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
       - "traefik.http.routers.vaultwarden.tls=true"
 
   n8n:
     image: n8nio/n8n:latest # Re-verify digest before deployment
     container_name: n8n
-    mem_limit: 512m
+    mem_limit: 1g
     cpus: "0.5"
     restart: unless-stopped
     logging: *common-logging
@@ -553,6 +565,7 @@ services:
       <<: *ca-env
       TZ: ${TZ}
       GENERIC_TIMEZONE: ${TZ}
+      NODE_OPTIONS: "--max-old-space-size=768"   # image auto-sizes heap off cgroup; 512m gave 259MB → startup OOM/SIGABRT
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
@@ -574,6 +587,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.n8n.middlewares=crowdsec@file"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
       - "traefik.http.routers.n8n.tls=true"
 
@@ -593,16 +607,22 @@ services:
       TZ: ${TZ}
       PUID: ${PUID}
       PGID: ${PGID}
+      ADGUARD_ADMIN_USER: ${ADGUARD_ADMIN_USER}
+      ADGUARD_ADMIN_PASSWORD: ${ADGUARD_ADMIN_PASSWORD}   # used by healthcheck basic-auth only
     volumes:
       - *ca-mount
       - ./config/adguard/conf:/opt/adguardhome/conf
       - ./config/adguard/work:/opt/adguardhome/work
     ports:
-      - "53:53/tcp"
-      - "53:53/udp"
+      - "${HOST_IP}:53:53/tcp"   # LAN DNS only — host keeps systemd-resolved on 127.0.0.53 (see spec §14)
+      - "${HOST_IP}:53:53/udp"
       - "3003:3000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/control/health >/dev/null 2>&1 || exit 1"]
+      # /control/status returns JSON on 200 with basic-auth; BusyBox wget has
+      # no --user/--password flag, so send an Authorization header built from
+      # the injected ADGUARD_ADMIN_* env vars. echo -n avoids a trailing newline
+      # (printf '%%s' gets re-escaped by compose, breaking the credential).
+      test: ["CMD-SHELL", "AUTH=$$(echo -n \"$$ADGUARD_ADMIN_USER:$$ADGUARD_ADMIN_PASSWORD\" | base64); wget -qO- --header=\"Authorization: Basic $$AUTH\" http://localhost:3000/control/status >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -610,6 +630,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adguard.rule=Host(`adguard.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.adguard.middlewares=crowdsec@file"
       - "traefik.http.services.adguard.loadbalancer.server.port=3000"
       - "traefik.http.routers.adguard.tls=true"
 
@@ -668,6 +689,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.seerr.rule=Host(`seerr.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.seerr.middlewares=crowdsec@file"
       - "traefik.http.services.seerr.loadbalancer.server.port=5055"
       - "traefik.http.routers.seerr.tls=true"
 
@@ -758,6 +780,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.metacache.rule=Host(`metacache.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.metacache.middlewares=crowdsec@file"
       - "traefik.http.services.metacache.loadbalancer.server.port=8765"
       - "traefik.http.routers.metacache.tls=true"
 
@@ -859,6 +882,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.watchstate.rule=Host(`watchstate.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.watchstate.middlewares=crowdsec@file"
       - "traefik.http.services.watchstate.loadbalancer.server.port=8080"
       - "traefik.http.routers.watchstate.tls=true"
 
@@ -960,6 +984,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`grafana.${HOST_IP}.nip.io`)"
+      - "traefik.http.routers.grafana.middlewares=crowdsec@file"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       - "traefik.http.routers.grafana.tls=true"
 

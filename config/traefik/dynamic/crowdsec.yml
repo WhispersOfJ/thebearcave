@@ -1,0 +1,16 @@
+# CrowdSec bouncer middleware — in-process Traefik plugin (spec §4.8).
+# stream mode: banned-IP cache in Traefik, refreshed from LAPI every 60s.
+# The LAPI key is read from a gitignored file mounted read-only
+# (config/crowdsec/bouncer-key -> /etc/traefik/crowdsec/bouncer-key) — never
+# inline it here.
+http:
+  middlewares:
+    crowdsec:
+      plugin:
+        bouncer:
+          enabled: true
+          crowdsecMode: stream
+          crowdsecLapiScheme: http
+          crowdsecLapiHost: crowdsec:8080
+          crowdsecLapiPath: /
+          crowdsecLapiKeyFile: /etc/traefik/crowdsec/bouncer-key

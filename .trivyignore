@@ -38,3 +38,14 @@ CVE-2026-59873 # seerr node-tar DoS — upstream image needs rebuild
 # 2026-03-08. The unstable tag is unusable (binary ships mode 644). Track:
 # golift/unpackerr stable rebuild — remove once the image is refreshed.
 CVE-2026-31789 # unpackerr alpine openssl — stable image needs rebuild
+
+# komga (gotson/komga:1.x): trivy reports Go stdlib v1.17.8 with 4 fixable
+# CRITICALs (CVE-2023-24538/24540, CVE-2024-24790, CVE-2025-68121) but the
+# image ships NO Go runtime/binary — Rust coreutils + komga.jar only (verified
+# via ELF scan of every executable, 2026-08-28). Scan artifacts from the
+# multi-stage build layers, not deployed code. Track: re-scan at deploy; remove
+# if a future base actually bundles a Go toolchain.
+CVE-2023-24538 # komga Go stdlib — no Go binary ships (scan artifact)
+CVE-2023-24540 # komga Go stdlib — no Go binary ships (scan artifact)
+CVE-2024-24790 # komga Go stdlib — no Go binary ships (scan artifact)
+CVE-2025-68121 # komga Go stdlib — no Go binary ships (scan artifact)
