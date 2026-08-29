@@ -140,4 +140,5 @@ See [CLAUDE.md](CLAUDE.md) for development guidelines.
 
 ## License
 
-[Your License Here]
+This project is licensed under the [MIT License](LICENSE). The repository’s
+Docker images and third-party services remain under their respective licenses.
