@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.15.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.14.0...v1.15.0) (2026-08-29)
+
+
+### Features
+
+* add MCP baseline comparison and refresh workflow ([a261051](https://github.com/WhispersOfJ/thebearcave/commit/a261051de05277818e595a933d9805aacc9216b6))
+
+
+### Bug Fixes
+
+* rename ambiguous loop variable to pass ruff E741 ([f130332](https://github.com/WhispersOfJ/thebearcave/commit/f1303327ef9b43a17efb17d1b6e66f54aa8f1d11))
+
 ## [1.14.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.13.0...v1.14.0) (2026-08-29)
 
 
