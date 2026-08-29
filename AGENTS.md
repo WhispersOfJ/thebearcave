@@ -120,7 +120,8 @@ DLNA, and remote-access NAT-PMP/UPnP negotiation are unreliable on bridge networ
 The 10-service expansion in `stack-expansion-spec.md` is deployed: nine
 services are live in `docker-compose.yml` (Lidarr, Readarr, Bazarr,
 Audiobookshelf, Komga, AdGuard Home, CrowdSec, Vaultwarden, n8n). The tenth,
-Uptime Kuma, was removed from scope by decision. Docs pages exist in
+Uptime Kuma, was removed from scope by decision. Retired services and their
+re-adoption watchers are tracked in [docs/services/lifecycle.md](docs/services/lifecycle.md). Docs pages exist in
 `docs/services/`:
 
 | Service | Purpose | Port | Docs |
@@ -350,6 +351,8 @@ Run `./scripts/setup.sh` to generate secrets.
 ---
 
 ## Archive
+
+Retired services and their re-adoption watchers are tracked in [docs/services/lifecycle.md](docs/services/lifecycle.md).
 
 Legacy files from the source repos are preserved in `archive/`:
 - `archive/media-stack/` — 133+ fish functions, scripts, systemd units, CLAUDE.md, STACK.md
