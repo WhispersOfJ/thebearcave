@@ -22,6 +22,8 @@ and the two policies every operator must know: **actions are SHA-pinned** and
 | `cert-expiry-check.yml` | weekly + dispatch | Probes the Traefik HTTPS certificate and alerts via Discord before it expires |
 | `disk-cleanup.yml` | weekly + dispatch | Prunes Docker images/volumes/build cache when disk usage crosses a threshold, alerts via Discord |
 | `pin-drift-check.yml` | weekly + dispatch | Verifies all third-party action pins are current; opens/closes a `pin-drift` issue |
+| `quality.yml` | pull requests | Dependency review, Dockerfile lint, YAML lint, and Metacache tests |
+| `scorecard.yml` | main pushes + weekly | OpenSSF Scorecard supply-chain analysis and SARIF upload |
 
 `dependabot.yml` (not a workflow) drives weekly version updates for Docker,
 pip, NuGet, and GitHub Actions.
@@ -83,6 +85,7 @@ tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
 | Secret | Where it lives | Why |
 |--------|----------------|-----|
 | `RELEASE_PLEASE_TOKEN` | GitHub Actions secret (synced from `.env` via `./scripts/setup.sh --sync-github-secrets`) | Release PRs opened with a PAT get validate.yml run on them (the default `GITHUB_TOKEN` path is skipped by GitHub's recursion guard) |
+| `METRICS_TOKEN` | GitHub repository secret | Personal token used by `metrics.yml` to render the profile metrics embed |
 
 The manifest `.github/required-secrets.json` is the source of truth — the
 `secret-guard.yml` workflow fails if a workflow uses a secret that isn't

@@ -1,0 +1,71 @@
+name: Quality
+# Pinned actions policy: third-party actions are pinned to full commit SHAs.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.yml"
+      - "**.yaml"
+      - "**.sh"
+      - "**Dockerfile"
+      - "services/metacache/**"
+      - "services/nzbdav-exporter/**"
+      - ".github/workflows/quality.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@595b5aeba73380359d98a5e087f648dbb0edce1b # v4.7.3
+        with:
+          fail-on-severity: high
+
+  dockerfile-lint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Hadolint
+        run: |
+          curl -sSfL -o /tmp/hadolint \
+            https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+          chmod +x /tmp/hadolint
+      - name: Lint Dockerfiles
+        run: |
+          /tmp/hadolint services/metacache/Dockerfile
+          /tmp/hadolint services/nzbdav-exporter/Dockerfile
+
+  yaml-lint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install yamllint
+        run: python3 -m pip install yamllint==1.37.1
+      - name: Lint YAML
+        run: |
+          yamllint -d "{extends: relaxed, rules: {line-length: disable}}" \
+            docker-compose.yml .github/workflows/*.yml .github/dependabot.yml
+
+  metacache-tests:
+    name: Metacache Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: dotnet test services/metacache --configuration Release --no-restore
