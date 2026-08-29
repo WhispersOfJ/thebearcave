@@ -170,3 +170,14 @@ groups:
         annotations:
           summary: "Host load average exceeds CPU count"
           description: "15-minute load average is {{ $value | printf \"%.1f\" }}, exceeding CPU count for 15+ minutes."
+
+      # MCP baseline divergence (metric written by scripts/check_mcp_baseline.sh
+      # via the node-exporter textfile collector; cleared by the next clean run)
+      - alert: McpBaselineDivergence
+        expr: mcp_baseline_divergence{job="node-exporter"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MCP server state diverged from baseline"
+          description: "The daily MCP baseline check on the desktop reported a divergence from .github/mcp-baseline.json. Run python3 scripts/check_mcp.py --baseline locally for details."

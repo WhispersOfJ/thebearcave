@@ -820,6 +820,10 @@ services:
       UN_RADARR_0_API_KEY: ${RADARR_API_KEY}
       UN_SONARR_0_URL: http://sonarr:8989
       UN_SONARR_0_API_KEY: ${SONARR_API_KEY}
+      UN_LIDARR_0_URL: http://lidarr:8686
+      UN_LIDARR_0_API_KEY: ${LIDARR_API_KEY}
+      UN_READARR_0_URL: http://readarr:8787
+      UN_READARR_0_API_KEY: ${READARR_API_KEY}
     volumes:
       - *ca-mount
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
@@ -1102,11 +1106,17 @@ services:
       - /proc:/host/proc
       - /sys:/host/sys
       - /:/rootfs
+      # Textfile collector dir: the daily MCP baseline check (systemd user
+      # timer mcp-baseline-check, scripts/check_mcp_baseline.sh) writes
+      # mcp_baseline.prom here; node-exporter exposes it so Prometheus can
+      # alert via alertmanager -> Discord on divergence.
+      - /home/bear/.local/share/node-exporter-textfile:/textfile:ro
     command:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
       - "--web.listen-address=:9100"
+      - "--collector.textfile.directory=/textfile"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
       - "--collector.netclass.ignored-devices=^(veth.*)$$"
       - "--collector.netdev.device-exclude=^(veth.*)$$"
