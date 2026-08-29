@@ -34,6 +34,28 @@ With no `mcp.json` yet, the Connectors modal shows:
 
 ---
 
+## Current state (2026-08-29)
+
+Three servers are configured in `~/.agents/mcp.json` and approved+enabled in
+the running Freebuff Desktop:
+
+| Server | Tools | Role |
+|--------|-------|------|
+| **context7** 4.0.4 | 2 (`resolve-library-id`, `query-docs`) | Up-to-date docs for the stack's tools (Docker Compose, Traefik v3, Next.js, .NET, Python, Prometheus/Grafana, rclone) |
+| **playwright** 1.63.0-alpha | 24 (navigate, click, fill_form, screenshot, snapshot, …) | Browser automation |
+| **chrome-devtools** 1.8.0 | 29 (page control, network, console, lighthouse_audit, performance traces, …) | Deep browser/devtools inspection |
+
+Verify any time with the probe:
+
+```bash
+python3 scripts/check_mcp.py --freebuff
+```
+
+Each server should report `enabled=True status=connected approvedLaunch=True
+approvedTools=True`.
+
+---
+
 ## Recommended: Context7
 
 **Verdict: add it.** Context7 serves up-to-date, version-specific documentation
@@ -97,9 +119,51 @@ Both paths land on the same file; the consent dialog is the safety gate before
 | **Homelab MCP** (bjeans unified server) | ❌ Skip | Docker/Podman + Pi-hole/Unifi/Ollama; only the Docker slice overlaps, and that is the redundant-and-risky part. |
 | **Filesystem MCP** | ❌ Skip | Native file read/write/search tools exist in every session. |
 | **GitHub MCP** | ❌ Skip | Covered by the authenticated `gh` CLI (see `~/ECC` policy audit). |
-| **Playwright / chrome-devtools MCP** | ❌ Skip | Already in `~/.claude.json`; Freebuff has native preview/screenshot/browser tools. |
+| **Playwright / chrome-devtools MCP** | ✅ **Added** | Browser automation beyond Freebuff's native preview tools (form filling, network/console inspection, Lighthouse audits). Previously skipped as redundant with the native preview; added 2026-08-29 when full browser control in sessions became desirable. |
 | **Postgres / Supabase MCP** | ❌ Skip | This stack is SQLite-only — nothing to connect to. |
 | **Stackarr** (media-stack control plane + MCP) | ⚠️ Watch | Purpose-built for Radarr/Sonarr/Plex orchestration — typed, approval-gated Docker actions. See [docs/stackarr.md](stackarr.md) for the full evaluation and adoption path. |
+
+---
+
+## Reproducing the approval (API flow)
+
+The Connectors UI does this by hand; the same steps can be driven against the
+running orchestrator's API so the setup is reproducible. The orchestrator's
+API port and consent token are per-boot (same-user read from `/proc`; the
+`scripts/check_mcp.py` probe locates them automatically).
+
+1. **Write the config** — add the server to `~/.agents/mcp.json`:
+
+   ```json
+   {
+     "mcpServers": {
+       "playwright": {
+         "command": "npx",
+         "args": ["-y", "@playwright/mcp@latest"]
+       }
+     }
+   }
+   ```
+
+2. **Reload** so the running orchestrator picks it up (it does not watch the
+   file): `POST /api/mcp/reload`. The server now lists with
+   `status=awaiting_launch_approval`.
+
+3. **Approve the launch** — `POST /api/mcp/servers/{id}/approve-launch` with
+   `{}`. The response contains the tool manifest **and** a `manifestHash`.
+
+4. **Approve the tools** — `POST /api/mcp/servers/{id}/approve-tools` with
+   `{"allowedTools": [<all tool names>], "manifestHash": <hash from step 3>}`.
+   ⚠️ **Gotcha:** the hash is only valid paired with the exact manifest from
+   that same `approve-launch` response. Do not re-fetch the tool list between
+   steps 3 and 4, or the call fails with
+   `"changed its tools while you were choosing"` — re-run step 3 and pass its
+   fresh hash straight through.
+
+5. **Enable** — `POST /api/mcp/servers/{id}/enable` with `{"enabled": true}`.
+
+6. **Verify** — `python3 scripts/check_mcp.py --freebuff`; the server should
+   report `enabled=True status=connected` with its tool count.
 
 ---
 
