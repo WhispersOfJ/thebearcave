@@ -191,7 +191,7 @@ services:
   # Audiobookshelf — Audiobook and podcast server
   # ==========================================================================
   audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:latest
+    image: ghcr.io/advplyr/audiobookshelf:latest # Re-verify digest before deployment
     container_name: audiobookshelf
     mem_limit: 512m
     cpus: "0.5"
@@ -511,7 +511,7 @@ services:
   # Utilities — Vaultwarden + n8n
   # ==========================================================================
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: vaultwarden/server:latest # Re-verify digest before deployment
     container_name: vaultwarden
     mem_limit: 256m
     cpus: "0.5"
@@ -542,7 +542,7 @@ services:
       - "traefik.http.routers.vaultwarden.tls=true"
 
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:latest # Re-verify digest before deployment
     container_name: n8n
     mem_limit: 512m
     cpus: "0.5"
@@ -581,7 +581,7 @@ services:
   # Network & Security — AdGuard Home + CrowdSec
   # ==========================================================================
   adguard:
-    image: adguard/adguardhome:latest
+    image: adguard/adguardhome:latest # Re-verify digest before deployment
     container_name: adguard
     mem_limit: 128m
     cpus: "0.25"
@@ -614,7 +614,7 @@ services:
       - "traefik.http.routers.adguard.tls=true"
 
   crowdsec:
-    image: crowdsecurity/crowdsec:latest
+    image: crowdsecurity/crowdsec:latest # Re-verify digest before deployment
     container_name: crowdsec
     mem_limit: 128m
     cpus: "0.25"

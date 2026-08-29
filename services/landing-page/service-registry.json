@@ -37,18 +37,11 @@
       "readarr"
     ],
     [
-      "radarr",
-      "sonarr"
-    ],
-    [
       "bazarr"
     ],
     [
       "audiobookshelf",
       "komga"
-    ],
-    [
-      "bazarr"
     ],
     [
       "nzbdav"
@@ -87,7 +80,15 @@
         "cleanuparr",
         "grafana",
         "prometheus",
-        "landing-page"
+        "landing-page",
+        "bazarr",
+        "lidarr",
+        "readarr",
+        "audiobookshelf",
+        "komga",
+        "adguard",
+        "vaultwarden",
+        "n8n"
       ],
       "icon": "🔀",
       "docs": "docs/services/traefik.md"
@@ -108,8 +109,8 @@
       "depended_by": [
         "radarr",
         "sonarr",
-        "bazarr",
         "arr-dashboard",
+        "bazarr",
         "lidarr",
         "readarr"
       ],
@@ -166,26 +167,6 @@
       "icon": "📺",
       "docs": "docs/services/sonarr.md"
     },
-    "bazarr": {
-      "name": "Bazarr",
-      "description": "Subtitle search & downloads",
-      "port": 6767,
-      "category": "pipeline",
-      "health": {
-        "type": "http",
-        "url": "http://bazarr:6767/api/health"
-      },
-      "dashboard": "http://{host}:6767",
-      "depends_on": [
-        "traefik",
-        "radarr",
-        "sonarr",
-        "nzbdav_rclone"
-      ],
-      "depended_by": [],
-      "icon": "📝",
-      "docs": "docs/services/bazarr.md"
-    },
     "nzbdav": {
       "name": "NzbDAV",
       "description": "Usenet queue & WebDAV mount",
@@ -227,6 +208,9 @@
       ],
       "depended_by": [
         "plex",
+        "bazarr",
+        "lidarr",
+        "readarr",
         "audiobookshelf",
         "komga"
       ],
@@ -513,6 +497,26 @@
       "icon": "🏠",
       "docs": "docs/services/landing-page.md"
     },
+    "bazarr": {
+      "name": "Bazarr",
+      "description": "Subtitle search & downloads",
+      "port": 6767,
+      "category": "pipeline",
+      "health": {
+        "type": "http",
+        "url": "http://bazarr:6767/api/health"
+      },
+      "dashboard": "http://{host}:6767",
+      "depends_on": [
+        "traefik",
+        "radarr",
+        "sonarr",
+        "nzbdav_rclone"
+      ],
+      "depended_by": [],
+      "icon": "📝",
+      "docs": "docs/services/bazarr.md"
+    },
     "lidarr": {
       "name": "Lidarr",
       "description": "Music management & downloads",
@@ -591,6 +595,10 @@
       "name": "AdGuard Home",
       "description": "Network-wide DNS filtering",
       "port": 3003,
+      "ports": [
+        53,
+        3003
+      ],
       "category": "security",
       "health": {
         "type": "http",
@@ -651,6 +659,23 @@
       "depended_by": [],
       "icon": "⚙️",
       "docs": "docs/services/n8n.md"
+    },
+    "alertmanager": {
+      "name": "Alertmanager",
+      "description": "Prometheus alert routing & Discord notifications",
+      "port": 9093,
+      "category": "monitoring",
+      "health": {
+        "type": "http",
+        "url": "http://alertmanager:9093/-/healthy"
+      },
+      "dashboard": "http://{host}:9093",
+      "depends_on": [
+        "prometheus"
+      ],
+      "depended_by": [],
+      "icon": "🚦",
+      "docs": "docs/services/monitoring.md"
     }
   }
 }

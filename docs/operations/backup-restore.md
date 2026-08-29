@@ -9,9 +9,10 @@ Everything you need to survive hardware failure, bad config edits, or a botched 
 | Data | Location | Criticality |
 |------|----------|-------------|
 | Plex library DB + metadata | `config/plex/` (~33 GB) | **Highest** — irreplaceable watch history |
-| *arr DBs + Bazarr | `services/{radarr,sonarr,prowlarr,seerr,cleanuparr,bazarr}/config/` | High — easily rebuilt but tedious |
+| *arr DBs + Bazarr | `config/{radarr,sonarr,prowlarr,cleanuparr,bazarr}/` plus `services/seerr/config/` | High — easily rebuilt but tedious |
 | InfiniDysk DB + queue | `config/nzbdav/` | High — **queue is not persistent across recreate** |
 | WatchState DB | `config/watchstate/` | Medium — redundant with Plex |
+| New service state | `config/{lidarr,readarr,audiobookshelf,komga,adguard,crowdsec,vaultwarden,n8n}/` | Medium — service-specific state and credentials |
 | Metacache DB + images | `data/metacache/` | Low — regenerable via warm |
 | Grafana/Prometheus/Loki | `data/{grafana,prometheus,loki}/` | Low — regenerable |
 | Secrets | `secrets/` + `.env` | **Critical** — losing these is losing access |
@@ -27,7 +28,7 @@ Everything you need to survive hardware failure, bad config edits, or a botched 
 ```
 
 Produces `backups/bearcave_backup_<YYYYMMDD_HHMMSS>/` with:
-- `configs/` — every `services/<app>/config/` + root configs
+- `configs/` — every `config/<app>/` plus legacy `services/<app>/config/` and root configs
 - `databases/` — plex, metacache, watchstate DBs
 - `secrets/` — `.env` + `secrets/`
 - `plex-metadata/` — tar.gz of the Plex config tree
@@ -57,7 +58,10 @@ docker compose down
 
 ```bash
 # From the backup dir:
-cp -r backups/bearcave_backup_<ts>/configs/* services/
+cp -r backups/bearcave_backup_<ts>/configs/config/* config/ 2>/dev/null || true
+cp -r backups/bearcave_backup_<ts>/configs/services/* services/ 2>/dev/null || true
+# Restore any legacy service config path explicitly when present.
+cp -r backups/bearcave_backup_<ts>/configs/services/seerr/config services/seerr/ 2>/dev/null || true
 cp backups/bearcave_backup_<ts>/.env .env    # if restoring secrets too
 ```
 

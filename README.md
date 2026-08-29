@@ -1,6 +1,6 @@
 # The Bear Cave
 
-**A unified media infrastructure stack — 21 containers, one `docker compose up -d`.**
+**A unified media infrastructure stack — 31 configured services, one `docker compose up -d`.**
 
 Combines all services from media-stack and metacacharr into a single, cohesive deployment. Usenet-only, FUSE-streamed, Plex-served, with a custom metadata cache for fast local updates.
 
@@ -44,6 +44,11 @@ Combines all services from media-stack and metacacharr into a single, cohesive d
 | **Prowlarr** | 9696 | Indexer management |
 | **Radarr** | 7878 | Movie management |
 | **Sonarr** | 8989 | TV show management |
+| **Bazarr** | 6767 | Subtitle management |
+| **Lidarr** | 8686 | Music management |
+| **Readarr** | 8787 | Book management |
+| **Audiobookshelf** | 13378 | Audiobook and podcast server |
+| **Komga** | 25600 | Comics and manga server |
 | **InfiniDysk** | 3000 | Usenet streaming/download |
 | **Seerr** | 5055 | Request management |
 | **Plex** | 32400 | Media server (host network) |
@@ -52,6 +57,10 @@ Combines all services from media-stack and metacacharr into a single, cohesive d
 | **Grafana** | 3001 | Dashboards & monitoring |
 | **Prometheus** | 9090 | Metrics storage |
 | **Loki** | 3100 | Log aggregation |
+| **AdGuard Home** | 53, 3003 | DNS filtering and web UI |
+| **CrowdSec** | 18080 | Intrusion detection |
+| **Vaultwarden** | 8222 | Password manager |
+| **n8n** | 5678 | Workflow automation |
 
 ## Quick Start
 
@@ -103,7 +112,7 @@ Plex runs on host network for GDM/DLNA/remote access. Access directly at `http:/
 |-----|----------------|
 | [Architecture](docs/architecture.md) | Mermaid diagrams: topology, data flow, FUSE lifecycle, dependencies |
 | [Quick Start](docs/quick-start.md) | Zero-to-streaming in ~30 min + day-1 checklist |
-| [Services](docs/services/) | Per-service docs for all 22 containers |
+| [Services](docs/services/) | Per-service docs for all 31 configured services |
 | [Landmines](docs/landmines.md) | Operational gotchas that bite — read before touching the stack |
 | [Operations](docs/operations/backup-restore.md) | Backup, restore, DR checklist |
 | [Operations](docs/operations/troubleshooting.md) | Symptom-driven playbooks |
@@ -116,7 +125,7 @@ Plex runs on host network for GDM/DLNA/remote access. Access directly at `http:/
 ## Testing
 
 ```bash
-# Run all health checks (22 services)
+# Run all health checks (31 configured services)
 ./tests/health/run-all.sh
 
 # Integration pipeline (FUSE mount, Plex, *arr, InfiniDysk, Metacache)

@@ -39,7 +39,8 @@ jobs:
       - name: Install Hadolint
         run: |
           curl -sSfL -o /tmp/hadolint \
-            https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+            https://github.com/hadolint/hadolint/releases/download/v2.14.0/hadolint-Linux-x86_64
+          echo "4e697ba704fd23b2409b947a319c19c3ee54d24f  /tmp/hadolint" | sha1sum -c -
           chmod +x /tmp/hadolint
       - name: Lint Dockerfiles
         run: |

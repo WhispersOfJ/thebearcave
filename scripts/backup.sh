@@ -54,7 +54,8 @@ backup_configs() {
     local config_backup="$BACKUP_DIR/$BACKUP_NAME/configs"
     mkdir -p "$config_backup"
     
-    # Backup service configs
+    # Backup service configs. Active services store state under config/;
+    # legacy services may still use services/<app>/config/.
     local services=(
         "prowlarr"
         "radarr"
@@ -80,9 +81,14 @@ backup_configs() {
     )
     
     for service in "${services[@]}"; do
-        if [ -d "services/$service" ]; then
-            cp -r "services/$service" "$config_backup/"
-            log_info "Backed up: $service"
+        if [ -d "config/$service" ]; then
+            mkdir -p "$config_backup/config"
+            cp -r "config/$service" "$config_backup/config/"
+            log_info "Backed up: config/$service"
+        elif [ -d "services/$service/config" ]; then
+            mkdir -p "$config_backup/services/$service"
+            cp -r "services/$service/config" "$config_backup/services/$service/"
+            log_info "Backed up: services/$service/config"
         fi
     done
     
