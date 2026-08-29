@@ -128,8 +128,7 @@ jobs:
         # `trivy config` rejects multiple targets in one invocation, so each
         # Dockerfile is scanned separately and the job fails if any one of them
         # reports HIGH/CRITICAL findings. The repo-root `.trivyignore` lists the
-        # currently-deferred checks (e.g. DS-0002, pending the non-root USER
-        # work in improvement item 7). docker-compose.yml is deliberately not a
+        # currently-deferred checks. docker-compose.yml is deliberately not a
         # trivy "config" target here: Trivy's IaC scanner detects 0 files for it,
         # so scanning it would be a silent no-op.
         run: |

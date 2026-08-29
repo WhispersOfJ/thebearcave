@@ -122,7 +122,7 @@ done
 | Moment | Run |
 |--------|-----|
 | After any compose change | `docker compose config --quiet` + health checks |
-| Before merging a PR | `validate.yml` CI (compose, shellcheck, ruff, Django tests) |
+| Before merging a PR | `validate.yml` CI (compose, shellcheck, ruff, exporter tests) |
 | After touching the FUSE mount | integration pipeline + a Plex playback test |
 | After restoring from backup | full health + integration + live tests |
 | Nightly (CI) | compose validation, Dockerfile builds, script syntax, yaml lint |

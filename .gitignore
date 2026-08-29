@@ -11,7 +11,7 @@ archive/metacacharr/monitoring/.env
 
 # Service configuration (contains sensitive data). After the Phase 4
 # migration every app's live config lives under config/<app>/ (Plex library,
-# *arr DBs + API keys, WebDAV creds, control-panel.db) — none of it is
+# *arr DBs + API keys, WebDAV creds, app SQLite DBs) — none of it is
 # trackable. Only config/traefik/ (static config + dynamic TLS routing) is
 # tracked; the mkcert private key under config/traefik/certs/ must never be.
 config/*/

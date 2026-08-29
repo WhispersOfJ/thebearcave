@@ -31,7 +31,7 @@ DST=/home/bear/TheBearCave
 mkdir -p $DST/services
 
 for app in prowlarr radarr sonarr nzbdav nzbdav-rclone seerr \
-           plex cleanuparr watchstate control-panel; do
+           plex cleanuparr watchstate; do
   if [ -d "$SRC/config/$app" ]; then
     mkdir -p "$DST/services/$app"
     cp -a "$SRC/config/$app" "$DST/services/$app/config"
@@ -77,7 +77,7 @@ cp $DST/.env.template $DST/.env
 ```
 
 All the old variable names are unchanged — the compose file uses the same `${VAR}`
-names (RADARR_API_KEY, PLEX_TOKEN, NZBDAV_*, WS_*, CONTROL_PANEL_*, etc.).
+names (RADARR_API_KEY, PLEX_TOKEN, NZBDAV_*, WS_*, etc.).
 
 ## Step 5 — First boot
 

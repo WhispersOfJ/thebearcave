@@ -10,10 +10,9 @@
 # CI starts failing on that check again, which is the point. Keep each line to
 # the format "<ID> # <reason + tracking item>".
 
-# IaC: services/control-panel/django/Dockerfile runs as root (no USER directive).
-# Deferred to improvement item 7 (Tier 3: non-root USER for control-panel).
-# This is NOT ignorable long-term — resolving item 7 removes this entry.
-DS-0002 # deferred: control-panel non-root USER, item 7 / Tier 3
+# IaC: services/nzbdav-exporter/Dockerfile runs as root (no USER directive).
+# Deferred to improvement item 6 (Tier 3: non-root USER work).
+DS-0002 # deferred: nzbdav-exporter non-root USER, item 6 / Tier 3
 
 # ── Image CRITICAL CVEs (deferred) ────────────────────────────────────────────
 
