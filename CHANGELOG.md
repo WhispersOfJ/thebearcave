@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.2](https://github.com/WhispersOfJ/thebearcave/compare/v1.16.1...v1.16.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* handle null templating and escaped dollar vars in dashboard guard ([675e088](https://github.com/WhispersOfJ/thebearcave/commit/675e088751c1a477bacec08af81ce4f961b10a78))
+
 ## [1.16.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.16.0...v1.16.1) (2026-08-30)
 
 
