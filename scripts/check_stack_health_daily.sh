@@ -35,6 +35,16 @@ METRIC_FILE="$TEXTFILE_DIR/stack-health.prom"
 
 mkdir -p "$TEXTFILE_DIR" "$(dirname "$LOG_FILE")"
 
+# Load the stack .env so guards that need API keys (nzbdav queue check needs
+# FRONTEND_BACKEND_API_KEY) work under the systemd user timer, which has no
+# exported environment. Values already set in the environment win.
+if [ -f "$REPO_DIR/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$REPO_DIR/.env"
+  set +a
+fi
+
 mcp_out="$(cd "$REPO_DIR" && python3 scripts/check_mcp.py --baseline 2>&1)"
 mcp_rc=$?
 

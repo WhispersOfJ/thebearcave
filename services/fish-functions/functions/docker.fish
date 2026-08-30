@@ -32,9 +32,12 @@ function docker --description 'Guarded docker: routes nzbdav compose recreates t
     set -l sub $argv[2]
     switch $sub
         case up restart start stop rm down
-            # Does the arg list mention nzbdav (or nzbdav_rclone, whose
-            # recreate cascades nzbdav)? If not, pass through ungated.
-            if not string match -q -- 'nzbdav*' $argv[3..]
+            # Does the arg list target nzbdav or nzbdav_rclone (whose recreate
+            # cascades nzbdav)? Exact match — `nzbdav-exporter` is a different
+            # service whose recreation cannot touch the queue. If not, pass
+            # through ungated.
+            set -l hits (string match -e -- nzbdav $argv[3..]; string match -e -- nzbdav_rclone $argv[3..])
+            if test (count $hits) -eq 0
                 command docker $argv
                 return $status
             end

@@ -69,27 +69,38 @@ docker() {
     fi
     case "$2" in
         up|restart|start|stop|rm|down)
-            # only gate when the service is nzbdav/nzbdav_rclone
-            case " $* " in
-                *" nzbdav"*|*" nzbdav_rclone"*)
-                    case " $* " in
-                        *" --force "*)
-                            echo "[guard] --force: skipping queue guard (queued NZBs WILL be wiped)" >&2
-                            # strip --force before forwarding (compose doesn't know it)
-                            local _args=()
-                            for _a in "$@"; do [ "$_a" != --force ] && _args+=("$_a"); done
-                            command docker "${_args[@]}"; return $? ;;
-                        *)
-                            guard="${BEARCAVE_REPO_DIR:-$HOME/TheBearCave}/scripts/nzbdav-safe-recreate.sh"
-                            if [ -x "$guard" ]; then
-                                shift  # drop the leading `docker`
-                                bash "$guard" "$@"
-                                return $?
-                            fi
-                            echo "[guard] nzbdav-safe-recreate.sh not found — running unguarded" >&2
-                            command docker "$@"; return $? ;;
-                    esac ;;
-            esac ;;
+            # only gate when the service is exactly nzbdav/nzbdav_rclone
+            # (nzbdav-exporter is a different service — never gate it)
+            local _svc_hit=false
+            local _a2
+            for _a2 in "$@"; do
+                case "$_a2" in nzbdav|nzbdav_rclone) _svc_hit=true ;; esac
+            done
+            if [ "$_svc_hit" = true ]; then
+                case " $* " in
+                    *" --force "*)
+                        echo "[guard] --force: skipping queue guard (queued NZBs WILL be wiped)" >&2
+                        # strip --force before forwarding (compose doesn't know it)
+                        local _args=()
+                        local _a
+                        for _a in "$@"; do [ "$_a" != --force ] && _args+=("$_a"); done
+                        command docker "${_args[@]}"
+                        return $?
+                        ;;
+                    *)
+                        guard="${BEARCAVE_REPO_DIR:-$HOME/TheBearCave}/scripts/nzbdav-safe-recreate.sh"
+                        if [ -x "$guard" ]; then
+                            shift  # drop the leading `docker`
+                            bash "$guard" "$@"
+                            return $?
+                        fi
+                        echo "[guard] nzbdav-safe-recreate.sh not found — running unguarded" >&2
+                        command docker "$@"
+                        return $?
+                        ;;
+                esac
+            fi
+            ;;
     esac
     command docker "$@"; return $?
 }
