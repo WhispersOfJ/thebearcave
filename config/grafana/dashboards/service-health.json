@@ -1,4 +1,5 @@
 {
+  "description": "Live health overview across the stack: service status, container resource usage, restarts, NzbDAV queue and activity, Metacache size, and host disk. Sourced from cAdvisor and node-exporter.",
   "annotations": { "list": [] },
   "editable": true,
   "fiscalYearStartMonth": 0,
