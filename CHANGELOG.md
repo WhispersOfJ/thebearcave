@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.16.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.16.0...v1.16.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* auto-load stack .env into fish so stack-* commands reach the services ([f819898](https://github.com/WhispersOfJ/thebearcave/commit/f819898b06426f7fe75c1f0c0d3f04bc535c03ac))
+* raise nzbdav_rclone memory limit to stop OOM-kill stale-mount cascade ([2cecb5c](https://github.com/WhispersOfJ/thebearcave/commit/2cecb5c090641bb9fedfc82878eb19a470d25259))
+* resolve fish conf.d env loader repo path correctly ([49cc760](https://github.com/WhispersOfJ/thebearcave/commit/49cc76055f2f6b2b5afdb8c664469fe7ffb16c80))
+
 ## [1.16.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.15.0...v1.16.0) (2026-08-29)
 
 
