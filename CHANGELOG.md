@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.17.0...v1.17.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* tighten nzbdav guard over-matching and env loading under the timer ([8634eb3](https://github.com/WhispersOfJ/thebearcave/commit/8634eb3cc622a978df2a7da885fa769ddc298ae8))
+
 ## [1.17.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.16.2...v1.17.0) (2026-08-30)
 
 
