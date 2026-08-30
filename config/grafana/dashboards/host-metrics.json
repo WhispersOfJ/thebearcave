@@ -1,6 +1,27 @@
 {
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "name": "Mount Drift",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "enable": true,
+        "iconColor": "#F2495C",
+        "query": "mount_drift_divergence{job=\"node-exporter\"} == 1",
+        "step": "60s",
+        "showIn": 0,
+        "type": "tags"
+      },
+      {
+        "name": "MCP Baseline",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "enable": true,
+        "iconColor": "#FF780A",
+        "query": "mcp_baseline_divergence{job=\"node-exporter\"} == 1",
+        "step": "60s",
+        "showIn": 0,
+        "type": "tags"
+      }
+    ]
   },
   "description": "Host-level metrics: CPU, memory, disk, network, load, filesystem. Sourced from node-exporter.",
   "editable": true,
