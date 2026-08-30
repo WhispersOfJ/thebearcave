@@ -152,7 +152,6 @@ services:
       - ./config/radarr:/config
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/movies:/data/movies
-      - ./media/anime-movies:/data/anime-movies
     ports:
       - "7878:7878"
     labels:
@@ -184,7 +183,6 @@ services:
       - ./config/sonarr:/config
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/shows:/data/shows
-      - ./media/anime-shows:/data/anime-shows
     ports:
       - "8989:8989"
     labels:
@@ -356,8 +354,6 @@ services:
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/movies:/data/movies
       - ./media/shows:/data/shows
-      - ./media/anime-movies:/data/anime-movies
-      - ./media/anime-shows:/data/anime-shows
     ports:
       - "6767:6767"
     labels:
@@ -394,7 +390,7 @@ services:
       TZ: ${TZ}
       FRONTEND_BACKEND_API_KEY: ${FRONTEND_BACKEND_API_KEY}
       NZBDAV_CONFIG__API__KEY: ${FRONTEND_BACKEND_API_KEY}
-      NZBDAV_CONFIG__API__CATEGORIES: "tv,movies,anime-movies,anime-shows,music,books,audiobooks,comics"
+      NZBDAV_CONFIG__API__CATEGORIES: "tv,movies,music,books,audiobooks,comics"
       NZBDAV_CONFIG__API__IMPORT_STRATEGY: "symlinks"
       NZBDAV_CONFIG__WEBDAV__USER: ${NZBDAV_WEBDAV_USER}
       NZBDAV_CONFIG__WEBDAV__PASS: ${NZBDAV_WEBDAV_PASS}
@@ -694,8 +690,6 @@ services:
       - ./config/plex-transcode:/transcode
       - ./media/movies:/data/movies
       - ./media/shows:/data/shows
-      - ./media/anime-movies:/data/anime-movies
-      - ./media/anime-shows:/data/anime-shows
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - /dev/dri:/dev/dri
     # Note: Plex runs on host network for GDM/DLNA/remote access.
