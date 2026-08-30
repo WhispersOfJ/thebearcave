@@ -11,6 +11,7 @@
 #   5. compose mounts — scripts/check_compose_mounts.py (no merged mount lines)
 #   6. mount drift    — scripts/check_mount_drift.py (live mounts == compose def)
 #   7. MCP baseline  — scripts/check_mcp.py --baseline (0 divergences vs .github/mcp-baseline.json)
+#   8. grafana dashboards — scripts/check_grafana_dashboards.py (valid, un-wrapped dashboard JSON)
 #
 # Every check runs even if an earlier one fails, so one invocation reports
 # everything that is broken. Exit 0 = all pass, 1 = any failure.
@@ -92,6 +93,9 @@ fi
 
 # 7. MCP baseline — probe against .github/mcp-baseline.json
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
+
+# 8. Grafana dashboards — every tracked dashboard JSON is a valid, un-wrapped model
+check "grafana dashboards" python3 scripts/check_grafana_dashboards.py
 
 echo
 if [ "$failures" -eq 0 ] && [ "$warnings" -eq 0 ]; then
