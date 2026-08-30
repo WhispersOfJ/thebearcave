@@ -1,0 +1,6 @@
+services:
+  # The merged-mount defect: two volume entries collapsed onto one line.
+  # YAML parses this as a single scalar, but the guard must flag it.
+  app:
+    volumes:
+      - ./media/movies:/data/movies      - ./media/shows:/data/shows

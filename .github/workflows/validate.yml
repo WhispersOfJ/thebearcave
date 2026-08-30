@@ -43,6 +43,9 @@ jobs:
       - name: Check for merged mount/port/env entries in docker-compose.yml
         run: python3 scripts/check_compose_mounts.py
 
+      - name: Regression test - merged-mount guard
+        run: python3 scripts/test_check_compose_mounts.py
+
       - name: Check every compose ${VAR} has a .env.template key
         run: |
           comm -23 \

@@ -1,0 +1,13 @@
+services:
+  app:
+    volumes:
+      - ./media/movies:/data/movies
+      - ./media/shows:/data/shows:ro
+  db:
+    volumes:
+      - app-data:/data
+  proxy:
+    ports:
+      - "80:80"
+    environment:
+      - FOO=bar
