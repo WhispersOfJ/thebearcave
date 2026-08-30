@@ -15,7 +15,9 @@ set -l repo "$BEARCAVE_REPO_DIR"
 if test -z "$repo"
     set -l self (status --current-filename)
     set -l real (readlink -f "$self" 2>/dev/null; or echo "$self")
-    set repo (dirname (dirname (dirname "$real")))
+    # bearcave-env.fish lives at <repo>/services/fish-functions/conf.d/, so
+    # the repo root is four dirname hops up from the file itself.
+    set repo (dirname (dirname (dirname (dirname "$real"))))
 end
 
 set -l env_file "$repo/.env"
