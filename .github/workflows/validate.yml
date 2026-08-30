@@ -49,8 +49,14 @@ jobs:
       - name: Regression test - nzbdav queue guard
         run: python3 scripts/test_check_nzbdav_queue.py
 
+      - name: Regression test - bind-mount staleness guard
+        run: python3 scripts/test_check_bind_mount_staleness.py
+
       - name: NzbDAV queue guard (offline — no live nzbdav on CI)
         run: python3 scripts/check_nzbdav_queue.py --offline
+
+      - name: Bind-mount staleness guard (offline — no live docker on CI)
+        run: python3 scripts/check_bind_mount_staleness.py --offline
 
       - name: Check every compose ${VAR} has a .env.template key
         run: |

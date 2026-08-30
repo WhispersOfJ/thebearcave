@@ -13,6 +13,7 @@
 #   7. MCP baseline  — scripts/check_mcp.py --baseline (0 divergences vs .github/mcp-baseline.json)
 #   8. grafana dashboards — scripts/check_grafana_dashboards.py (valid, un-wrapped dashboard JSON)
 #   9. nzbdav queue   — scripts/check_nzbdav_queue.py (recreate would wipe queued NZBs; offline on CI)
+#  10. bind-mount staleness — scripts/check_bind_mount_staleness.py (container serving stale inode)
 #
 # Every check runs even if an earlier one fails, so one invocation reports
 # everything that is broken. Exit 0 = all pass, 1 = any failure.
@@ -104,6 +105,16 @@ if [ -n "${NZBDAV_QUEUE_OFFLINE:-}" ]; then
   check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --offline
 else
   check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --allow-unreachable
+fi
+
+# 10. Bind-mount staleness — a container can serve a stale inode after
+#     sed -i/vim edits a bind-mounted config file. Only runs with docker.
+if [ -n "${BIND_MOUNT_OFFLINE:-}" ]; then
+  check "bind-mount staleness" python3 scripts/check_bind_mount_staleness.py --offline
+elif command -v docker >/dev/null 2>&1; then
+  check "bind-mount staleness" python3 scripts/check_bind_mount_staleness.py
+else
+  warn_skip "bind-mount staleness" "docker"
 fi
 
 echo

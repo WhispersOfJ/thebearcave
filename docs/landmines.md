@@ -34,23 +34,37 @@ wraps `docker compose up -d nzbdav` / `restart nzbdav` so the guard fires even
 when the recreate bypasses `scripts/update-nzbdav.sh`. `--force` skips it
 (DANGEROUS — queued NZBs are wiped and blocklisted).
 
+### 4. Bind-mount file staleness
+
+`sed -i`/`vim` on a bind-mounted file changes the inode on the host, but the
+container keeps the old inode open and silently serves stale content until
+restarted. Always `docker compose restart <container>` after editing a file
+served by a bind mount.
+
+**Guarded**: `scripts/check_bind_mount_staleness.py` compares the host inode
+against the in-container inode for every single-file bind mount (directory
+binds are immune — their inode is stable). For distroless images that ship no
+`stat` binary (Loki, promtail), it falls back to a `docker cp` content-hash
+comparison. Runs in preflight; fails when a container is serving a stale
+inode or stale content.
+
 ---
 
 ## High
 
-### 4. Watchtower only updates channel-tagged images
+### 5. Watchtower only updates channel-tagged images
 
 `ghcr.io/hotio/*:release` images auto-update nightly at 04:00. Digest-pinned images
 (seerr, unpackerr) are **excluded by design** —
 bump them deliberately.
 
-### 5. App removal must be exhaustive
+### 6. App removal must be exhaustive
 
 Removing an app touches: compose block, config dir, `.env` vars, Prowlarr sync,
 Traefik labels, tests. Miss one and you get
 a half-removed service.
 
-### 6. rclone.conf needs `rclone obscure`
+### 7. rclone.conf needs `rclone obscure`
 
 The WebDAV password in `config/nzbdav-rclone/rclone.conf` must be rclone-obfuscated
 (`rclone obscure "pass"`), not plaintext. The file is gitignored — the committed
