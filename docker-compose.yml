@@ -464,7 +464,7 @@ services:
   nzbdav_rclone:
     image: rclone/rclone:1.75.0
     container_name: nzbdav_rclone
-    mem_limit: 1g
+    mem_limit: 4g
     cpus: "1.0"
     restart: unless-stopped
     logging: *common-logging
