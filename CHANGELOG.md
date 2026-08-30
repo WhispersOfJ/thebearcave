@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.17.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.16.2...v1.17.0) (2026-08-30)
+
+
+### Features
+
+* guard against bind-mount file staleness (landmine [#1](https://github.com/WhispersOfJ/thebearcave/issues/1)) ([36876ea](https://github.com/WhispersOfJ/thebearcave/commit/36876eacbce86ea7f8c02f37d5f5a89d200d460e))
+* guard nzbdav recreate against the non-persistent queue landmine ([dbfe5a3](https://github.com/WhispersOfJ/thebearcave/commit/dbfe5a3a7295bcbc5979cc0da6c36dea7d0e5097))
+* wire nzbdav queue guard into fish and bash docker compose wrappers ([9eda93c](https://github.com/WhispersOfJ/thebearcave/commit/9eda93c1574ee51c9294ca85a3bac64603791817))
+
+
+### Bug Fixes
+
+* strip --force before forwarding in bash docker-guard snippet ([d5cf3ea](https://github.com/WhispersOfJ/thebearcave/commit/d5cf3eaa9db3e56bcd667afaec819f3bcb54f017))
+
 ## [1.16.2](https://github.com/WhispersOfJ/thebearcave/compare/v1.16.1...v1.16.2) (2026-08-30)
 
 
