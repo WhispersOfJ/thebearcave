@@ -39,8 +39,10 @@ ROOT = Path(__file__).resolve().parent.parent
 DASHBOARD_DIR = ROOT / "config" / "grafana" / "dashboards"
 
 # ${DS_PROMETHEUS} and friends anywhere in the model (panel datasource uids,
-# annotation datasource refs, variable definitions, …).
-DS_VAR_RE = re.compile(r"\$\{(DS_[A-Z0-9_]+)\}")
+# annotation datasource refs, variable definitions, …). The negative lookbehind
+# skips Grafana's $$ escape ($${DS_...} renders as a literal ${DS_...} string,
+# not a datasource reference).
+DS_VAR_RE = re.compile(r"(?<!\$)\$\{(DS_[A-Z0-9_]+)\}")
 
 
 def check_dashboard(path: Path) -> list[str]:
@@ -75,8 +77,11 @@ def check_dashboard(path: Path) -> list[str]:
         )
 
     referenced = set(DS_VAR_RE.findall(json.dumps(data)))
+    # templating may be null/absent or list may be null on hand-edited dashboards
+    # — treat both as "no variables declared" instead of crashing.
+    templating = data.get("templating") or {}
     declared = {
-        var.get("name") for var in data.get("templating", {}).get("list", [])
+        var.get("name") for var in (templating.get("list") or []) if isinstance(var, dict)
     }
     for var in sorted(referenced - declared):
         problems.append(
