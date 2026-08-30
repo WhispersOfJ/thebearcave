@@ -12,6 +12,7 @@
 #   6. mount drift    — scripts/check_mount_drift.py (live mounts == compose def)
 #   7. MCP baseline  — scripts/check_mcp.py --baseline (0 divergences vs .github/mcp-baseline.json)
 #   8. grafana dashboards — scripts/check_grafana_dashboards.py (valid, un-wrapped dashboard JSON)
+#   9. nzbdav queue   — scripts/check_nzbdav_queue.py (recreate would wipe queued NZBs; offline on CI)
 #
 # Every check runs even if an earlier one fails, so one invocation reports
 # everything that is broken. Exit 0 = all pass, 1 = any failure.
@@ -96,6 +97,14 @@ check "mcp baseline" python3 scripts/check_mcp.py --baseline
 
 # 8. Grafana dashboards — every tracked dashboard JSON is a valid, un-wrapped model
 check "grafana dashboards" python3 scripts/check_grafana_dashboards.py
+
+# 9. NzbDAV queue — recreating nzbdav wipes the non-persistent queue; guard
+#    the recreate boundary. Offline on CI (no live nzbdav); live on the host.
+if [ -n "${NZBDAV_QUEUE_OFFLINE:-}" ]; then
+  check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --offline
+else
+  check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --allow-unreachable
+fi
 
 echo
 if [ "$failures" -eq 0 ] && [ "$warnings" -eq 0 ]; then

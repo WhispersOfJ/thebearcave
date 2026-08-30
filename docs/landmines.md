@@ -28,6 +28,12 @@ it reintroduces the unkillable D-state hang (SIGKILL mid-shutdown → wedged con
 Recreating the nzbdav container **wipes the queue** and silently blocklists affected
 items. Always confirm the queue is empty before touching the container.
 
+**Guarded**: `scripts/check_nzbdav_queue.py` queries the queue API and exits 1
+when depth > 0. It runs in preflight, and `scripts/nzbdav-safe-recreate.sh`
+wraps `docker compose up -d nzbdav` / `restart nzbdav` so the guard fires even
+when the recreate bypasses `scripts/update-nzbdav.sh`. `--force` skips it
+(DANGEROUS — queued NZBs are wiped and blocklisted).
+
 ---
 
 ## High

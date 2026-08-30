@@ -46,6 +46,12 @@ jobs:
       - name: Regression test - merged-mount guard
         run: python3 scripts/test_check_compose_mounts.py
 
+      - name: Regression test - nzbdav queue guard
+        run: python3 scripts/test_check_nzbdav_queue.py
+
+      - name: NzbDAV queue guard (offline — no live nzbdav on CI)
+        run: python3 scripts/check_nzbdav_queue.py --offline
+
       - name: Check every compose ${VAR} has a .env.template key
         run: |
           comm -23 \

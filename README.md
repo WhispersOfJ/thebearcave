@@ -127,7 +127,7 @@ The stack is wired as an acquisition pipeline with the *arr apps at the center:
 ```bash
 ./scripts/preflight.sh          # one-command pre-push gate: ruff, py_compile, actionlint,
                                 # compose config, merged-mount + mount-drift checks, MCP baseline,
-                                # Grafana dashboard JSON — what CI's validate runs
+                                # Grafana dashboard JSON, nzbdav queue guard — what CI's validate runs
 ./tests/health/run-all.sh       # health-check every configured service
 ./tests/integration/test_pipeline.sh    # FUSE mount → Plex → *arr → NzbDAV → Metacache
 ./tests/integration/test_backup_restore.sh
