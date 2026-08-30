@@ -1,9 +1,13 @@
 # Grafana Alert Rules - Setup Instructions
 
-Alert rules in Grafana v10.4 must be created through the UI or via the HTTP API.
-Provisioning YAML format for alert rules is complex and version-specific.
+Alert rules can be file-provisioned from YAML in this directory (see
+`stack-health.yml`, which provisions the Mount Drift Divergence rule into the
+Alerts folder). Grafana reads alerting provisioning files at startup; add a
+file, then restart the grafana container. Rules can alternatively be created
+through the UI or the HTTP API, but the file is the tracked, reproducible
+transport.
 
-## Option 1: Manual Setup in Grafana UI (Recommended for now)
+## Option 1: Manual Setup in Grafana UI (Alternative)
 
 1. Go to http://localhost:3001/alerting/alert-rules
 2. Click "Create alert rule"
