@@ -47,11 +47,19 @@ in the Phase 2 migration.
 
 ## Setup
 
-```fish
-# Optional: force color on/off (default: auto-detect TTY)
-set -U STACK_COLOR true
+```bash
+services/fish-functions/scripts/install.sh   # then restart fish
+```
 
-bash services/fish-functions/scripts/install.sh
+`install.sh` writes a `conf.d/bearcave-env.fish` entry (next to the
+symlinked `bearcave-cli-format.fish`) that loads the repo's `.env` into the
+fish environment at every startup, so the API keys below are available
+without manual export. The loader only sets variables that aren't already
+set, so explicit exports in a parent shell or fish config still win.
+Optional: force color on/off (default: auto-detect TTY):
+
+```fish
+set -U STACK_COLOR true
 ```
 
 ### Tab completions
@@ -81,7 +89,8 @@ tools; docker service names will not resolve from outside the compose network.
 
 ## Configuration
 
-Functions read API keys from environment variables (set in `.env`):
+Functions read API keys from environment variables (loaded from `.env` by the
+`bearcave-env.fish` conf.d loader at startup):
 - `RADARR_API_KEY`, `SONARR_API_KEY`, `PROWLARR_API_KEY`
 - `PLEX_TOKEN`
 - `NZBDAV_WEBDAV_USER`, `NZBDAV_WEBDAV_PASS`

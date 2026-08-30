@@ -5,23 +5,22 @@ target service's API directly via curl and prints human-readable text.
 
 ## Setup
 
-1. Export the API keys the functions read (e.g. from `.env`):
-```fish
-set -x RADARR_API_KEY ...
-set -x SONARR_API_KEY ...
-set -x PLEX_TOKEN ...
-```
-Optional: force color on/off (default: auto-detect TTY):
-```fish
-set -U STACK_COLOR true
-```
-
-2. Install:
+1. Install:
 ```bash
 services/fish-functions/scripts/install.sh
 ```
 
-3. Restart fish or `source ~/.config/fish/config.fish`.
+2. Restart fish (or open a new terminal).
+
+`install.sh` writes a `conf.d/bearcave-env.fish` entry that loads the repo's
+`.env` into the fish environment at every startup, so API keys
+(`RADARR_API_KEY`, `SONARR_API_KEY`, `PLEX_TOKEN`, …) are available without
+exporting them by hand. Explicit exports still win — the loader only sets
+variables that are not already set. Optional: force color on/off (default:
+auto-detect TTY):
+```fish
+set -U STACK_COLOR true
+```
 
 Defaults target the host-published `localhost` ports (these are host-shell
 tools); override with `<APP>_URL` / `PLEX_URL` env vars if needed.

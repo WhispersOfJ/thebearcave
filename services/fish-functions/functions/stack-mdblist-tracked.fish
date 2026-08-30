@@ -12,8 +12,8 @@ function stack-mdblist-tracked --description 'Every MDBList list currently regis
     set -l count 0
     while read -l line
         test -z "$line"; and continue
-        set -l url (string split '|' $line)[1]
-        set -l label (string split '|' $line)[2]
+        set -l url (string split '|' "$line")[1]
+        set -l label (string split '|' "$line")[2]
         if test -n "$label"
             echo "  $label  $url"
         else

@@ -178,6 +178,21 @@ else
     log_error "fmt_* helpers do not load"
 fi
 
+# conf.d env loader loads the repo .env so stack-* commands get API keys
+# without manual export. Scrub the key from the environment so the check
+# exercises the loader, not the inherited env.
+if [ -f ".env" ]; then
+    if env -u SONARR_API_KEY -u RADARR_API_KEY fish -c "source '$REPO_DIR/services/fish-functions/conf.d/bearcave-env.fish'; test -n \"\$SONARR_API_KEY\"" 2>/dev/null; then
+        passed=$((passed + 1))
+        log_success "conf.d env loader exports keys from .env"
+    else
+        failed=$((failed + 1))
+        log_error "conf.d env loader does not export keys from .env"
+    fi
+else
+    log_warning "conf.d env loader check skipped (no .env)"
+fi
+
 # --- Completion files: one per command, parseable, registering >=1 completion ---
 log_info "Completion checks (one file per command)..."
 COMP_DIR="$REPO_DIR/services/fish-functions/completions"
