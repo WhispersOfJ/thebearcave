@@ -171,7 +171,7 @@ groups:
           summary: "Host load average exceeds CPU count"
           description: "15-minute load average is {{ $value | printf \"%.1f\" }}, exceeding CPU count for 15+ minutes."
 
-      # MCP baseline divergence (metric written by scripts/check_mcp_baseline.sh
+      # MCP baseline divergence (metric written by scripts/check_stack_health_daily.sh
       # via the node-exporter textfile collector; cleared by the next clean run)
       - alert: McpBaselineDivergence
         expr: mcp_baseline_divergence{job="node-exporter"} == 1
@@ -183,7 +183,7 @@ groups:
           description: "The daily MCP baseline check on the desktop reported a divergence from .github/mcp-baseline.json. Run python3 scripts/check_mcp.py --baseline locally for details."
 
       # Mount drift / stale FUSE handle (metric written by
-      # scripts/check_mount_drift_daily.sh via the node-exporter textfile
+      # scripts/check_stack_health_daily.sh via the node-exporter textfile
       # collector; cleared by the next clean run)
       - alert: MountDriftDivergence
         expr: mount_drift_divergence{job="node-exporter"} == 1

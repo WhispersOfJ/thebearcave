@@ -165,7 +165,7 @@ jobs:
       # GitHub runner; exercise its contract and its drift-sensitive
       # assumptions instead (same precedent as the update-guard job). The
       # live-stack run happens daily on the host via the
-      # mount-drift-check.timer user timer -> scripts/check_mount_drift_daily.sh.
+      # stack-health-metrics.timer user timer -> scripts/check_stack_health_daily.sh.
       - name: Guard script compiles and runs clean with no containers
         run: |
           python3 -m py_compile scripts/check_mount_drift.py

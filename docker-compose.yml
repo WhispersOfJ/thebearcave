@@ -1038,10 +1038,10 @@ services:
       - /proc:/host/proc
       - /sys:/host/sys
       - /:/rootfs
-      # Textfile collector dir: the daily MCP baseline check (systemd user
-      # timer mcp-baseline-check, scripts/check_mcp_baseline.sh) writes
-      # mcp_baseline.prom here; node-exporter exposes it so Prometheus can
-      # alert via alertmanager -> Discord on divergence.
+      # Textfile collector dir: the daily stack health check (systemd user
+      # timer stack-health-metrics.timer, scripts/check_stack_health_daily.sh)
+      # writes stack-health.prom here; node-exporter exposes it so Prometheus
+      # can alert via alertmanager -> Discord on divergence.
       - /home/bear/.local/share/node-exporter-textfile:/textfile:ro
     command:
       - "--path.procfs=/host/proc"
