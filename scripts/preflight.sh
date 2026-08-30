@@ -9,7 +9,8 @@
 #   3. actionlint    — every workflow in .github/workflows/
 #   4. compose       — docker compose config --quiet
 #   5. compose mounts — scripts/check_compose_mounts.py (no merged mount lines)
-#   6. MCP baseline  — scripts/check_mcp.py --baseline (0 divergences vs .github/mcp-baseline.json)
+#   6. mount drift    — scripts/check_mount_drift.py (live mounts == compose def)
+#   7. MCP baseline  — scripts/check_mcp.py --baseline (0 divergences vs .github/mcp-baseline.json)
 #
 # Every check runs even if an earlier one fails, so one invocation reports
 # everything that is broken. Exit 0 = all pass, 1 = any failure.
@@ -82,7 +83,14 @@ fi
 # 5. Compose mounts — no volume/port/env entries merged onto one line
 check "compose mounts" python3 scripts/check_compose_mounts.py
 
-# 6. MCP baseline — probe against .github/mcp-baseline.json
+# 6. Mount drift — every running container's mounts match the compose definition
+if command -v docker >/dev/null 2>&1; then
+  check "mount drift" python3 scripts/check_mount_drift.py
+else
+  warn_skip "mount drift" "docker"
+fi
+
+# 7. MCP baseline — probe against .github/mcp-baseline.json
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
 
 echo
