@@ -193,3 +193,28 @@ groups:
         annotations:
           summary: "Live container mounts diverge from compose or a FUSE handle is stale"
           description: "The daily mount-drift check on the host reported a divergence or stale FUSE handle. Run python3 scripts/check_mount_drift.py locally and restart the affected container(s)."
+
+      # NzbDAV queue non-empty — recreate would wipe queued NZBs (metric
+      # written by scripts/check_stack_health_daily.sh via the node-exporter
+      # textfile collector; cleared by the next clean run)
+      - alert: NzbdavQueueDivergence
+        expr: nzbdav_queue_divergence{job="node-exporter"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NzbDAV queue is non-empty — recreate would destroy queued NZBs"
+          description: "The daily nzbdav queue guard reported a non-empty queue. Do NOT recreate the nzbdav container — queued NZBs would be wiped and blocklisted. Wait for downloads to finish, or re-run with --force if you accept the data loss."
+
+      # Bind-mount file staleness — a container is serving a stale inode or
+      # stale content (metric written by scripts/check_stack_health_daily.sh
+      # via the node-exporter textfile collector; cleared by the next clean
+      # run)
+      - alert: BindMountStale
+        expr: bind_mount_stale{job="node-exporter"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A container is serving a stale bind-mount inode or stale content"
+          description: "The daily bind-mount staleness check reported a divergence. A container is serving stale content because sed -i/vim changed the host inode without a restart. Run python3 scripts/check_bind_mount_staleness.py locally and docker compose restart the affected container(s)."
