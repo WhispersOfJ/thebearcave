@@ -75,7 +75,10 @@ docker() {
                     case " $* " in
                         *" --force "*)
                             echo "[guard] --force: skipping queue guard (queued NZBs WILL be wiped)" >&2
-                            command docker "$@"; return $? ;;
+                            # strip --force before forwarding (compose doesn't know it)
+                            local _args=()
+                            for _a in "$@"; do [ "$_a" != --force ] && _args+=("$_a"); done
+                            command docker "${_args[@]}"; return $? ;;
                         *)
                             guard="${BEARCAVE_REPO_DIR:-$HOME/TheBearCave}/scripts/nzbdav-safe-recreate.sh"
                             if [ -x "$guard" ]; then
