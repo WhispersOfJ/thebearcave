@@ -48,3 +48,49 @@ for f in "$SCRIPT_DIR"/completions/*.fish; do
 done
 
 echo "Installed $installed functions + $completions completions + conf.d env loader from fish-functions."
+
+# ----------------------------------------------------------------------------
+# Bash/zsh: guarded docker compose wrapper (landmine #3)
+# ----------------------------------------------------------------------------
+# Mirrors functions/docker.fish for POSIX shells: intercepts `docker compose
+# ... nzbdav` recreates and routes them through scripts/nzbdav-safe-recreate.sh
+# so the queue guard fires even when the recreate bypasses update-nzbdav.sh.
+# Writes a snippet the user sources from .bashrc/.zshrc.
+BASH_SNIPPET_DIR="${HOME}/.config/bearcave"
+mkdir -p "$BASH_SNIPPET_DIR"
+cat > "$BASH_SNIPPET_DIR/docker-guard.sh" <<'SNIPPET'
+# Bear Cave — guarded docker compose wrapper (landmine #3: nzbdav queue).
+# Source from ~/.bashrc or ~/.zshrc:  source ~/.config/bearcave/docker-guard.sh
+# Routes `docker compose up|restart|... nzbdav` through the queue guard;
+# queries (ps, logs, config, exec) pass through. --force skips the guard.
+docker() {
+    if [ "$#" -lt 2 ] || [ "$1" != compose ]; then
+        command docker "$@"; return $?
+    fi
+    case "$2" in
+        up|restart|start|stop|rm|down)
+            # only gate when the service is nzbdav/nzbdav_rclone
+            case " $* " in
+                *" nzbdav"*|*" nzbdav_rclone"*)
+                    case " $* " in
+                        *" --force "*)
+                            echo "[guard] --force: skipping queue guard (queued NZBs WILL be wiped)" >&2
+                            command docker "$@"; return $? ;;
+                        *)
+                            guard="${BEARCAVE_REPO_DIR:-$HOME/TheBearCave}/scripts/nzbdav-safe-recreate.sh"
+                            if [ -x "$guard" ]; then
+                                shift  # drop the leading `docker`
+                                bash "$guard" "$@"
+                                return $?
+                            fi
+                            echo "[guard] nzbdav-safe-recreate.sh not found — running unguarded" >&2
+                            command docker "$@"; return $? ;;
+                    esac ;;
+            esac ;;
+    esac
+    command docker "$@"; return $?
+}
+SNIPPET
+echo "Wrote bash/zsh docker-guard snippet to $BASH_SNIPPET_DIR/docker-guard.sh"
+echo "  Source it from ~/.bashrc or ~/.zshrc:"
+echo "    source $BASH_SNIPPET_DIR/docker-guard.sh"

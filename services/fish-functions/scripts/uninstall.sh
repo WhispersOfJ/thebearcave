@@ -17,4 +17,11 @@ for f in "$FISH_DIR"/conf.d/bearcave-cli-format.fish "$FISH_DIR"/conf.d/bearcave
     [ -e "$f" ] && rm "$f" && removed=$((removed + 1))
 done
 
+# docker compose guard wrapper (landmine #3) — installed as a regular symlink
+for f in "$FISH_DIR"/functions/docker.fish; do
+    [ -L "$f" ] && rm "$f" && removed=$((removed + 1))
+done
+# bash/zsh snippet
+rm -f "${HOME}/.config/bearcave/docker-guard.sh" 2>/dev/null || true
+
 echo "Removed $removed symlinks from fish-functions."

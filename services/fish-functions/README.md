@@ -50,6 +50,25 @@ fish scripts/gen-completions.fish            # regenerate completions/
 fish scripts/gen-completions.fish --check    # verify completions/ is current
 ```
 
+## Guarded docker compose
+
+`docker compose up -d nzbdav` / `restart nzbdav` recreates the container and
+wipes the non-persistent queue (landmine #3). After `install.sh`, a fish
+function (`functions/docker.fish`) and a bash/zsh snippet
+(`~/.config/bearcave/docker-guard.sh`) intercept `docker compose` so any
+state-mutating op targeting nzbdav routes through
+`scripts/nzbdav-safe-recreate.sh`, which runs the queue guard first and
+refuses when queued NZBs would be lost. Queries (`ps`, `logs`, `config`,
+`exec`) pass through ungated; `--force` skips the guard (DANGEROUS).
+
+- **fish**: automatic after `install.sh` + restart (the function shadows the
+  `docker` binary for the `compose` subcommand only).
+- **bash/zsh**: source the snippet from `~/.bashrc` or `~/.zshrc`:
+  ```bash
+  source ~/.config/bearcave/docker-guard.sh
+  ```
+- Disable for one session: fish `functions -e docker`; bash `unset -f docker`.
+
 ## Architecture
 
 ```
