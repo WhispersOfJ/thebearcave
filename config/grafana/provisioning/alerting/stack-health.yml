@@ -37,3 +37,35 @@ groups:
           labels:
             severity: critical
           isPaused: false
+        - uid: mcp-baseline-divergence
+          title: MCP Baseline Divergence
+          condition: B
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 300
+                to: 0
+              datasourceUid: PBFA97CFB590B2093
+              model:
+                expr: mcp_baseline_divergence{job="node-exporter"}
+                instant: true
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: A
+            - refId: B
+              datasourceUid: __expr__
+              model:
+                expression: $A > 0
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: B
+                type: math
+          noDataState: NoData
+          execErrState: Error
+          for: 2m
+          annotations:
+            description: The daily stack health check on the host reported MCP baseline divergence from .github/mcp-baseline.json. Run python3 scripts/check_mcp.py --baseline locally for details.
+            summary: MCP server state diverged from baseline (Grafana)
+          labels:
+            severity: critical
+          isPaused: false
