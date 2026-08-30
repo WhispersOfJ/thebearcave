@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Fail when a Grafana dashboard JSON is malformed or API-envelope-wrapped.
+"""Fail when a Grafana dashboard JSON is malformed, envelope-wrapped, or
+references an undeclared datasource variable.
 
 Grafana file provisioning expects the dashboard *model* at the top level of
 each JSON file in the provisioning directory: title, panels, uid, and so on.
@@ -8,13 +9,20 @@ The Grafana HTTP API returns a different shape — {"dashboard": {...},
 an empty title, which the provisioning provider rejects with "Dashboard title
 cannot be empty" on every rescan (the stage-4-cve-tracking incident).
 
+Datasource variables: panels reference the provisioned Prometheus through
+${DS_PROMETHEUS}. Grafana only auto-creates DS_* variables for dashboards
+saved through the UI/API — a file-provisioned dashboard that uses ${DS_...}
+without declaring it in "templating" fails every panel with "Datasource
+${DS_...} was not found" (the stack-command-center incident).
+
 This check validates every JSON file in config/grafana/dashboards/:
 
   * parses as JSON,
   * is an object (not an array/string),
   * has a non-empty string "title",
   * has a "panels" (or legacy "rows") key,
-  * is NOT wrapped in the API envelope (no top-level "dashboard"/"meta").
+  * is NOT wrapped in the API envelope (no top-level "dashboard"/"meta"),
+  * declares every ${DS_...} it references in "templating".
 
 Run by scripts/preflight.sh and .github/workflows/config-check.yml.
 
@@ -23,11 +31,16 @@ Usage:
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DASHBOARD_DIR = ROOT / "config" / "grafana" / "dashboards"
+
+# ${DS_PROMETHEUS} and friends anywhere in the model (panel datasource uids,
+# annotation datasource refs, variable definitions, …).
+DS_VAR_RE = re.compile(r"\$\{(DS_[A-Z0-9_]+)\}")
 
 
 def check_dashboard(path: Path) -> list[str]:
@@ -61,6 +74,18 @@ def check_dashboard(path: Path) -> list[str]:
             f'{path.name}: missing "panels" (or legacy "rows") — not a dashboard model'
         )
 
+    referenced = set(DS_VAR_RE.findall(json.dumps(data)))
+    declared = {
+        var.get("name") for var in data.get("templating", {}).get("list", [])
+    }
+    for var in sorted(referenced - declared):
+        problems.append(
+            f'{path.name}: references ${{{var}}} but does not declare it in '
+            '"templating" (Grafana only auto-creates DS_* variables for '
+            "UI-saved dashboards — add a datasource variable named "
+            f"{var} to templating.list)"
+        )
+
     return problems
 
 
@@ -81,7 +106,7 @@ def main() -> int:
     if not problems:
         print(
             f"OK: all {len(files)} Grafana dashboard(s) are valid dashboard models "
-            "(title + panels present, no API envelope)."
+            "(title + panels present, no API envelope, datasource variables declared)."
         )
         return 0
 
