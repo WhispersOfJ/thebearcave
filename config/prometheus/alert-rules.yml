@@ -181,3 +181,15 @@ groups:
         annotations:
           summary: "MCP server state diverged from baseline"
           description: "The daily MCP baseline check on the desktop reported a divergence from .github/mcp-baseline.json. Run python3 scripts/check_mcp.py --baseline locally for details."
+
+      # Mount drift / stale FUSE handle (metric written by
+      # scripts/check_mount_drift_daily.sh via the node-exporter textfile
+      # collector; cleared by the next clean run)
+      - alert: MountDriftDivergence
+        expr: mount_drift_divergence{job="node-exporter"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Live container mounts diverge from compose or a FUSE handle is stale"
+          description: "The daily mount-drift check on the host reported a divergence or stale FUSE handle. Run python3 scripts/check_mount_drift.py locally and restart the affected container(s)."
