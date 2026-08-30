@@ -152,6 +152,60 @@ jobs:
           print(f"update-nzbdav.sh dependents match compose cascade: {sorted(declared)}")
           EOF
 
+  mount-drift:
+    name: Mount Drift Guard Contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Create dummy .env
+        run: cp .env.template .env
+
+      # The guard probes live containers, so it cannot run for real on a
+      # GitHub runner; exercise its contract and its drift-sensitive
+      # assumptions instead (same precedent as the update-guard job). The
+      # live-stack run happens daily on the host via the
+      # mount-drift-check.timer user timer -> scripts/check_mount_drift_daily.sh.
+      - name: Guard script compiles and runs clean with no containers
+        run: |
+          python3 -m py_compile scripts/check_mount_drift.py
+          python3 scripts/check_mount_drift.py
+
+      # If compose moves the FUSE mount path and the script's FUSE_MOUNTS
+      # table is not updated, the stale-handle probe silently stops covering
+      # it. Keep the two in lockstep.
+      - name: FUSE mount table matches compose
+        run: |
+          python3 - <<'EOF'
+          import re
+          import sys
+
+          try:
+              import yaml
+          except ImportError:
+              sys.exit("pyyaml unavailable on runner")
+
+          compose = yaml.safe_load(open("docker-compose.yml"))
+          fuse = set()
+          for svc in compose.get("services", {}).values():
+              for v in svc.get("volumes") or []:
+                  if isinstance(v, str) and v.split(":")[0].startswith("/mnt/remote"):
+                      fuse.add(v.split(":")[0].rstrip("/"))
+
+          script = open("scripts/check_mount_drift.py").read()
+          m = re.search(r"FUSE_MOUNTS = \{(.*?)\}", script, re.S)
+          if not m:
+              sys.exit("FUSE_MOUNTS table not found in scripts/check_mount_drift.py")
+          declared = set(re.findall(r'"([^"]+)"\s*:', m.group(1)))
+
+          if fuse != declared:
+              sys.exit(
+                  f"drift: compose FUSE sources {sorted(fuse)} != "
+                  f"script FUSE_MOUNTS {sorted(declared)}"
+              )
+          print(f"mount-drift FUSE table matches compose: {sorted(declared)}")
+          EOF
+
   env-coverage:
     name: Env Var Coverage
     runs-on: ubuntu-latest
