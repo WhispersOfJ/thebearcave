@@ -465,6 +465,72 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "title": "Mount Drift",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "OK" },
+                "1": { "text": "DIVERGED" }
+              }
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "mount_drift_divergence{job=\"node-exporter\"}",
+          "legendFormat": "Mount Drift",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "MCP Baseline",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "OK" },
+                "1": { "text": "DIVERGED" }
+              }
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "mcp_baseline_divergence{job=\"node-exporter\"}",
+          "legendFormat": "MCP Baseline",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "refresh": "30s",
