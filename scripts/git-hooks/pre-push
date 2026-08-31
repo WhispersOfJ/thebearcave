@@ -7,10 +7,25 @@
 # Installed via scripts/install-git-hooks.sh (sets core.hooksPath).
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# git runs hooks with the working directory at the top of the PUSHING
+# working tree — a task worktree or the main checkout. Preflight must
+# validate that tree (e.g. the secret-drift guard reads the pushing tree's
+# index, so a leaked .env committed in a worktree branch would otherwise
+# slip past a check running in the main checkout). Fall back to the hook
+# file's own repository root for manual invocation from odd locations.
+if [ -x "$PWD/scripts/preflight.sh" ]; then
+    PREFLIGHT="$PWD/scripts/preflight.sh"
+else
+    HOOK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
+    PREFLIGHT="$HOOK_ROOT/scripts/preflight.sh"
+fi
+if [ ! -x "$PREFLIGHT" ]; then
+    echo "== pre-push: cannot find scripts/preflight.sh (cwd=$PWD)" >&2
+    exit 1
+fi
 
 echo "== pre-push: running repository preflight =="
-if "$ROOT/scripts/preflight.sh"; then
+if "$PREFLIGHT"; then
     echo "== pre-push: preflight OK — proceeding =="
     exit 0
 fi
