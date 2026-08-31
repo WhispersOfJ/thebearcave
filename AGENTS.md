@@ -230,11 +230,34 @@ Run `./scripts/setup.sh` to generate secrets.
 
 ## How to Work in This Repo
 
+### Worktree Discipline — mandatory, effective 2026-08-31
+
+From this point forward, **all edits happen on dedicated git worktrees** — one
+worktree per task, named by the task, never mixed with unrelated work. This
+rule applies to every future change, including the change that introduced it.
+
+1. **One worktree per task.** Before making any edit, create a task-named
+   worktree and branch off `origin/main`:
+   `git worktree add <path> -b <task-branch> origin/main`. Both the worktree
+   path and the branch name must describe the task.
+2. **Never mix unrelated work.** A worktree contains exactly one task's
+   changes and nothing else. A second, unrelated need gets its own worktree.
+   Do not stack unrelated edits, commits, or topics in one worktree.
+3. **The main checkout stays clean.** Do not edit or commit in the main
+   working tree; use it for reference only (fetch/status/log). Pre-existing
+   untracked files in it are left untouched and are not committed.
+4. **Deliver via PR.** `main` is branch-protected: push the task branch, open
+   a PR (linear history; squash/rebase only), and keep the branch up to date
+   with `origin/main` before merging.
+5. **Clean up.** After the PR merges, remove the worktree:
+   `git worktree remove <path>`.
+
 ### Before Making Changes
 
-1. Read `CLAUDE.md` for work style rules
-2. Check `docker compose ps` for current state
-3. Read `docs/` for service documentation
+1. Create the task-named worktree (see Worktree Discipline above)
+2. Read `CLAUDE.md` for work style rules
+3. Check `docker compose ps` for current state
+4. Read `docs/` for service documentation
 
 ### After Making Changes
 
