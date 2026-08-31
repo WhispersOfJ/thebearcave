@@ -44,6 +44,12 @@ fi
 
 check "py_compile" python3 -m py_compile scripts/*.py
 
+if [ -e "$ROOT/.git" ]; then
+  check "secret drift" python3 scripts/check_secret_drift.py
+else
+  warn_skip "secret drift" "no .git (not a git checkout)"
+fi
+
 AL="${ACTIONLINT:-}"
 if [ -z "$AL" ] && command -v actionlint >/dev/null 2>&1; then
   AL="$(command -v actionlint)"
