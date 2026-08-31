@@ -4,6 +4,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FISH_DIR="${HOME}/.config/fish"
 
+# Prune stale symlinks left by previous installs (commands retired since the
+# last run). Only symlinks whose target no longer exists are removed; fish's
+# own files and any regular files the user keeps are left untouched.
+pruned=0
+for d in functions completions conf.d; do
+    mkdir -p "$FISH_DIR/$d"
+    while IFS= read -r link; do
+        [ -z "$link" ] && continue
+        rm -f "$link"
+        echo "  pruned stale symlink: $link"
+        pruned=$((pruned + 1))
+    done < <(find "$FISH_DIR/$d" -maxdepth 1 -type l ! -exec test -e {} \; -print 2>/dev/null)
+done
+
 # Symlink ALL functions: the stack-* commands plus the __-prefixed helpers
 # they call at runtime (__arr_api, __plex_api, ...). Fish only autoloads a
 # file when its command name is invoked, so __-files are never exposed as
@@ -48,6 +62,10 @@ for f in "$SCRIPT_DIR"/completions/*.fish; do
 done
 
 echo "Installed $installed functions + $completions completions + conf.d env loader from fish-functions."
+
+if [ "$pruned" -gt 0 ]; then
+    echo "Pruned $pruned stale symlink(s) from $FISH_DIR."
+fi
 
 # ----------------------------------------------------------------------------
 # Bash/zsh: guarded docker compose wrapper (landmine #3)
