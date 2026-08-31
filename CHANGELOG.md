@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.2](https://github.com/WhispersOfJ/thebearcave/compare/v1.19.1...v1.19.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* bound install verification with a timeout on the stack-help check ([#66](https://github.com/WhispersOfJ/thebearcave/issues/66)) ([026082e](https://github.com/WhispersOfJ/thebearcave/commit/026082eff6720a7c1b8f6bbb41c261af78c46a08))
+
 ## [1.19.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.19.0...v1.19.1) (2026-08-31)
 
 
