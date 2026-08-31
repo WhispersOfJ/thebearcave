@@ -223,6 +223,38 @@ else
     failed=$((failed + comp_fail))
 fi
 
+# --- stack-help drift: its listing must match the readable stack-* set ---
+# stack-help enumerates stack-*.fish files (skipping unreadable ones, e.g.
+# dangling symlinks), so a retired/renamed command without a pruned file
+# would silently drop out of help. Assert the two sets are identical.
+log_info "stack-help drift check (output must match readable stack-* set)..."
+preload=$(preload_helpers)
+help_output=$(timeout 20 fish -c "
+    $preload
+    source '$FUNC_DIR/stack-help.fish'
+    stack-help
+" 2>&1) || true
+# Expected: basenames of readable stack-*.fish minus the .fish extension.
+expected=$(for f in "$FUNC_DIR"/stack-*.fish; do
+    [ -r "$f" ] || continue
+    basename "$f" .fish
+done | sort)
+# Actual: command names stack-help prints (skip the 2-line header, take the
+# first whitespace-delimited token of each remaining line).
+actual=$(printf '%s
+' "$help_output" | tail -n +3 | awk '{print $1}' | sort)
+if [ "$expected" = "$actual" ] && [ -n "$expected" ]; then
+    passed=$((passed + 1))
+    log_success "stack-help lists exactly the readable stack-* commands ($(printf '%s\n' "$expected" | wc -l | tr -d ' ') commands)"
+else
+    failed=$((failed + 1))
+    log_error "stack-help output drifted from the readable stack-* file set"
+    echo "       in stack-help but not on disk:" | sed 's/^/       /'
+    comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | sed 's/^/         - /'
+    echo "       missing from stack-help:" | sed 's/^/       /'
+    comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | sed 's/^/         - /'
+fi
+
 if [ "$DRY_RUN" = true ]; then
     log_warning "Offline mode — skipping live/guard tiers (CI-safe)."
     echo ""
