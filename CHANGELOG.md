@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.20.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.19.2...v1.20.0) (2026-08-31)
+
+
+### Features
+
+* add stack-radarr-health on-demand Radarr DB integrity check ([#73](https://github.com/WhispersOfJ/thebearcave/issues/73)) ([5950b38](https://github.com/WhispersOfJ/thebearcave/commit/5950b387f1184a94d19e1f42525b2513feec3235))
+
+
+### Performance Improvements
+
+* batch docker inspect and parallelize FUSE probes in mount-drift check ([#68](https://github.com/WhispersOfJ/thebearcave/issues/68)) ([ee29869](https://github.com/WhispersOfJ/thebearcave/commit/ee29869f9506133a70d4a9bfc0cb70f5781a8096))
+* tune nzbdav_rclone for library-wide analysis load ([#74](https://github.com/WhispersOfJ/thebearcave/issues/74)) ([43b400c](https://github.com/WhispersOfJ/thebearcave/commit/43b400cdc3e6740e7d63d710486171fc5af50509))
+
 ## [1.19.2](https://github.com/WhispersOfJ/thebearcave/compare/v1.19.1...v1.19.2) (2026-08-31)
 
 
