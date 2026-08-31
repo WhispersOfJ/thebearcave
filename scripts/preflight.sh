@@ -73,6 +73,18 @@ else
   warn_skip "radarr db size" "no radarr.db (radarr not configured here)"
 fi
 
+if [ -f "$ROOT/config/sonarr/sonarr.db" ] || [ -n "${SONARR_DB:-}" ]; then
+  check "sonarr references" python3 scripts/check_sonarr_refs.py
+else
+  warn_skip "sonarr references" "no sonarr.db (sonarr not configured here)"
+fi
+
+if [ -f "$ROOT/config/prowlarr/prowlarr.db" ] || [ -n "${PROWLARR_DB:-}" ]; then
+  check "prowlarr references" python3 scripts/check_prowlarr_refs.py
+else
+  warn_skip "prowlarr references" "no prowlarr.db (prowlarr not configured here)"
+fi
+
 check "compose mounts" python3 scripts/check_compose_mounts.py
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
 
