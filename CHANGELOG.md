@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.17.1...v1.18.0) (2026-08-31)
+
+
+### Features
+
+* slim stack and add manual Plex cache maintenance ([08d195d](https://github.com/WhispersOfJ/thebearcave/commit/08d195d366629e3ab2fadd2cd77004dd5a7a671f))
+
 ## [1.17.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.17.0...v1.17.1) (2026-08-30)
 
 
