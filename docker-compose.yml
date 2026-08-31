@@ -831,7 +831,7 @@ services:
   loki:
     restart: unless-stopped
     logging: *common-logging
-    image: grafana/loki:3.7.6
+    image: grafana/loki:3.7.7
     container_name: loki
     mem_limit: 512m
     cpus: "0.5"
