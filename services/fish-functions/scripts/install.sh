@@ -154,7 +154,7 @@ for d in functions completions conf.d; do
     done < <(find "$FISH_DIR/$d" -maxdepth 1 -type l ! -exec test -e {} \; -print 2>/dev/null)
 done
 
-help_out="$(fish -c 'stack-help' 2>&1 || true)"
+help_out="$(timeout 20 fish -c 'stack-help' 2>&1 || true)"
 if ! printf '%s\n' "$help_out" | grep -q 'Bear Cave media stack'; then
     echo "  FAIL: stack-help did not run in a fresh shell (is fish installed?)" >&2
     verify_failed=$((verify_failed + 1))
