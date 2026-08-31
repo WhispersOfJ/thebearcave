@@ -3,10 +3,12 @@
 
 Verifies the guard cannot silently bit-rot:
 
-  * a clean repo (sensitive paths gitignored, nothing tracked) passes
+  * a clean repo (all sensitive paths gitignored, nothing tracked) passes
   * a tracked .env IS flagged
+  * a tracked .env.local IS flagged
   * a tracked file under secrets/ IS flagged
   * a tracked rclone.conf IS flagged
+  * a tracked config/ database file IS flagged
   * a removed gitignore rule IS flagged (even with nothing tracked)
   * a non-repo directory reports is_git_repo() == False
 
@@ -32,7 +34,10 @@ spec.loader.exec_module(mod)
 
 GOOD_IGNORE = """\
 .env
+.env.local
+.env.*.local
 secrets/
+config/*/
 config/nzbdav-rclone/rclone.conf
 """
 
@@ -77,6 +82,13 @@ def main() -> int:
     got = mod.assess(tracked_env)
     expect("tracked .env flagged", any(".env is tracked" in e for e in got), True)
 
+    tracked_env_local = make_repo(GOOD_IGNORE, {".env.local": "SECRET=1"},
+                                  force_add=[".env.local"])
+    repos.append(tracked_env_local)
+    got = mod.assess(tracked_env_local)
+    expect("tracked .env.local flagged",
+           any(".env.local is tracked" in e for e in got), True)
+
     tracked_secrets = make_repo(GOOD_IGNORE,
                                 {"secrets/x.key": "secret"},
                                 force_add=["secrets/"])
@@ -94,6 +106,14 @@ def main() -> int:
     expect("tracked rclone.conf flagged",
            any("rclone.conf is tracked" in e for e in got), True)
 
+    tracked_db = make_repo(GOOD_IGNORE,
+                           {"config/radarr/radarr.db": "\x00db-bytes"},
+                           force_add=["config/radarr/radarr.db"])
+    repos.append(tracked_db)
+    got = mod.assess(tracked_db)
+    expect("tracked config DB flagged",
+           any("database files" in e and "is tracked" in e for e in got), True)
+
     # .gitignore rule removed; file present but untracked -> staging risk
     no_rule = make_repo("# nothing protects rclone\n",
                         {"config/nzbdav-rclone/rclone.conf": "pass = obscured"})
@@ -105,6 +125,22 @@ def main() -> int:
     # no-rule repo must NOT claim anything is tracked
     expect("missing-rule repo has no tracked complaint",
            any("is tracked" in e for e in got), False)
+
+    # config/ DB present but untracked with no config rule -> staging risk
+    no_db_rule = make_repo("# nothing protects config\n",
+                           {"config/radarr/radarr.db": "\x00db-bytes"})
+    repos.append(no_db_rule)
+    got = mod.assess(no_db_rule)
+    expect("missing config DB ignore rule flagged",
+           any("not covered by .gitignore" in e and "database files" in e for e in got), True)
+
+    # .env.local present but untracked with no rule -> staging risk
+    no_envlocal_rule = make_repo("# nothing protects env-local\n",
+                                 {".env.local": "SECRET=1"})
+    repos.append(no_envlocal_rule)
+    got = mod.assess(no_envlocal_rule)
+    expect("missing .env.local ignore rule flagged",
+           any("not covered by .gitignore" in e and ".env.local" in e for e in got), True)
 
     not_repo = Path(tempfile.mkdtemp(prefix="secret-drift-norepo-"))
     repos.append(not_repo)
