@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.19.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.18.0...v1.19.0) (2026-08-31)
+
+
+### Features
+
+* add stack-worktree helper for task-named worktrees ([#55](https://github.com/WhispersOfJ/thebearcave/issues/55)) ([68c5fa2](https://github.com/WhispersOfJ/thebearcave/commit/68c5fa2b32e899dc12cc96e7edcb51d22073a11b))
+* promote Sonarr queue drain into scripts/drain_sonarr_queue.py ([#58](https://github.com/WhispersOfJ/thebearcave/issues/58)) ([ffa4b7a](https://github.com/WhispersOfJ/thebearcave/commit/ffa4b7ab84546676221f43afa2cbe3ef48f3f596))
+
+
+### Bug Fixes
+
+* **fish:** sort stack-help families and hide retired command symlinks ([#59](https://github.com/WhispersOfJ/thebearcave/issues/59)) ([670741e](https://github.com/WhispersOfJ/thebearcave/commit/670741e1224ea706090584188ba0616255ab9641))
+
 ## [1.18.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.17.1...v1.18.0) (2026-08-31)
 
 
