@@ -25,12 +25,29 @@ function stack-worktree --description 'Create a task-named git worktree and bran
     end
 
     if git show-ref --verify --quiet "refs/heads/$branch"
-        fmt_error "Branch '$branch' already exists"
+        fmt_error "Branch '$branch' already exists locally; delete it or pick a different task name"
+        return 1
+    end
+
+    # A twin attempt may exist on the remote only — pushed but unmerged, or
+    # a stale branch from an earlier run. Refuse rather than fork a second
+    # branch with the same name.
+    if git show-ref --verify --quiet "refs/remotes/origin/$branch"
+        fmt_error "Branch '$branch' already exists on origin (stale or in-flight); delete it or pick a different task name"
         return 1
     end
 
     set -l slug (string split -r -m 1 / -- $branch)[-1]
     set -l wt_path (path dirname -- $repo_root)/wt-$slug
+
+    # A deleted worktree directory can leave a stale registration behind;
+    # `test -e` misses it and `git worktree add` then fails cryptically.
+    # Refuse and point at the one-line fix.
+    if git worktree list --porcelain | string match -q "worktree $wt_path"
+        fmt_error "Worktree '$wt_path' is registered but missing on disk; run 'git worktree prune' and retry"
+        return 1
+    end
+
     if test -e "$wt_path"
         fmt_error "Worktree path '$wt_path' already exists"
         return 1
