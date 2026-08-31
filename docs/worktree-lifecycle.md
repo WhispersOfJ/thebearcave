@@ -102,3 +102,36 @@ git branch -D docs/fix-readme
 ```
 
 The task is complete; nothing is left behind.
+The task is complete; nothing is left behind.
+
+## Failure modes & near-misses
+
+**Twin worktrees (2026-08-31).** Two parallel sessions started the same task
+(stack-help drift test) at the same moment under different names —
+`wt-stack-help-test` / `test/stack-help-drift-guard` and
+`wt-stack-help-drift` / `test/stack-help-drift`. One was completed and merged
+via PR; the other was abandoned with zero commits, never pushed, and later
+removed. Name-based guards cannot catch a twin under a *different* name, so
+check for one before starting:
+
+```fish
+git worktree list
+git branch -a | grep -i <task>
+```
+
+`stack-worktree` refuses when the same task name already exists locally
+(`refs/heads/`), on the remote (`refs/remotes/origin/`), or as a stale
+registration — keeping same-name collisions from ever forking twice.
+
+**Stale worktree registrations.** If a worktree's directory is deleted (e.g.
+`rm -rf` on a `/tmp` checkout) without `git worktree remove`, the
+registration lingers: `git worktree list` still shows it, `git worktree add`
+fails cryptically at the same path, and the branch stays locked. `stack-worktree`
+detects this and tells you the one-line fix; otherwise run it yourself:
+
+```bash
+git worktree prune
+```
+
+`prune` only removes bookkeeping for missing directories — it never touches
+files.
