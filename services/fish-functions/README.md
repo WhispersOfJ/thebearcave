@@ -38,6 +38,7 @@ tools); override with `<APP>_URL` / `PLEX_URL` env vars if needed.
 | `stack-plex-sessions` | Who is watching what |
 | `stack-plex-image-clean` | Remove generated Plex PhotoTranscoder cache and print reclaimed space |
 | `stack-radarr-health` | Check Radarr DB integrity (orphaned quality profiles + size bloat) |
+| `stack-plex-markers` | Count delivered Plex intro/credits/ad markers from the library DB (read-only) |
 | `stack-help` | List all commands |
 
 Run `stack-help` for the full list.
