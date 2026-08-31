@@ -268,7 +268,7 @@ services:
   # ==========================================================================
   lidarr:
     <<: *common
-    image: ghcr.io/hotio/lidarr:nightly-3.1.4.5029
+    image: ghcr.io/hotio/lidarr:nightly-3.1.5.5041
     container_name: lidarr
     mem_limit: 512m
     cpus: "0.5"
