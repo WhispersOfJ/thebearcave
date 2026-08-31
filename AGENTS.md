@@ -78,12 +78,12 @@ Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mo
 | `radarr` | 1536m | 1GB DB with MediaInfo blobs; was OOMing at 1g; 1.5 CPU for imports |
 | `sonarr` | 1024m | ~365MB actual usage; 1.5 CPU to avoid scan/import throttling |
 | `nzbdav` | 2560m | download + WebDAV; 2 CPU for concurrent provider/WebDAV work |
-| `nzbdav_rclone` | 3072m | FUSE/WebDAV cache; 2 CPU for concurrent media reads |
+| `nzbdav_rclone` | 4096m | FUSE/WebDAV cache; 2 CPU for concurrent media reads. 4096 (was 3072) because the vfs metadata cache peaks near the old cap during 100k+ item library analysis; host has headroom. |
 | `prowlarr` | 512m | |
 | `seerr` | 512m | |
 | `plex` | 2048m | host network, VAAPI; 4 CPU for library analysis |
 | `unpackerr` | 64m | |
-| **Total caps** | **≈ 11.1g** | CPU quotas leave headroom for concurrent scans/downloads; memory remains below the 22 GiB host total |
+| **Total caps** | **≈ 12.1g** | CPU quotas leave headroom for concurrent scans/downloads; memory remains below the 22 GiB host total |
 
 ### Network Topology
 

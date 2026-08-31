@@ -204,7 +204,10 @@ services:
     <<: *common
     image: rclone/rclone:1.75.0
     container_name: nzbdav_rclone
-    mem_limit: 3072m
+    # 4096m: the vfs metadata cache holds millions of entries (980k dirs + 1.1M
+    # files for the ~132k-item library) during analysis; 3072m peaked at ~79%
+    # RSS. Host has headroom (total caps ~11Gi against 22GiB).
+    mem_limit: 4096m
     cpus: "2.0"
     networks: [bearcave]
     devices:
@@ -240,7 +243,9 @@ services:
         --links
         --use-cookies
         --vfs-cache-mode=full
-        --vfs-cache-max-size=50G
+        # 100G: backing NVMe has ~250G free; the old 50G cap pinned the cache and
+        # evicted boundary files during the 553GiB library-re-analysis pass.
+        --vfs-cache-max-size=100G
         --vfs-cache-max-age=336h
         --buffer-size=0M
         --vfs-read-chunk-size=32M
@@ -251,9 +256,11 @@ services:
         --attr-timeout=30s
         --dir-cache-time=6h
         --poll-interval=5m
-        --timeout=30s
+        # 40s / 15s: absorb the 'net/http: timeout awaiting response headers'
+        # errors seen when nzbdav is under concurrent analysis+stream load.
+        --timeout=40s
         --contimeout=15s
-        --low-level-retries=3
+        --low-level-retries=5
         --rc
         --rc-addr=:5572
         --rc-user=rclone
