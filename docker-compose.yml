@@ -348,7 +348,7 @@ services:
   # ==========================================================================
   unpackerr:
     <<: *common
-    image: golift/unpackerr:0.15.2
+    image: golift/unpackerr:v0.16.1
     container_name: unpackerr
     mem_limit: 64m
     cpus: "0.1"
