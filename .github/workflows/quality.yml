@@ -3,12 +3,6 @@ name: Quality
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "**.yml"
-      - "**.yaml"
-      - "**.sh"
-      - "docker-compose.yml"
-      - "services/fish-functions/**"
   workflow_dispatch:
 
 permissions:
