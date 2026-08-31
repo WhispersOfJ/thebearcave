@@ -43,6 +43,7 @@ Usage:
 import json
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -140,8 +141,22 @@ def main() -> int:
             for p in (json.loads(line) for line in ps_proc.stdout.splitlines() if line.strip())
         }
 
+    # Batch container inspection: one `docker inspect` for every running
+    # container instead of one subprocess per service. Each docker CLI spawn
+    # costs ~50-150ms and the calls are pure reads, so batching is a
+    # straight I/O win (profile: 8 inspects ~= 13% of runtime).
+    insp_map: dict[str, dict] = {}
+    if names:
+        insp_proc = run(["docker", "inspect", *names.values()])
+        if insp_proc.stdout.strip():
+            insp_map = {
+                item.get("Name", "").lstrip("/"): item
+                for item in json.loads(insp_proc.stdout)
+            }
+
     diverged: list[str] = []
     stale: list[tuple[str, str, str]] = []  # (service, probe_path, error)
+    probe_tasks: list[tuple[str, str, str]] = []  # (service, container, target)
     for svc, sconf in services.items():
         expected = [to_tup(v, project) for v in sconf.get("volumes", [])]
         name = names.get(svc)
@@ -149,12 +164,12 @@ def main() -> int:
             print(f"  [not-running] {svc} (no running container to compare)")
             continue
 
-        insp_proc = run(["docker", "inspect", name])
-        if insp_proc.returncode != 0:
+        insp = insp_map.get(name)
+        if insp is None:
             print(f"  [inspect-error] {svc} ({name})")
             diverged.append(svc)
             continue
-        raw_mounts = json.loads(insp_proc.stdout)[0].get("Mounts", [])
+        raw_mounts = insp.get("Mounts", [])
 
         # --- drift: declared vs actual mount sets ---------------------------
         actual = []
@@ -198,8 +213,16 @@ def main() -> int:
             suffix = FUSE_MOUNTS.get(src)
             if suffix is None:
                 continue
-            target = m.get("Destination", "") + suffix
-            error = probe_stale(name, target)
+            probe_tasks.append((svc, name, m.get("Destination", "") + suffix))
+
+    # Run the probes in parallel: each is an independent read-only `docker
+    # exec stat` (~90ms of subprocess overhead serialized; the dominant cost
+    # per the profile). Results are sorted so output stays deterministic.
+    if probe_tasks:
+        with ThreadPoolExecutor(max_workers=min(8, len(probe_tasks))) as pool:
+            results = list(pool.map(
+                lambda t: (t[0], t[2], probe_stale(t[1], t[2])), probe_tasks))
+        for svc, target, error in sorted(results, key=lambda r: (r[0], r[1])):
             if error:
                 stale.append((svc, target, error))
 
