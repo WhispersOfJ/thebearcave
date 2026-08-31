@@ -306,6 +306,7 @@ run_live stack-mount-health.fish
 run_live stack-disk-config-sizes.fish
 run_live stack-perms-check.fish
 run_live stack-radarr-health.fish
+run_live stack-plex-markers.fish
 run_live stack-log-levels.fish
 run_live stack-letterboxd-tracked.fish
 run_live stack-mdblist-tracked.fish
