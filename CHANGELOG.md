@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.19.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.19.0...v1.19.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **fish:** guard stack-worktree against twin and stale worktrees ([#63](https://github.com/WhispersOfJ/thebearcave/issues/63)) ([41b4409](https://github.com/WhispersOfJ/thebearcave/commit/41b44098c6982622a3bfe3f3d798cab8310356c9))
+* make install.sh refuse worktrees and self-verify symlinks ([#65](https://github.com/WhispersOfJ/thebearcave/issues/65)) ([a99f7f9](https://github.com/WhispersOfJ/thebearcave/commit/a99f7f9f214c092225238e35b8ebd5ed9cca043e))
+
 ## [1.19.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.18.0...v1.19.0) (2026-08-31)
 
 
