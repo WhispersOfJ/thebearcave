@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.21.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.20.0...v1.21.0) (2026-08-31)
+
+
+### Features
+
+* add pre-push git hook running the preflight gate ([#83](https://github.com/WhispersOfJ/thebearcave/issues/83)) ([67498e8](https://github.com/WhispersOfJ/thebearcave/commit/67498e8832debceffdd04a6e63ff0af9a75f350f))
+* add stack-plex-markers read-only marker audit command ([#76](https://github.com/WhispersOfJ/thebearcave/issues/76)) ([cf27366](https://github.com/WhispersOfJ/thebearcave/commit/cf273664d6f62b82bc87129a45aba742a285ba26))
+
+
+### Bug Fixes
+
+* pre-push hook must validate the pushing worktree, not main ([#84](https://github.com/WhispersOfJ/thebearcave/issues/84)) ([f113f7b](https://github.com/WhispersOfJ/thebearcave/commit/f113f7b099ed8c39fcbb1d2f84e2871c1ff77afe))
+
 ## [1.20.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.19.2...v1.20.0) (2026-08-31)
 
 
