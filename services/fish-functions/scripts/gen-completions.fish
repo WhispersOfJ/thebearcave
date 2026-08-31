@@ -48,6 +48,8 @@ function extra_completions --argument-names name
         case stack-container
             echo "complete -c $name -n 'test (count (commandline -opc)) -eq 1' -a 'restart stop start'"
             echo "complete -c $name -n 'test (count (commandline -opc)) -eq 2' -a '(docker ps --format \"{{.Names}}\" 2>/dev/null)'"
+        case stack-worktree
+            echo "complete -c $name -n 'test (count (commandline -opc)) -eq 1' -a 'docs/ ci/ feat/ fix/ chore/'"
         case stack-letterboxd-import
             echo "complete -c $name -n 'test (count (commandline -opc)) -eq 1' -a 'film list watchlist watched collection filmography popular random'"
             echo "complete -c $name -l limit -d 'Max rows to import'"
