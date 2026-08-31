@@ -83,6 +83,14 @@ docker exec nzbdav_rclone ls /mnt/remote/nzbdav/completed-symlinks | head
 Confirm the download client is `nzbdav:3000`, the API key matches, the FUSE mount is
 healthy, and the root folders are `/data/movies` and `/data/shows`.
 
+For Sonarr items stuck in the queue as completed, drain them through the manual-import
+path with `scripts/drain_sonarr_queue.py` (dry-run by default; `--apply` acts):
+
+```bash
+python3 scripts/drain_sonarr_queue.py                    # dry-run (default)
+python3 scripts/drain_sonarr_queue.py --apply --limit 10 # act
+```
+
 ## Seerr requests do not download
 
 Check Seerr’s connections to Plex, Radarr, and Sonarr, then inspect the relevant *arr
