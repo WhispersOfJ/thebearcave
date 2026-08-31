@@ -255,6 +255,35 @@ else
     comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | sed 's/^/         - /'
 fi
 
+# --- Completion drift: exactly one completion file per stack-* command ---
+# gen-completions.fish emits one completion file per command, so the
+# completion set must equal the function set in both directions: a command
+# without a completion file loses tab-completion silently, and an orphaned
+# completion file hints at a retired command that was never swept. Assert
+# the two sets are identical (same readability guard as stack-help).
+log_info "completion drift check (one completion file per stack-* command)..."
+# Expected: basenames of readable stack-*.fish minus the .fish extension.
+expected=$(for f in "$FUNC_DIR"/stack-*.fish; do
+    [ -r "$f" ] || continue
+    basename "$f" .fish
+done | sort)
+# Actual: readable completion file basenames minus the .fish extension.
+actual=$(for f in "$COMP_DIR"/*.fish; do
+    [ -r "$f" ] || continue
+    basename "$f" .fish
+done | sort)
+if [ "$expected" = "$actual" ] && [ -n "$expected" ]; then
+    passed=$((passed + 1))
+    log_success "completions match the stack-* command set exactly ($(printf '%s\n' "$expected" | wc -l | tr -d ' ') files)"
+else
+    failed=$((failed + 1))
+    log_error "completion files drifted from the stack-* command set"
+    echo "       orphaned completion files (no matching command):" | sed 's/^/       /'
+    comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | sed 's/^/         - /'
+    echo "       commands missing a completion file:" | sed 's/^/       /'
+    comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | sed 's/^/         - /'
+fi
+
 if [ "$DRY_RUN" = true ]; then
     log_warning "Offline mode — skipping live/guard tiers (CI-safe)."
     echo ""
