@@ -67,8 +67,10 @@ fi
 
 if [ -f "$ROOT/config/radarr/radarr.db" ] || [ -n "${RADARR_DB:-}" ]; then
   check "radarr quality profiles" python3 scripts/check_radarr_profiles.py
+  check "radarr db size" python3 scripts/check_radarr_db_size.py
 else
   warn_skip "radarr quality profiles" "no radarr.db (radarr not configured here)"
+  warn_skip "radarr db size" "no radarr.db (radarr not configured here)"
 fi
 
 check "compose mounts" python3 scripts/check_compose_mounts.py
