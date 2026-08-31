@@ -220,6 +220,12 @@ Run `./scripts/setup.sh` to generate secrets.
 
 9. **SQLite DB bloat from MediaInfo blobs** — Radarr stores 10–300KB MediaInfo blobs per history row; a long-lived instance grows a 1GB `radarr.db` plus a 184MB `logs.db`, pushing the process into OOM at a 1g cap. Prune blobs/logs periodically or raise the cap (now 1536m).
 
+10. **ImageMaid path validation is behavioral** — Its `/plex` mount must target the Plex application-support subdirectory `config/plex/Plex Media Server`, not the parent `config/plex`; the upstream process can exit successfully while reporting a missing PhotoTranscoder directory and reclaiming zero bytes.
+
+11. **Profiled run services need generated names** — Do not assign `container_name` to the manual ImageMaid profile; `docker compose run --rm` must be able to repeat after an interrupted run without a stale fixed-name collision.
+
+12. **Main may advance asynchronously** — Release automation can add commits between local review and publication; fetch `origin/main` and rebase a clean local commit before retrying a rejected push, never force-push.
+
 ---
 
 ## How to Work in This Repo
@@ -235,7 +241,9 @@ Run `./scripts/setup.sh` to generate secrets.
 1. Run validation: `docker compose config --quiet`
 2. Run bash syntax checks: `bash -n scripts/*.sh tests/*/*.sh`
 3. Run fish smoke tests: `bash tests/fish/test_fish_functions.sh --offline` (drop `--offline` to run the full suite against the live stack)
-4. **Restart containers after editing bind-mounted files** — `sed -i` or `vim` on a bind-mounted file changes the inode; the container keeps serving the old content until restarted. This is invisible (no error).
+4. Use `./tests/integration/test_pipeline.sh --dry-run` for a live infrastructure check when the NzbDAV queue is non-empty; the full pipeline test intentionally fails rather than treating active queued work as safe.
+5. Keep agent-facing operational output in English.
+6. **Restart containers after editing bind-mounted files** — `sed -i` or `vim` on a bind-mounted file changes the inode; the container keeps serving the old content until restarted. This is invisible (no error).
 
 ### Safety Rules
 
