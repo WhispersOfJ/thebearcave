@@ -15,14 +15,13 @@ on:
   workflow_dispatch:
     inputs:
       language:
-        description: "Language to scan (all = both Python and C#)"
+        description: "Language to scan"
         required: false
         default: all
         type: choice
         options:
           - all
           - python
-          - csharp
 
 permissions:
   security-events: write
@@ -36,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ${{ (github.event.inputs.language && github.event.inputs.language != 'all') && fromJSON(format('["{0}"]', github.event.inputs.language)) || fromJSON('["python", "csharp"]') }}
+        language: ${{ (github.event.inputs.language && github.event.inputs.language != 'all') && fromJSON(format('["{0}"]', github.event.inputs.language)) || fromJSON('["python"]') }}
 
     steps:
       - name: Checkout repository
@@ -47,12 +46,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
-
-      - name: Setup .NET (for C#)
-        if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: 10.0.x
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
