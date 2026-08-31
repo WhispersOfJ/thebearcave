@@ -65,6 +65,12 @@ else
   warn_skip "mount drift" "docker"
 fi
 
+if [ -f "$ROOT/config/radarr/radarr.db" ] || [ -n "${RADARR_DB:-}" ]; then
+  check "radarr quality profiles" python3 scripts/check_radarr_profiles.py
+else
+  warn_skip "radarr quality profiles" "no radarr.db (radarr not configured here)"
+fi
+
 check "compose mounts" python3 scripts/check_compose_mounts.py
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
 
