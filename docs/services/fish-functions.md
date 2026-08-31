@@ -33,6 +33,11 @@ services/fish-functions/
 services/fish-functions/scripts/install.sh
 ```
 
+The installer refuses to run from a git worktree (symlinks would dangle once
+the worktree is removed) and self-verifies afterwards: every installed symlink
+must resolve and `stack-help` must run clean in a fresh shell, or the install
+exits non-zero.
+
 Restart fish after installation. The installer loads `.env` into the fish environment
 so commands can use `RADARR_API_KEY`, `SONARR_API_KEY`, `PROWLARR_API_KEY`, `PLEX_TOKEN`,
 `FRONTEND_BACKEND_API_KEY`, and the service URL overrides.
