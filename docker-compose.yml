@@ -121,7 +121,7 @@ services:
   # ==========================================================================
   nzbdav:
     <<: *common
-    image: ghcr.io/infinidysk/infinidysk@sha256:7e5b263b4514056cff152b4422f6719489b4cd1b7ef54daef059397beff271f5
+    image: ghcr.io/infinidysk/infinidysk@sha256:8cf616c1806c3443e6cfbd4b10bf7562d0e09cdfe735360c2e992f3a0c623dd0
     container_name: nzbdav
     mem_limit: 2560m
     cpus: "2.0"
