@@ -3,6 +3,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FISH_DIR="${HOME}/.config/fish"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Refuse to install from a git worktree: install.sh symlinks into the checkout
+# it runs from, so an ephemeral worktree strands every installed symlink (and
+# the baked BEARCAVE_REPO_DIR) the moment it is removed. A main checkout has a
+# .git directory; a worktree has a .git file pointing at the shared store.
+if [ -f "$REPO_ROOT/.git" ]; then
+    echo "ERROR: refusing to install from a git worktree: $REPO_ROOT" >&2
+    echo "  Symlinks would point at this checkout and dangle after it is removed." >&2
+    echo "  Run install.sh from the permanent main checkout instead." >&2
+    exit 1
+fi
 
 # Prune stale symlinks left by previous installs (commands retired since the
 # last run). Only symlinks whose target no longer exists are removed; fish's
@@ -42,7 +54,7 @@ ln -sf "$SCRIPT_DIR/functions/__cli_format.fish" "$FISH_DIR/conf.d/bearcave-cli-
 # path substituted (not a symlink or a `source` wrapper): fish 4.8.1 stack-
 # overflows when a file sourced from conf.d at startup uses `read`, and
 # status --current-filename is unreliable inside conf.d scripts.
-REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_DIR="$REPO_ROOT"
 # Remove any stale entry first: a leftover symlink would make the redirect
 # write through it and truncate the checked-in loader (input == output).
 rm -f "$FISH_DIR/conf.d/bearcave-env.fish"
@@ -126,3 +138,35 @@ SNIPPET
 echo "Wrote bash/zsh docker-guard snippet to $BASH_SNIPPET_DIR/docker-guard.sh"
 echo "  Source it from ~/.bashrc or ~/.zshrc:"
 echo "    source $BASH_SNIPPET_DIR/docker-guard.sh"
+
+# ----------------------------------------------------------------------------
+# Verification: the installed symlink set must resolve, and stack-help must run
+# clean in a fresh shell. A dangling link here means an install bug or an
+# ephemeral source checkout; a noisy stack-help means broken description
+# lookups. Fail loudly instead of leaving a silently broken install.
+# ----------------------------------------------------------------------------
+verify_failed=0
+for d in functions completions conf.d; do
+    while IFS= read -r link; do
+        [ -z "$link" ] && continue
+        echo "  FAIL: dangling symlink: $link -> $(readlink "$link")" >&2
+        verify_failed=$((verify_failed + 1))
+    done < <(find "$FISH_DIR/$d" -maxdepth 1 -type l ! -exec test -e {} \; -print 2>/dev/null)
+done
+
+help_out="$(fish -c 'stack-help' 2>&1 || true)"
+if ! printf '%s\n' "$help_out" | grep -q 'Bear Cave media stack'; then
+    echo "  FAIL: stack-help did not run in a fresh shell (is fish installed?)" >&2
+    verify_failed=$((verify_failed + 1))
+elif printf '%s\n' "$help_out" | grep -q 'No such file or directory'; then
+    echo "  FAIL: stack-help reports missing files (dangling function symlinks?)" >&2
+    verify_failed=$((verify_failed + 1))
+fi
+
+if [ "$verify_failed" -gt 0 ]; then
+    echo "" >&2
+    echo "ERROR: install verification failed ($verify_failed problem(s))." >&2
+    echo "  Installed from: $SCRIPT_DIR" >&2
+    exit 1
+fi
+echo "Verification OK: all installed symlinks resolve and stack-help runs clean."
