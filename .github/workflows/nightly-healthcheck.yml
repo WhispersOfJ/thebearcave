@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bash syntax and guard tests
         run: |
-          for f in scripts/*.sh tests/*/*.sh; do bash -n "$f"; done
+          for f in scripts/*.sh scripts/git-hooks/* tests/*/*.sh; do bash -n "$f"; done
           python3 -m py_compile scripts/*.py
           python3 scripts/test_check_compose_mounts.py
           python3 scripts/test_check_nzbdav_queue.py

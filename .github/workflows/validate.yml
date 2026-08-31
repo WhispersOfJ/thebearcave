@@ -72,7 +72,7 @@ jobs:
 
       - name: Bash syntax
         run: |
-          for f in scripts/*.sh tests/*/*.sh; do
+          for f in scripts/*.sh scripts/git-hooks/* tests/*/*.sh; do
             bash -n "$f"
           done
 
