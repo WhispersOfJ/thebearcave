@@ -35,7 +35,7 @@ jobs:
       - name: Install yamllint
         run: python3 -m pip install yamllint==1.37.1
       - name: Lint YAML
-        run: yamllint -d "{extends: relaxed, rules: {line-length: disable}}" docker-compose.yml .github/*.yml .github/workflows/*.yml
+        run: 'yamllint -d "{extends: relaxed, rules: {line-length: disable}}" docker-compose.yml .github/*.yml .github/workflows/*.yml'
 
   shell-and-python:
     name: Shell and Python Quality
