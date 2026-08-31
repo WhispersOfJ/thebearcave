@@ -10,10 +10,6 @@ on:
       - "archive/**"
   pull_request:
     branches: ["main"]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "archive/**"
   workflow_dispatch:
     inputs:
       skip_actionlint:
