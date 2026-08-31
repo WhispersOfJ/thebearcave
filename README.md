@@ -97,6 +97,18 @@ docker compose config --quiet    # compose validation
 ./tests/fish/test_fish_functions.sh    # fish shell tools (parse + live smoke)
 ```
 
+## Git hooks
+
+Install the repo's pre-push gate — it runs `./scripts/preflight.sh` (ruff, compose
+config, the secret-drift guard, DB-integrity checks) before every `git push`:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+Escape hatch: `git push --no-verify` (only after understanding what failed).
+Uninstall: `git config --unset core.hooksPath`.
+
 ## Quick start
 
 ```bash

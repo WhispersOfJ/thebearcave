@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Pre-push gate: run the repository preflight before anything reaches the
+# remote. Covers ruff, py_compile, compose config, the secret-drift guard,
+# and the *arr DB-integrity checks. If it fails, the push is blocked — use
+# `git push --no-verify` only after understanding what failed.
+#
+# Installed via scripts/install-git-hooks.sh (sets core.hooksPath).
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+echo "== pre-push: running repository preflight =="
+if "$ROOT/scripts/preflight.sh"; then
+    echo "== pre-push: preflight OK — proceeding =="
+    exit 0
+fi
+echo "== pre-push: BLOCKED — preflight failed =="
+echo "   Fix the failures above and push again (or use --no-verify, not recommended)."
+exit 1
