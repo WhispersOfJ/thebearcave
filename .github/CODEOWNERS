@@ -1,15 +1,7 @@
 # The Bear Cave — Code Owners
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-
-# Default: Bear owns everything
 * @WhispersOfJ
-
-# Metacache (.NET service)
-services/metacache/ @WhispersOfJ
-
-# CI/CD
 .github/ @WhispersOfJ
-
-# Docker Compose + Traefik
 docker-compose.yml @WhispersOfJ
-config/traefik/ @WhispersOfJ
+config/ @WhispersOfJ
+services/ @WhispersOfJ
+scripts/ @WhispersOfJ

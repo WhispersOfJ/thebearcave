@@ -1,48 +1,38 @@
 ## Summary
 
-<!-- What does this PR do? One sentence summary. -->
+<!-- What does this PR do? One sentence. -->
 
 ## Changes
 
-<!-- Bullet list of what changed. -->
-
 -
 -
 
-## Service(s) affected
-
-<!-- Which services are impacted by this change? Check all that apply. -->
+## Service or area affected
 
 - [ ] Plex
-- [ ] Metacache
-- [ ] InfiniDysk (nzbdav)
+- [ ] NzbDAV / rclone mount
 - [ ] Radarr / Sonarr / Prowlarr
-- [ ] Seerr
-- [ ] Traefik
-- [ ] WatchState
-- [ ] Monitoring (Grafana / Prometheus / Loki)
+- [ ] Seerr / Unpackerr
 - [ ] CI/CD
 - [ ] Documentation
-- [ ] Other: ___
+- [ ] Scripts / Fish functions
 
 ## Testing
 
-<!-- How did you verify this works? -->
-
-- [ ] `docker compose config --quiet` passes
-- [ ] `bash -n` syntax check on all shell scripts
-- [ ] Compose file brought up successfully
-- [ ] Health checks pass (`./tests/health/run-all.sh`)
-- [ ] Manual testing performed (describe below)
+- [ ] `docker compose config --quiet`
+- [ ] `bash -n scripts/*.sh tests/*/*.sh`
+- [ ] `python3 scripts/check_compose_mounts.py`
+- [ ] `./tests/health/run-all.sh`
+- [ ] Manual critical-path verification (describe below)
 
 ## Checklist
 
-- [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
 - [ ] No secrets or credentials committed
-- [ ] `.env.template` updated if new env vars were added
-- [ ] Documentation updated (if applicable)
-- [ ] Does not break existing services
+- [ ] `.env.template` updated if Compose variables changed
+- [ ] Documentation updated where needed
+- [ ] NzbDAV queue checked before any recreate
+- [ ] FUSE mount checked before any Plex scan
 
 ## Related issues
 
-<!-- Link any related issues: Fixes #123, Closes #456 -->
+<!-- Fixes #123, Closes #456 -->

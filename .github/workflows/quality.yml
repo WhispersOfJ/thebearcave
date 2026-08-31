@@ -1,5 +1,4 @@
 name: Quality
-# Pinned actions policy: third-party actions are pinned to full commit SHAs.
 
 on:
   pull_request:
@@ -8,10 +7,8 @@ on:
       - "**.yml"
       - "**.yaml"
       - "**.sh"
-      - "**Dockerfile"
-      - "services/metacache/**"
-      - "services/nzbdav-exporter/**"
-      - ".github/workflows/quality.yml"
+      - "docker-compose.yml"
+      - "services/fish-functions/**"
   workflow_dispatch:
 
 permissions:
@@ -26,26 +23,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@595b5aeba73380359d98a5e087f648dbb0edce1b # v4.7.3
+      - uses: actions/dependency-review-action@595b5aeba73380359d98a5e087f648dbb0edce1b # v4.7.3
         with:
           fail-on-severity: high
-
-  dockerfile-lint:
-    name: Dockerfile Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Hadolint
-        run: |
-          curl -sSfL -o /tmp/hadolint \
-            https://github.com/hadolint/hadolint/releases/download/v2.14.0/hadolint-Linux-x86_64
-          echo "4e697ba704fd23b2409b947a319c19c3ee54d24f  /tmp/hadolint" | sha1sum -c -
-          chmod +x /tmp/hadolint
-      - name: Lint Dockerfiles
-        run: |
-          /tmp/hadolint services/metacache/Dockerfile
-          /tmp/hadolint services/nzbdav-exporter/Dockerfile
 
   yaml-lint:
     name: YAML Lint
@@ -55,18 +35,27 @@ jobs:
       - name: Install yamllint
         run: python3 -m pip install yamllint==1.37.1
       - name: Lint YAML
-        run: |
-          yamllint -d "{extends: relaxed, rules: {line-length: disable}}" \
-            docker-compose.yml .github/workflows/*.yml .github/dependabot.yml
+        run: yamllint -d "{extends: relaxed, rules: {line-length: disable}}" docker-compose.yml .github/*.yml .github/workflows/*.yml
 
-  metacache-tests:
-    name: Metacache Tests
+  shell-and-python:
+    name: Shell and Python Quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: 10.0.x
-      - name: Test
-        run: dotnet test services/metacache --configuration Release --no-restore
+      - name: Bash syntax
+        run: for f in scripts/*.sh tests/*/*.sh; do bash -n "$f"; done
+      - name: Python checks
+        run: |
+          python3 -m py_compile scripts/*.py
+          pip install ruff==0.8.6
+          ruff check . --exclude archive/ --exclude "**/migrations"
+      - name: Fish checks
+        run: |
+          sudo add-apt-repository -y ppa:fish-shell/release-4
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fish
+          for f in services/fish-functions/functions/*.fish services/fish-functions/completions/*.fish; do
+            fish --no-execute "$f"
+            fish_indent --check "$f"
+          done
+          ./tests/fish/test_fish_functions.sh --offline

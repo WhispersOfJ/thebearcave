@@ -1,50 +1,9 @@
-# Trivy ignores for The Bear Cave.
-#
-# Two kinds of entries live here:
-#   - IaC misconfiguration check IDs (e.g. DS-0002), enforced by the
-#     `trivy-config` job in .github/workflows/trivy-scan.yml.
-#   - CVE vulnerability IDs, honored by the `scan` job's image scans
-#     (trivy image auto-loads a repo-root .trivyignore with no flag).
-#
-# Entries here are CURRENT known-deferred findings only — if you remove one,
-# CI starts failing on that check again, which is the point. Keep each line to
-# the format "<ID> # <reason + tracking item>".
+# Trivy exceptions for the active eight-service stack only.
+# Review each entry whenever the corresponding image is refreshed.
 
-# IaC: services/nzbdav-exporter/Dockerfile runs as root (no USER directive).
-# Deferred to improvement item 6 (Tier 3: non-root USER work).
-DS-0002 # deferred: nzbdav-exporter non-root USER, item 6 / Tier 3
+# Seerr upstream image currently carries these unfixed dependency findings.
+CVE-2026-33937 # seerr upstream image dependency; remove after image rebuild
+CVE-2026-59873 # seerr upstream image dependency; remove after image rebuild
 
-# ── Image CRITICAL CVEs (deferred) ────────────────────────────────────────────
-
-# watchstate (ghcr.io/arabcoders/watchstate:latest, v1.10.3): Debian bookworm
-# base packages with no fixed version published yet. Track: Debian bookworm
-# point releases — libxml2 CVE-2026-6653, perl-base CVE-2026-13221/42496/8376.
-# Re-check at every image update; remove each entry once upstream ships a fix.
-CVE-2026-6653 # watchstate libxml2 DoS — no Debian fix yet
-CVE-2026-13221 # watchstate perl-base regex — no Debian fix yet
-CVE-2026-42496 # watchstate perl-base — no Debian fix yet
-CVE-2026-8376 # watchstate perl-base — no Debian fix yet
-
-# seerr (ghcr.io/seerr-team/seerr, v3.4.1): npm deps pinned in the upstream
-# image (handlebars 4.7.8, tar 6.2.x). Fixed versions exist upstream
-# (handlebars 4.7.9, tar 7.5.19) but the seerr image has not been rebuilt.
-# Track: seerr-team/seerr releases — remove once the image is rebuilt.
-CVE-2026-33937 # seerr handlebars RCE — upstream image needs rebuild
-CVE-2026-59873 # seerr node-tar DoS — upstream image needs rebuild
-
-# unpackerr (golift/unpackerr stable 0.15.2): alpine openssl stack with a
-# published fix (3.5.6-r0) but the stable image hasn't been rebuilt since
-# 2026-03-08. The unstable tag is unusable (binary ships mode 644). Track:
-# golift/unpackerr stable rebuild — remove once the image is refreshed.
-CVE-2026-31789 # unpackerr alpine openssl — stable image needs rebuild
-
-# komga (gotson/komga:1.x): trivy reports Go stdlib v1.17.8 with 4 fixable
-# CRITICALs (CVE-2023-24538/24540, CVE-2024-24790, CVE-2025-68121) but the
-# image ships NO Go runtime/binary — Rust coreutils + komga.jar only (verified
-# via ELF scan of every executable, 2026-08-28). Scan artifacts from the
-# multi-stage build layers, not deployed code. Track: re-scan at deploy; remove
-# if a future base actually bundles a Go toolchain.
-CVE-2023-24538 # komga Go stdlib — no Go binary ships (scan artifact)
-CVE-2023-24540 # komga Go stdlib — no Go binary ships (scan artifact)
-CVE-2024-24790 # komga Go stdlib — no Go binary ships (scan artifact)
-CVE-2025-68121 # komga Go stdlib — no Go binary ships (scan artifact)
+# Unpackerr stable image is awaiting an upstream Alpine rebuild.
+CVE-2026-31789 # unpackerr upstream base image; remove after rebuild

@@ -2,11 +2,10 @@
 """Fail when a running container is serving a stale inode for a bind-mounted
 config file.
 
-The landmine (docs/landmines.md #1 — "Bind-mount file staleness"): editing a
-bind-mounted file in place with `sed -i` or `vim` writes a *new inode* on the
-host, but the container keeps the *old* inode open and silently serves stale
-content until restarted. This has bitten the landing page twice (badge fetch
-URL, then a link repoint). `docker compose config` and `docker inspect` both
+The landmine (docs/landmines.md — "Bind-mounted files can be stale"): editing a
+single-file bind in place with `sed -i` or `vim` writes a *new inode* on the
+host, but the container can keep the *old* inode open and silently serve stale
+content until restarted. `docker compose config` and `docker inspect` both
 report the mount as healthy — the divergence is only visible by comparing the
 *inode* the container actually has open against the host file's current inode.
 
@@ -92,8 +91,8 @@ def _file_hash(path):
 def container_content_hash(name, path):
     """Content hash of a file as served inside the container.
 
-    Fallback for distroless images that ship no `stat`/`cat`/`ls` — Loki and
-    its ilk have only the application binary. `docker cp` reads through the
+    Fallback for minimal images that ship no `stat`/`cat`/`ls` — content is
+    copied through Docker and compared instead. `docker cp` reads through the
     same bind layer the app serves, so a byte mismatch proves the container
     is holding stale content even though its inode is unprobeable. Returns
     the hex digest, or None if the copy failed.

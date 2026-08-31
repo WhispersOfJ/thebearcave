@@ -33,7 +33,7 @@ for s in slots:
     set -l deleted 0
     set -l errors 0
     for id in $failed_ids
-        if curl -sf "http://localhost:3000/api?mode=history&name=delete&value=$id&output=json&apikey=$FRONTEND_BACKEND_API_KEY" >/dev/null 2>&1
+        if __nzbdav_api GET history "name=delete&value=$id" >/dev/null 2>&1
             set deleted (math $deleted + 1)
         else
             set errors (math $errors + 1)

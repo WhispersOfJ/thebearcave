@@ -8,25 +8,21 @@ body:
       value: |
         ## Bug Report
 
-        Thanks for reporting a bug! Please fill out the sections below.
+        Include the service, relevant logs, and whether the NzbDAV queue and FUSE mount were healthy.
 
   - type: dropdown
     id: service
     attributes:
       label: Affected Service
-      description: Which service is experiencing the issue?
       options:
         - Plex
-        - Metacache
-        - InfiniDysk (nzbdav)
+        - InfiniDysk (NzbDAV)
+        - nzbdav_rclone (FUSE mount)
         - Radarr
         - Sonarr
         - Prowlarr
         - Seerr
-        - Traefik
-        - WatchState
         - Unpackerr
-        - Monitoring (Grafana/Prometheus/Loki)
         - Docker Compose / Startup
         - Other
     validations:
@@ -36,20 +32,7 @@ body:
     id: description
     attributes:
       label: Describe the bug
-      description: A clear description of what the bug is.
-      placeholder: What happened? What did you expect to happen?
-    validations:
-      required: true
-
-  - type: textarea
-    id: reproduce
-    attributes:
-      label: Steps to reproduce
-      description: Steps to reproduce the behavior.
-      placeholder: |
-        1. Go to '...'
-        2. Click on '...'
-        3. See error
+      description: What happened and what did you expect?
     validations:
       required: true
 
@@ -57,19 +40,14 @@ body:
     id: logs
     attributes:
       label: Relevant logs
-      description: Paste any relevant container logs or error messages.
+      description: Paste relevant logs; remove credentials and tokens.
       render: shell
 
   - type: textarea
     id: environment
     attributes:
       label: Environment
-      description: Your deployment environment.
-      placeholder: |
-        - OS: (e.g., Arch Linux, Ubuntu 24.04)
-        - Docker version:
-        - Docker Compose version:
-        - The Bear Cave version/commit:
+      description: OS, Docker/Compose versions, and commit.
     validations:
       required: true
 
@@ -77,7 +55,6 @@ body:
     id: severity
     attributes:
       label: Severity
-      description: How impactful is this bug?
       options:
         - Low (cosmetic/minor)
         - Medium (degraded but functional)

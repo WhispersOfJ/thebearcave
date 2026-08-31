@@ -1,10 +1,6 @@
-# Dependabot version updates for The Bear Cave.
-# Security updates are enabled automatically by GitHub.
-
+# Dependabot version updates for The Bear Cave's active eight-service stack.
 version: 2
-
 updates:
-  # Docker images pinned in docker-compose.yml (all 22 services).
   - package-ecosystem: "docker-compose"
     directory: "/"
     schedule:
@@ -15,58 +11,8 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "docker"
-    labels:
-      - "dependencies"
-      - "docker"
+    labels: ["dependencies", "docker"]
 
-  # Dockerfiles: metacache, nzbdav-exporter.
-  - package-ecosystem: "docker"
-    directory: "/services/metacache"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    labels:
-      - "dependencies"
-      - "docker"
-
-  - package-ecosystem: "docker"
-    directory: "/services/nzbdav-exporter"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    labels:
-      - "dependencies"
-      - "docker"
-
-  # NuGet packages — metacache .NET solution.
-  - package-ecosystem: "nuget"
-    directory: "/services/metacache"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "dotnet"
-    ignore:
-      - dependency-name: "SixLabors.ImageSharp"
-        update-types: ["version-update:semver-major"]
-    groups:
-      test-toolchain:
-        patterns:
-          - "Microsoft.NET.Test.Sdk"
-          - "xunit*"
-          - "coverlet*"
-          - "Microsoft.AspNetCore.Mvc.Testing"
-          - "Microsoft.Extensions.TimeProvider.Testing"
-
-  # GitHub Actions across all workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -74,6 +20,4 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Etc/UTC"
-    labels:
-      - "dependencies"
-      - "github-actions"
+    labels: ["dependencies", "github-actions"]

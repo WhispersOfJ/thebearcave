@@ -1,34 +1,27 @@
 # Unpackerr
 
-Auto-extraction of downloads — watches the *arr queue and extracts archives when done.
+Unpackerr extracts completed archives for Radarr and Sonarr.
 
 | | |
 |---|---|
-| **Image** | `golift/unpackerr` (digest-pinned) |
-| **Ports** | none (no web UI) |
-| **Network** | `bearcave` |
-| **Healthcheck** | process-alive check via `/proc` |
-| **Depends on** | `nzbdav_rclone` healthy |
+| Image | `golift/unpackerr:0.15.2` |
+| Network | `bearcave` |
+| Published ports | none |
+| Memory cap | 64 MiB |
+| Depends on | `nzbdav_rclone` healthy, with restart cascade |
 
-## Role
+## Environment
 
-- Polls Radarr/Sonarr queues for finished downloads
-- Extracts archives (rar/zip/7z) before the *arr import step
-- No web UI or API — configured entirely via env
+- `UN_RADARR_0_URL=http://radarr:7878`
+- `UN_RADARR_0_API_KEY=${RADARR_API_KEY}`
+- `UN_SONARR_0_URL=http://sonarr:8989`
+- `UN_SONARR_0_API_KEY=${SONARR_API_KEY}`
 
-## Environment variables
+## Paths
 
-| Variable | Purpose |
-|----------|---------|
-| `UN_RADARR_0_URL` | `http://radarr:7878` |
-| `UN_RADARR_0_API_KEY` | `RADARR_API_KEY` |
-| `UN_SONARR_0_URL` | `http://sonarr:8989` |
-| `UN_SONARR_0_API_KEY` | `SONARR_API_KEY` |
+The container reads the download and FUSE trees at `/usenet` and
+`/mnt/remote/nzbdav`. It has no web UI; inspect logs for extraction failures:
 
-## Notes
-
-- No `UN_READARR` entry — Bindery replaced Readarr and isn't a supported "Starr app";
-  low impact since ebook releases are rarely RAR'd
-- The `services/unpackerr/` volume is a plain bind (`/usenet`) — not part of the
-  extraction path, kept for compatibility
-- Restart cascades with the FUSE mount (`depends_on: restart: true`)
+```bash
+docker compose logs --tail=100 unpackerr
+```

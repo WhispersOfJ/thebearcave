@@ -1,118 +1,107 @@
 # Backup & Restore
 
-Everything you need to survive hardware failure, bad config edits, or a botched upgrade.
+The most valuable state is the Plex database, followed by application databases and
+credentials. Media is remote-backed and can be re-indexed, but the NzbDAV queue is
+not persistent across recreation.
 
----
+## What to back up
 
-## What holds state
+| Data | Location | Priority |
+|------|----------|----------|
+| Plex library database and metadata | `config/plex/` | Critical |
+| Radarr, Sonarr, Prowlarr state | `config/{radarr,sonarr,prowlarr}/` | High |
+| NzbDAV database and settings | `config/nzbdav/` | High |
+| rclone configuration and cache metadata | `config/nzbdav-rclone/` | High; protect credentials |
+| Seerr state | `config/seerr/` | Medium |
+| Secrets and environment | `secrets/`, `.env` | Critical |
+| Compose and scripts | `docker-compose.yml`, `scripts/` | Useful for recovery |
 
-| Data | Location | Criticality |
-|------|----------|-------------|
-| Plex library DB + metadata | `config/plex/` (~33 GB) | **Highest** — irreplaceable watch history |
-| *arr DBs + Bazarr | `config/{radarr,sonarr,prowlarr,bazarr}/` plus `services/seerr/config/` | High — easily rebuilt but tedious |
-| InfiniDysk DB + queue | `config/nzbdav/` | High — **queue is not persistent across recreate** |
-| WatchState DB | `config/watchstate/` | Medium — redundant with Plex |
-| New service state | `config/{lidarr,readarr,audiobookshelf,komga,adguard,crowdsec,vaultwarden}/` | Medium — service-specific state and credentials |
-| Metacache DB + images | `data/metacache/` | Low — regenerable via warm |
-| Grafana/Prometheus/Loki | `data/{grafana,prometheus,loki}/` | Low — regenerable |
-| Secrets | `secrets/` + `.env` | **Critical** — losing these is losing access |
-
----
-
-## Automated backup
+## Create a backup
 
 ```bash
-./scripts/backup.sh                 # full backup to backups/<timestamp>/
-./scripts/backup.sh --configs-only  # configs + compose + .env
-./scripts/backup.sh --secrets-only  # secrets/ + .env
+./scripts/backup.sh                 # configs, databases, Plex metadata, secrets
+./scripts/backup.sh --configs-only  # config tree, compose, and .env copy
+./scripts/backup.sh --secrets-only  # secrets and .env only
 ```
 
-Produces `backups/bearcave_backup_<YYYYMMDD_HHMMSS>/` with:
-- `configs/` — every `config/<app>/` plus legacy `services/<app>/config/` and root configs
-- `databases/` — plex, metacache, watchstate DBs
-- `secrets/` — `.env` + `secrets/`
-- `plex-metadata/` — tar.gz of the Plex config tree
+Backups are written under `backups/bearcave_backup_<timestamp>/`. Copy them
+off-host. A same-disk backup protects against configuration mistakes, not disk or
+host failure. Treat backup directories as sensitive because they may contain `.env`.
 
-> **Copy backups off-host.** A backup on the same disk as the stack protects against
-> config errors, not disk failure. rsync/tar-pipe to another machine or cloud.
+## Safe restore
 
----
+1. Stop the stack and ensure no NzbDAV job is active:
 
-## InfiniDysk note
+   ```bash
+   docker compose down
+   ```
 
-InfiniDysk has its **own daily backup** (02:00 local, 7 retained) inside its config —
-that's in `config/nzbdav/`. The queue itself is ephemeral: **confirm the queue
-is empty before any container operation that recreates it.**
+2. Restore the configuration tree from the backup, preserving ownership and
+   permissions. Do not restore retired-service directories into the active tree:
 
----
+   ```bash
+   cp -a backups/bearcave_backup_<timestamp>/configs/config/. config/
+   cp -a backups/bearcave_backup_<timestamp>/secrets/. secrets/ 2>/dev/null || true
+   cp backups/bearcave_backup_<timestamp>/.env .env 2>/dev/null || true
+   chmod 600 .env 2>/dev/null || true
+   chmod 700 secrets 2>/dev/null || true
+   ```
 
-## Restore procedure
+3. Validate the restored configuration:
 
-### 1. Stop the stack
+   ```bash
+   docker compose config --quiet
+   python3 scripts/check_compose_mounts.py
+   ```
 
-```bash
-docker compose down
-```
+4. Start the dependency chain and wait for the FUSE mount:
 
-### 2. Restore configs
+   ```bash
+   docker compose up -d
+   ./tests/health/run-all.sh
+   python3 scripts/check_mount_drift.py
+   docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav
+   ```
 
-```bash
-# From the backup dir:
-cp -r backups/bearcave_backup_<ts>/configs/config/* config/ 2>/dev/null || true
-cp -r backups/bearcave_backup_<ts>/configs/services/* services/ 2>/dev/null || true
-# Restore any legacy service config path explicitly when present.
-cp -r backups/bearcave_backup_<ts>/configs/services/seerr/config services/seerr/ 2>/dev/null || true
-cp backups/bearcave_backup_<ts>/.env .env    # if restoring secrets too
-```
+5. Verify Plex sees `/data/movies` and `/data/shows` before scanning. If the
+   database was restored, do not empty Plex trash until the mount and expected
+   files are confirmed.
 
-### 3. Restore Plex (the critical one)
+Plex runs as UID/GID 955 in the container. If a manual restore changes ownership,
+correct it before starting Plex:
 
-```bash
-# Plex must be stopped (stack is down, so it is)
-rm -rf config/plex
-cp -r backups/bearcave_backup_<ts>/plex-metadata/plex-metadata.tar.gz /tmp/
-tar -xzf /tmp/plex-metadata.tar.gz -C services/plex/   # restores config/
-```
-
-Verify ownership: Plex runs as UID/GID **955** — the files must be owned by 955:
 ```bash
 chown -R 955:955 config/plex
 ```
 
-### 4. Restore secrets
+## NzbDAV warning
+
+Always query the queue before recreating NzbDAV:
 
 ```bash
-cp -r backups/bearcave_backup_<ts>/secrets/* secrets/ 2>/dev/null || true
+./scripts/update-nzbdav.sh --dry-run
 ```
 
-### 5. Bring it back
+The guarded update script refuses an unknown or non-empty queue. `--force` is a
+last resort: queued NZBs will be lost and may be blocklisted.
 
-```bash
-docker compose up -d
-./tests/health/run-all.sh
+## Scheduled backup
+
+A host cron or systemd timer can run the backup without involving Compose, for
+example nightly at 03:30:
+
+```cron
+30 3 * * * cd /home/bear/TheBearCave && ./scripts/backup.sh >> /var/log/bearcave-backup.log 2>&1
 ```
 
----
+Prune old backups only after confirming an off-host copy exists.
 
-## Scheduled backup (recommended)
+## Recovery checklist
 
-Add a host cron/systemd timer, e.g.:
-
-```bash
-# nightly at 03:30, keep 7 days
-30 3 * * * cd /home/bear/TheBearCave && ./scripts/backup.sh >> /var/log/bearcave-backup.log 2>&1 && find backups -maxdepth 1 -name 'bearcave_backup_*' -mtime +7 -exec rm -rf {} +
-```
-
-> The media-stack archive includes systemd units for the old stack's backup jobs
-> (`archive/media-stack/systemd/stack-arr-backup.{service,timer}`) — adapt them for
-> this repo's paths.
-
----
-
-## DR checklist
-
-- [ ] Off-host backup of `backups/` runs nightly
-- [ ] You know where `secrets/` lives and have a copy off-host
-- [ ] Test a restore at least once (restore to a scratch dir, not the live tree)
-- [ ] Plex ownership (955:955) verified after restore
-- [ ] Queue confirmed empty before InfiniDysk container operations
+- [ ] Off-host backup completed
+- [ ] `.env` and `secrets/` restored with restricted permissions
+- [ ] `docker compose config --quiet` passes
+- [ ] NzbDAV queue was empty or explicitly handled before recreation
+- [ ] FUSE mount is healthy before any Plex scan
+- [ ] Plex sections and expected files are visible before emptying trash
+- [ ] All eight health checks pass

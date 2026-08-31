@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validation functions for The Bear Cave setup.
+# Validation functions for The Bear Cave setup (8-service slim stack).
 # Sources: scripts/lib/helpers.sh
 
 validate_env_file() {
@@ -12,12 +12,11 @@ validate_env_file() {
 
     local required_vars=(
         "PUID" "PGID" "TZ" "HOST_IP"
-        "PLEX_TOKEN" "FRONTEND_BACKEND_API_KEY"
+        "PLEX_TOKEN"
         "RADARR_API_KEY" "SONARR_API_KEY" "PROWLARR_API_KEY"
         "NZBDAV_WEBDAV_USER" "NZBDAV_WEBDAV_PASS"
         "NZBDAV_RCLONE_RC_PASS" "NZBDAV_PROFILE_TOKEN"
         "NZBDAV_USENET_HOST" "NZBDAV_USENET_USER" "NZBDAV_USENET_PASS"
-        "WS_API_KEY" "WS_SYSTEM_SECRET"
     )
 
     local missing=()
@@ -93,16 +92,12 @@ validate_directories() {
 
     local required_dirs=(
         "config"
-        "services/plex/config"
-        "services/nzbdav-rclone"
-        "services/landing-page"
-        "services/nzbdav-exporter"
+        "config/plex"
+        "config/nzbdav"
+        "config/nzbdav-rclone"
         "media/movies"
         "media/shows"
-        "data/loki"
-        "data/prometheus"
-        "data/grafana"
-        "data/metacache"
+        "media/downloads"
     )
 
     local missing=()

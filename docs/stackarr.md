@@ -13,7 +13,7 @@ chat. It is the closest thing to purpose-built agent control for this exact
 stack.
 
 **Managed services (overlap with this stack bolded):** **Sonarr, Radarr,
-Lidarr, Prowlarr, Bazarr, Plex**, Jellyfin, Seerr, Immich,
+Prowlarr, Plex, Seerr**, Jellyfin, Immich,
 RomM, BookOrbit, Transmission, qBittorrent, Postgres, Cloudflare.
 
 **MCP design (its main strength):**
@@ -33,7 +33,7 @@ RomM, BookOrbit, Transmission, qBittorrent, Postgres, Cloudflare.
 ## Why it's tempting for this stack
 
 - **On-target scope:** it manages the core of this stack — Radarr, Sonarr,
-  Lidarr, Prowlarr, Bazarr, Plex, Seerr, backups — with typed
+  Prowlarr, Plex, Seerr, and backups — with typed
   actions instead of raw API calls.
 - **It answers the Docker-socket problem better than raw Docker MCP servers:**
   a typed, approval-gated action surface is far safer than giving an agent a
@@ -72,10 +72,8 @@ cadence), adoption is a standard expansion per [HISTORY.md](../HISTORY.md#the-20
 3. **CVE gate** — add the pinned image to the trivy scan workflow's image
    list and the `.github/trivy-baseline.json`; it must pass the CRITICAL gate
    like every other image.
-4. **Registry + landing page** — add to
-   `services/landing-page/service-registry.json` *and* the inline copy in
-   `index.html` (AGENTS.md rule), plus the AGENTS.md service table and port
-   map.
+4. **Registry + landing page** — add to    the active service registry and documentation, plus the AGENTS.md service
+   table and port map.
 5. **MCP wiring** — generate the client entry
    (`docker exec app /app/bin/stackarr mcp config claude --profile manage`)
    and add the resulting `mcpServers` block to `~/.agents/mcp.json` per

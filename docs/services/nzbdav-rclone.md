@@ -1,45 +1,30 @@
 # nzbdav_rclone (FUSE sidecar)
 
-The most critical and most fragile container in the stack. InfiniDysk has **no native
-FUSE mount** — it's WebDAV-only — so this rclone sidecar mounts InfiniDysk's WebDAV
-tree at `/mnt/remote/nzbdav` and every media consumer reads through it.
+`nzbdav_rclone` mounts InfiniDysk’s WebDAV tree at `/mnt/remote/nzbdav`. It is the
+mount owner for Radarr, Sonarr, Plex, and Unpackerr.
 
 | | |
 |---|---|
-| **Image** | `rclone/rclone:latest` |
-| **Ports** | none published; RC API on container `:5572` |
-| **Network** | `bearcave` |
-| **Healthcheck** | `mountpoint -q /mnt/remote/nzbdav` |
-| **Config** | `config/nzbdav-rclone/rclone.conf` (gitignored) + `cache/` |
-| **Depends on** | `nzbdav` healthy (restart cascade) |
-| **Privileges** | `/dev/fuse`, `SYS_ADMIN` |
+| Image | `rclone/rclone:1.75.0` |
+| Network | `bearcave` |
+| Published ports | none; RC API is internal on `:5572` |
+| Config | `config/nzbdav-rclone/rclone.conf` and `cache/` |
+| Healthcheck | `mountpoint -q /mnt/remote/nzbdav` |
+| Privileges | `/dev/fuse`, `SYS_ADMIN`, AppArmor unconfined as required by FUSE |
+| Depends on | `nzbdav` healthy |
 
-## Role
+## Mount contract
 
-- FUSE-mounts InfiniDysk's WebDAV tree at `/mnt/remote/nzbdav`
-- Serves that mount to radarr, sonarr, plex, unpackerr via `:rslave`
-  bind mounts
-- VFS cache (full mode, up to 50 GB) makes repeated reads cheap
+The sidecar mounts `/mnt/remote` as `rshared`, clears stale FUSE state before startup,
+and uses a full VFS cache capped at 50 GiB. The container has a 3 GiB memory
+cap because the active cache workload reached roughly 2 GiB; the cache itself is
+disk-backed. The mount is tuned for a large, mostly immutable media tree: 32 MiB
+read chunks, 32 MiB read-ahead, fast fingerprints, 30-second attribute caching,
+and a six-hour directory cache.
+Consumers receive
+`/mnt/remote/nzbdav` with `rslave` propagation.
 
-## Mount options (from compose)
-
-```yaml
-command:
-  - fusermount3 -uz /mnt/remote/nzbdav 2>/dev/null || true;   # clear stale corpse
-    umount -l /mnt/remote/nzbdav 2>/dev/null || true;         # self-heal
-    exec rclone mount nzbdav: /mnt/remote/nzbdav
-    --vfs-cache-mode=full --vfs-cache-max-size=50G --vfs-cache-max-age=336h
-    --dir-cache-time=1h --poll-interval=5m
-    --rc --rc-addr=:5572 --rc-user=rclone --rc-pass=${NZBDAV_RCLONE_RC_PASS}
-```
-
-The `fusermount3 -uz` / `umount -l` preamble is the **stale-mount self-heal**: a
-crash-looped rclone leaves a dead FUSE mount on the host, and without this cleanup
-rclone refuses to remount ("directory already mounted") and loops forever.
-
-## rclone.conf
-
-Gitignored. Template at `config/nzbdav-rclone/rclone.conf.template`:
+`config/nzbdav-rclone/rclone.conf` must contain:
 
 ```ini
 [nzbdav]
@@ -47,36 +32,21 @@ type = webdav
 url = http://nzbdav:3000/
 vendor = other
 user = usenet
-pass = <rclone-obscured password, NOT plaintext>
+pass = <rclone-obscured WebDAV password>
 ```
 
-Generate the password with `rclone obscure "your-webdav-password"`.
+Generate the password with `rclone obscure`; never put the plaintext password in the
+config file or repository.
 
-## The cascade (why ordering matters)
+## Recovery
 
-```mermaid
-flowchart LR
-    NZB[nzbdav] -->|depends_on healthy| RCL[nzbdav_rclone]
-    RCL -->|depends_on healthy + restart| Rad[radarr]
-    RCL -->|depends_on healthy + restart| Son[sonarr]
-    RCL -->|depends_on healthy + restart| Plex[plex]
-    RCL -->|depends_on healthy + restart| Unp[unpackerr]
+If the mount is unavailable:
+
+```bash
+docker compose restart nzbdav nzbdav_rclone
+docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav
+docker compose restart radarr sonarr plex unpackerr
 ```
 
-`restart: true` means any nzbdav restart cascades through rclone to all four dependents.
-That's the designed recovery path — don't fight it.
-
-## Troubleshooting
-
-- **`mountpoint` fails / mount gone** — restart the owner:
-  `docker compose restart nzbdav nzbdav_rclone` then dependents:
-  `docker compose restart radarr sonarr plex unpackerr`
-- **"directory already mounted" loop** — the self-heal preamble should clear it; if not,
-  check for a real FUSE mount on the host with `mount | grep nzbdav` and unmount it
-  (`umount -l /mnt/remote/nzbdav` — never `sudo umount` a live FUSE mountpoint that
-  dependents are using)
-- **Everything stat-fails in Plex** — this is the classic "mount is gone" symptom;
-  a scan during that window marks items deleted. Recover the mount, then trigger a
-  rescan from Plex
-- **RC endpoint refused** — `NZBDAV_CONFIG__RCLONE__RC_ENABLED` must be true on nzbdav
-  and the RC pass must match `NZBDAV_RCLONE_RC_PASS`
+Never scan Plex while this mount is down. A scan during a dead FUSE window can create
+red trash cans and mark known media as deleted.

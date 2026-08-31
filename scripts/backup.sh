@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# The Bear Cave — Backup Script
+# The Bear Cave — Backup Script (8-service slim stack)
 # ============================================================================
 # Creates backups of configurations, databases, and secrets.
 #
@@ -50,12 +50,11 @@ log_error() {
 
 backup_configs() {
     log_info "Backing up configuration files..."
-    
+
     local config_backup="$BACKUP_DIR/$BACKUP_NAME/configs"
     mkdir -p "$config_backup"
-    
-    # Backup service configs. Active services store state under config/;
-    # legacy services may still use services/<app>/config/.
+
+    # Backup service configs (8-service slim stack)
     local services=(
         "prowlarr"
         "radarr"
@@ -63,108 +62,77 @@ backup_configs() {
         "nzbdav"
         "nzbdav-rclone"
         "seerr"
-        "bazarr"
-        "lidarr"
-        "readarr"
-        "audiobookshelf"
-        "komga"
-        "adguard"
-        "crowdsec"
-        "vaultwarden"
-        "watchstate"
-        "loki"
-        "promtail"
-        "grafana"
-        "prometheus"
     )
-    
+
     for service in "${services[@]}"; do
         if [ -d "config/$service" ]; then
             mkdir -p "$config_backup/config"
             cp -r "config/$service" "$config_backup/config/"
             log_info "Backed up: config/$service"
-        elif [ -d "services/$service/config" ]; then
-            mkdir -p "$config_backup/services/$service"
-            cp -r "services/$service/config" "$config_backup/services/$service/"
-            log_info "Backed up: services/$service/config"
         fi
     done
-    
+
     # Backup root configs
     cp -r config "$config_backup/"
     cp docker-compose.yml "$config_backup/"
     cp .env "$config_backup/" 2>/dev/null || log_warning ".env not found"
-    
+
     log_success "Configuration backup complete"
 }
 
 backup_databases() {
     log_info "Backing up databases..."
-    
+
     local db_backup="$BACKUP_DIR/$BACKUP_NAME/databases"
     mkdir -p "$db_backup"
-    
-    # Backup Plex database
-    if [ -d "services/plex/config" ]; then
+
+    # Plex database lives in config/plex on the slim stack
+    if [ -d "config/plex" ]; then
         mkdir -p "$db_backup/plex"
-        cp -r services/plex/config "$db_backup/plex/"
+        cp -r config/plex "$db_backup/plex/"
         log_info "Backed up: Plex database"
     fi
-    
-    # Backup Metacache database
-    if [ -d "data/metacache" ]; then
-        mkdir -p "$db_backup/metacache"
-        cp -r data/metacache "$db_backup/metacache/"
-        log_info "Backed up: Metacache database"
-    fi
-    
-    # Backup WatchState database
-    if [ -d "services/watchstate/config" ]; then
-        mkdir -p "$db_backup/watchstate"
-        cp -r services/watchstate/config "$db_backup/watchstate/"
-        log_info "Backed up: WatchState database"
-    fi
-    
+
     log_success "Database backup complete"
 }
 
 backup_secrets() {
     log_info "Backing up secrets..."
-    
+
     local secrets_backup="$BACKUP_DIR/$BACKUP_NAME/secrets"
     mkdir -p "$secrets_backup"
-    
+
     if [ -d "secrets" ]; then
         cp -r secrets/* "$secrets_backup/"
         log_info "Backed up: secrets directory"
     fi
-    
+
     if [ -f ".env" ]; then
         cp .env "$secrets_backup/"
         log_info "Backed up: .env file"
     fi
-    
+
     log_success "Secrets backup complete"
 }
 
 backup_plex_metadata() {
     log_info "Backing up Plex metadata..."
-    
+
     local plex_backup="$BACKUP_DIR/$BACKUP_NAME/plex-metadata"
     mkdir -p "$plex_backup"
-    
-    # The Plex metadata is in services/plex/config which contains:
+
+    # The Plex metadata is in config/plex which contains:
     # - Media Server settings
     # - Library metadata
     # - Plugin data
     # - Transcode settings
-    
-    if [ -d "services/plex/config" ]; then
+
+    if [ -d "config/plex" ]; then
         # Use tar for efficiency with large metadata
-        tar -czf "$plex_backup/plex-metadata.tar.gz" -C services/plex config/
+        tar -czf "$plex_backup/plex-metadata.tar.gz" -C config plex/
         log_info "Backed up: Plex metadata archive"
     fi
-    
+
     log_success "Plex metadata backup complete"
 }
 
@@ -174,21 +142,21 @@ backup_plex_metadata() {
 
 main() {
     cd "$(dirname "$0")/.." || exit 1
-    
+
     echo ""
     echo "=========================================="
     echo "  The Bear Cave — Backup"
     echo "=========================================="
     echo ""
-    
+
     # Create backup directory
     mkdir -p "$BACKUP_DIR"
-    
+
     # Parse arguments
     local backup_all=true
     local backup_configs_flag=false
     local backup_secrets_flag=false
-    
+
     while [[ $# -gt 0 ]]; do
         case $1 in
             --configs-only)
@@ -206,21 +174,21 @@ main() {
                 ;;
         esac
     done
-    
+
     # Run backups
     if [ "$backup_all" = true ] || [ "$backup_configs_flag" = true ]; then
         backup_configs
     fi
-    
+
     if [ "$backup_all" = true ]; then
         backup_databases
         backup_plex_metadata
     fi
-    
+
     if [ "$backup_all" = true ] || [ "$backup_secrets_flag" = true ]; then
         backup_secrets
     fi
-    
+
     # Summary
     echo ""
     echo "=========================================="

@@ -25,6 +25,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
 
+# Load repository settings so the queue guard works from a clean shell too.
+# Compose loads .env for interpolation independently, but the Python guard
+# reads FRONTEND_BACKEND_API_KEY from its process environment.
+if [ -f .env ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source .env
+    set +a
+fi
+
 FORCE=false
 compose_args=()
 for arg in "$@"; do

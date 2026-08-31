@@ -70,7 +70,7 @@ docker() {
     case "$2" in
         up|restart|start|stop|rm|down)
             # only gate when the service is exactly nzbdav/nzbdav_rclone
-            # (nzbdav-exporter is a different service — never gate it)
+            # (only the active nzbdav services are gated)
             local _svc_hit=false
             local _a2
             for _a2 in "$@"; do

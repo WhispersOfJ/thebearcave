@@ -1,142 +1,82 @@
 # Landmines
 
-Active issues that affect operations **today**. Read before touching the stack.
-
----
+Read this before changing the active stack. The two fragile resources are the
+NzbDAV queue and the rclone FUSE mount.
 
 ## Critical
 
-### 1. FUSE mount cascade
+### 1. NzbDAV queue is not persistent
 
-`nzbdav_rclone` is the keystone. Restarting it (or nzbdav, which restarts it) cascades
-to radarr, sonarr, plex, unpackerr via `depends_on: restart: true`.
+Recreating `nzbdav` can wipe queued NZBs and blocklist affected items. Always check
+before a recreate:
 
-- **Never** restart the mount owner alone and leave dependents running — they hold
-  defunct handles.
-- **Never** `sudo umount` the mountpoint. The entrypoint's `fusermount3 -uz` /
-  `umount -l` preamble is the self-heal — let it do its job.
-- If the mount dies mid-scan, Plex can flag thousands of items "deleted". Restore the
-  mount, then rescan.
+```bash
+./scripts/update-nzbdav.sh --dry-run
+```
 
-### 2. Plex `stop_grace_period: 90s`
+The update script refuses an unknown or non-empty queue. `--force` is intentionally
+dangerous and should be used only when queued work may be discarded.
 
-Plex's shutdown takes ~40s under load. The 90s grace period is load-bearing — removing
-it reintroduces the unkillable D-state hang (SIGKILL mid-shutdown → wedged container).
+### 2. FUSE mount cascade
 
-### 3. InfiniDysk queue is not persistent
+`nzbdav_rclone` owns `/mnt/remote/nzbdav`. Radarr, Sonarr, Plex, and Unpackerr use
+that mount and are health-gated dependents with `restart: true`.
 
-Recreating the nzbdav container **wipes the queue** and silently blocklists affected
-items. Always confirm the queue is empty before touching the container.
+- Check the mount before a Plex scan:
+  `docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav`.
+- Never force-unmount the mount while consumers are running.
+- If Plex shows red trash cans or missing files, restore the mount first, restart
+  consumers, rescan, and empty trash only after the expected files are visible.
+- Run `python3 scripts/check_mount_drift.py` after mount or Compose changes.
 
-**Guarded**: `scripts/check_nzbdav_queue.py` queries the queue API and exits 1
-when depth > 0. It runs in preflight, and `scripts/nzbdav-safe-recreate.sh`
-wraps `docker compose up -d nzbdav` / `restart nzbdav` so the guard fires even
-when the recreate bypasses `scripts/update-nzbdav.sh`. `--force` skips it
-(DANGEROUS — queued NZBs are wiped and blocklisted).
+### 3. Bind-mounted files can be stale
 
-### 4. Bind-mount file staleness
+Replacing a single-file bind mount changes its host inode while the container can
+continue serving the old inode. Restart the affected container after changing a
+single-file bind, then run:
 
-`sed -i`/`vim` on a bind-mounted file changes the inode on the host, but the
-container keeps the old inode open and silently serves stale content until
-restarted. Always `docker compose restart <container>` after editing a file
-served by a bind mount.
-
-**Guarded**: `scripts/check_bind_mount_staleness.py` compares the host inode
-against the in-container inode for every single-file bind mount (directory
-binds are immune — their inode is stable). For distroless images that ship no
-`stat` binary (Loki, promtail), it falls back to a `docker cp` content-hash
-comparison. Runs in preflight; fails when a container is serving a stale
-inode or stale content.
-
----
+```bash
+python3 scripts/check_bind_mount_staleness.py
+```
 
 ## High
 
-### 5. Watchtower only updates channel-tagged images
+### 4. Paths are part of the application contract
 
-`ghcr.io/hotio/*:release` images auto-update nightly at 04:00. Digest-pinned images
-(seerr, unpackerr) are **excluded by design** —
-bump them deliberately.
+The databases and containers must agree on these paths:
 
-### 6. App removal must be exhaustive
+- Radarr: `/data/movies`
+- Sonarr: `/data/shows`
+- Plex: `/data/movies` and `/data/shows`
+- Shared FUSE tree: `/mnt/remote/nzbdav`
 
-Removing an app touches: compose block, config dir, `.env` vars, Prowlarr sync,
-Traefik labels, tests. Miss one and you get
-a half-removed service.
+Changing only Compose mounts makes roots inaccessible and can make Plex mark
+content as deleted.
 
-### 7. rclone.conf needs `rclone obscure`
+### 5. Plex shutdown is deliberately slow
 
-The WebDAV password in `config/nzbdav-rclone/rclone.conf` must be rclone-obfuscated
-(`rclone obscure "pass"`), not plaintext. The file is gitignored — the committed
-`rclone.conf.template` is the only thing that ships.
+Plex has `stop_grace_period: 90s`. Allow it to shut down cleanly under load:
 
----
+```bash
+docker stop -t 90 plex
+```
 
-## Medium
+### 6. Direct ports are LAN surfaces
 
-### 8. Plex scheduled scan only
-
-`FSEventLibraryUpdatesEnabled` is disabled; scanning is scheduled (6h). New content
-doesn't appear instantly — trigger a scan from Plex for immediacy.
-
-### 9. WatchState import window
-
-WatchState's import skips 02:00–05:59 deliberately (SQLite write-contention window
-shared with poster sync, arr backup, Plex Butler). Don't schedule other Plex DB writers
-into that window.
-
-### 10. Traefik + Plex separation
-
-Plex is not behind Traefik (host network). Anyone expecting "everything through one
-port" will be confused — document `:32400` for Plex.
-
-### 11. Linux-only host resolution
-
-Prometheus reaches node-exporter via `host.docker.internal:9100`. This works on Linux
-(extra_hosts → host-gateway) but not on Docker Desktop. The stack is Linux-only.
-
-### 12. HTTPS is a local CA — Let's Encrypt can never work here
-
-All `*.nip.io` hostnames serve the mkcert-signed wildcard cert (wired in as Traefik's
-default certificate via `config/traefik/dynamic/tls.yml`). Let's Encrypt **cannot**
-issue for these names: the ACME HTTP-01 challenge requires a publicly reachable host,
-and `*.192.168.4.20.nip.io` resolves to a private LAN IP. Do **not** re-add a
-`certificatesResolvers` block expecting it to work — it only spams errors and falls
-back to the self-signed default cert (see git history: `ef2ab3c`).
-
-- A browser warning on a device means the **local CA isn't installed there** — run
-  `scripts/trust-ca.sh` and follow its per-device steps. Never just dismiss the warning.
-- The CA and leaf **private keys** live only on the server (`~/.local/share/mkcert/`,
-  `config/traefik/certs/`); devices install only the public `rootCA.pem` (served at
-  `https://bearcave.192.168.4.20.nip.io/rootCA.pem`).
-- Real public certificates require a public domain pointing at this host with 80/443
-  forwarded, then a working `ACME_EMAIL`. Full model in [docs/tls.md](tls.md).
-
-### 13. metadata-action tags separator changes on release pushes
-
-`docker/metadata-action` joins its `tags` output with **commas** on branch/PR pushes
-but **newlines** on release tag pushes (when `type=semver` rules fire: `1.3.0`/`1.3`/
-`latest`). Any step that splits `steps.meta.outputs.tags` on commas only (e.g.
-`cut -d, -f1`) silently breaks on every release push — `docker tag` receives the
-whole newline-joined string and fails. This reddened `docker-publish.yml`'s
-"Tag for scanning" step on the v1.3.0 tag push.
-
-- The fix (`c257e7b`) normalizes first: `printf '%s' "$tags" | tr '\n' ',' | cut -d, -f1`.
-  Don't "simplify" it back to a bare `cut -d, -f1` — the release push will break again.
-- The build step (`build-push-action`) handles newline-joined tags natively, so only
-  manual parsing of the output is affected.
-
----
+There is no reverse proxy or central authentication tier. Keep ports 3000, 5055,
+7878, 8989, 9696, and 32400 behind the host firewall/VPN and retain native app
+authentication. The rclone RC port is not published to the host.
 
 ## Diagnostics
 
-| Symptom | First thing to check |
-|---------|----------------------|
-| Plex shows everything deleted | `docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav` |
-| Imports stuck "importing" | `docker compose logs nzbdav radarr sonarr \| tail` |
-| Services unreachable via nip.io | Traefik up? `docker compose ps traefik` |
-| Everything unhealthy | `.env` placeholders? `grep changeme .env` |
-| Browser shows certificate warning | CA not installed on that device — `scripts/trust-ca.sh` |
-| Metacache "Fix Match" spam | Cache warm status: `curl localhost:8765/warm/status` |
-| Docker Publish red on a release tag push | `steps.meta.outputs.tags` newline separator — see landmine 13 |
-| pacman aborts with `error: command failed to execute correctly` | pug gist-sync hook failed — [pug-pacman-gist-sync](operations/pug-pacman-gist-sync.md) |
+| Symptom | First check |
+|---------|-------------|
+| Plex shows red trash cans | FUSE mount health, then `docker compose logs plex` |
+| Imports are stuck | `docker compose logs nzbdav radarr sonarr unpackerr` |
+| Root folder inaccessible | Confirm `/data/movies` or `/data/shows` and mount drift |
+| NzbDAV returns 401 | Compare `.env` key with the running `nzbdav` environment |
+| A recreate is requested | Run `./scripts/update-nzbdav.sh --dry-run` first |
+| Everything is unhealthy | `docker compose ps`, then inspect the first dependency failure |
+
+For recovery procedures see [operations/troubleshooting.md](operations/troubleshooting.md)
+and [operations/backup-restore.md](operations/backup-restore.md).

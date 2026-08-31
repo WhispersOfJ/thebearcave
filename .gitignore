@@ -9,20 +9,11 @@
 secrets/
 archive/metacacharr/monitoring/.env
 
-# Service configuration (contains sensitive data). After the Phase 4
-# migration every app's live config lives under config/<app>/ (Plex library,
-# *arr DBs + API keys, WebDAV creds, app SQLite DBs) — none of it is
-# trackable. Only config/traefik/ (static config + dynamic TLS routing) is
-# tracked; the mkcert private key under config/traefik/certs/ must never be.
+# Service configuration contains databases, credentials, and runtime state.
+# The active stack keeps all application config under config/<app>/.
 config/*/
-!config/traefik/
-!config/grafana/
-!config/prometheus/
-config/traefik/certs/
 config/nzbdav-rclone/cache/
 config/nzbdav-rclone/rclone.conf
-config/alertmanager/
-!config/alertmanager/alertmanager.yml.template
 
 # Persistent data volumes
 data/
@@ -72,11 +63,7 @@ __pycache__/
 venv/
 .venv/
 
-# .NET (metacache)
-services/metacache/bin/
-services/metacache/obj/
-services/metacache/**/bin/
-services/metacache/**/obj/
+# Build artifacts in preserved archive material
 archive/metacacharr/**/bin/
 archive/metacacharr/**/obj/
 archive/metacacharr/**/*.dll
@@ -96,5 +83,4 @@ temp/
 
 # Freebuff client workspace state (lives inside the repo via the symlink at ~/Projects/The Bear Cave)
 .freebuff/
-data/alertmanager/
 .memsearch/

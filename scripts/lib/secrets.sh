@@ -17,8 +17,6 @@ generate_secrets() {
         "radarr_api_key"
         "sonarr_api_key"
         "prowlarr_api_key"
-        "tmdb_key"
-        "tvdb_key"
         "frontend_backend_api_key"
         "nzbdav_webdav_user"
         "nzbdav_webdav_pass"
@@ -30,14 +28,6 @@ generate_secrets() {
         "nzbdav_usenet_backup_host"
         "nzbdav_usenet_backup_user"
         "nzbdav_usenet_backup_pass"
-        "ws_api_key"
-        "ws_system_secret"
-        "metacache_api_key"
-        "discord_webhook_url"
-        "omdb_key"
-        "mdblist_key"
-        "fanart_key"
-        "grafana_admin_password"
     )
 
     for secret in "${secrets[@]}"; do
@@ -54,5 +44,5 @@ generate_secrets() {
         fi
     done
 
-    log_success "All secrets generated"
+    log_success "All active-stack secrets generated"
 }

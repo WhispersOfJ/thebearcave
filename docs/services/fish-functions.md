@@ -1,111 +1,77 @@
 # Fish Functions — API-backed CLI
 
-## Purpose
+The fish functions are the operational surface for the eight-service media stack.
+They call the host-published APIs directly; no proxy or dashboard container is required.
 
-Terminal commands for the Bear Cave media stack. ~95 `stack-*` functions provide
-operational visibility and control from the fish shell, calling each service's
-API directly via curl.
+## Layout
 
-## Architecture
-
-```
+```text
 services/fish-functions/
 ├── functions/
-│   ├── __arr_api.fish          # Radarr/Sonarr API helper
-│   ├── __plex_api.fish         # Plex API helper
-│   ├── __nzbdav_api.fish       # NzbDAV API helper
-│   ├── __watchstate_api.fish   # WatchState API helper
-│   ├── __cli_format.fish       # Shared formatting (colors, status dots)
-│   ├── __plex_butler.fish      # Shared Plex butler task helper
-│   ├── stack-*.fish            # One file per command
-│   └── __stack_arr_app.fish    # Validates arr instance name
-├── completions/                # Tab completions (GENERATED — one file per command)
-├── scripts/
-│   ├── install.sh              # Symlink functions + completions
-│   ├── uninstall.sh            # Remove symlinks
-│   └── gen-completions.fish    # Regenerates completions/ from function definitions
-└── README.md
+│   ├── __arr_api.fish       # Radarr/Sonarr helper
+│   ├── __plex_api.fish      # Plex helper
+│   ├── __nzbdav_api.fish    # NzbDAV SABnzbd API helper
+│   ├── __cli_format.fish    # Shared formatting helpers
+│   └── stack-*.fish         # User-facing commands
+├── completions/
+└── scripts/install.sh
 ```
 
-**No backend proxy.** Each function calls its target service's API directly on
-the `bearcave` Docker network — the previous central routing proxy was removed
-in the Phase 2 migration.
+## Function categories
 
-## Function Categories
-
-| Category | Count | Helper | Example |
-|----------|-------|--------|---------|
-| Arr operations | 19 | `__arr_api` | `stack-arr-backlog radarr` |
-| Plex operations | 25 | `__plex_api` + `__plex_butler` | `stack-plex-sessions` |
-| Docker/host | 10 | `docker ps/stats/inspect` | `stack-top --by cpu` |
-| NzbDAV | 5 | `__nzbdav_api` | `stack-nzbdav-queue` |
-| WatchState | 3 | `__watchstate_api` | `stack-watchstate-status` |
-| Seerr | 1 | direct API | `stack-seerr-requests` |
-| Ratings/external | 2 | OMDb/MDBList API | `stack-rating-imdb` |
-| Letterboxd/MDBList | 10 | local file tracking | `stack-letterboxd-import` |
-| Loop detection | 3 | Arr grab history | `stack-loop-candidates` |
+| Category | Purpose | Examples |
+|---|---|---|
+| Arr | Backlog, queue, search, and import diagnostics | `stack-arr-backlog`, `stack-arr-missing-aired` |
+| Plex | Sessions, scans, trash, and maintenance | `stack-plex scan`, `stack-plex-sessions`, `stack-plex-image-clean` |
+| NzbDAV | Queue, history, and failure management | `stack-nzbdav-queue`, `stack-nzbdav-history` |
+| Docker/host | Status, resource usage, mounts, and logs | `stack-status`, `stack-top`, `stack-mount-health` |
+| Seerr | Request visibility | `stack-seerr-requests` |
 
 ## Setup
 
 ```bash
-services/fish-functions/scripts/install.sh   # then restart fish
+services/fish-functions/scripts/install.sh
 ```
 
-`install.sh` writes a `conf.d/bearcave-env.fish` entry (next to the
-symlinked `bearcave-cli-format.fish`) that loads the repo's `.env` into the
-fish environment at every startup, so the API keys below are available
-without manual export. The loader only sets variables that aren't already
-set, so explicit exports in a parent shell or fish config still win.
-Optional: force color on/off (default: auto-detect TTY):
+Restart fish after installation. The installer loads `.env` into the fish environment
+so commands can use `RADARR_API_KEY`, `SONARR_API_KEY`, `PROWLARR_API_KEY`, `PLEX_TOKEN`,
+`FRONTEND_BACKEND_API_KEY`, and the service URL overrides.
+
+Functions target the direct host ports by default:
+
+- Prowlarr `localhost:9696`
+- Radarr `localhost:7878`
+- Sonarr `localhost:8989`
+- NzbDAV `localhost:3000`
+- Seerr `localhost:5055`
+- Plex `localhost:32400`
+
+## ImageMaid cache cleanup
+
+`stack-plex-image-clean` starts the profile-gated ImageMaid maintenance service. It removes
+only generated Plex `Cache/PhotoTranscoder` files and prints ImageMaid's `Space Recovered:`
+line. It does not resize or recompress artwork and does not remove metadata, empty trash,
+clean bundles, or optimize the database. Run it only while Plex is idle; see
+[ImageMaid maintenance](imagemaid.md).
+
+## Safety behavior
+
+The `docker` wrapper routes NzbDAV and `nzbdav_rclone` state-changing operations through
+`scripts/nzbdav-safe-recreate.sh`. It blocks recreation when queued NZBs are present;
+`--force` is explicit and dangerous because queued items are lost.
+
+## Completion checks
+
+Completions are generated from the function definitions:
 
 ```fish
-set -U STACK_COLOR true
+fish services/fish-functions/scripts/gen-completions.fish --check
+bash tests/fish/test_fish_functions.sh --offline
 ```
-
-### Tab completions
-
-Every `stack-*` command ships a completion file (command description, positional
-choices like `radarr|sonarr` or butler task names, `-y/--yes` flags, dynamic
-docker container names, and previously-tracked list URLs for the untrack
-commands). `install.sh` symlinks them into `~/.config/fish/completions/`, where
-fish autoloads them by command name.
-
-`completions/` is **generated** — never edit those files by hand. Argument
-completions live in the table inside `scripts/gen-completions.fish`; descriptions
-are extracted from each function's `--description`. After adding or changing a
-function:
-
-```fish
-fish services/fish-functions/scripts/gen-completions.fish          # regenerate
-fish services/fish-functions/scripts/gen-completions.fish --check  # CI drift gate
-```
-
-Functions read API keys from the environment (`RADARR_API_KEY`, `SONARR_API_KEY`,
-`PROWLARR_API_KEY`, `PLEX_TOKEN`, `FRONTEND_BACKEND_API_KEY`, `WS_API_KEY`,
-`MDBLIST_KEY`, `OMDB_KEY`, `SEERR_API_KEY`) and honor `<APP>_URL` / `PLEX_URL` /
-`NZBDAV_URL` / `WATCHSTATE_URL` / `SEERR_URL` overrides.
-Defaults target the host-published `localhost` ports — these are host-shell
-tools; docker service names will not resolve from outside the compose network.
-
-## Configuration
-
-Functions read API keys from environment variables (loaded from `.env` by the
-`bearcave-env.fish` conf.d loader at startup):
-- `RADARR_API_KEY`, `SONARR_API_KEY`, `PROWLARR_API_KEY`
-- `PLEX_TOKEN`
-- `NZBDAV_WEBDAV_USER`, `NZBDAV_WEBDAV_PASS`
-- `WS_API_KEY`
-
-The helper functions (`__arr_api`, etc.) are prefixed with `__` so they are
-not installed as user-facing commands, but they ARE symlinked onto the function
-path — the `stack-*` commands call them at runtime. `__cli_format.fish` (shared
-`fmt_*` formatting helpers) is loaded via `~/.config/fish/conf.d/` because
-autoload can never trigger on a file nothing invokes by name.
 
 ## Troubleshooting
 
-- **"Connection refused"**: Service may be down. Check `stack-status`.
-- **"Unauthorized"**: API key not set or wrong. Verify `.env` values.
-- **Empty output**: Service returned no data (empty queue, no sessions).
-- **Formatting issues**: Ensure `__cli_format.fish` is installed (it provides
-  colors and status dot helpers).
+- Connection refused: run `docker compose ps` and `stack-status`.
+- Unauthorized: verify `.env` API keys and the app's stored key.
+- Red Plex trash cans: run `stack-mount-health`, restore the FUSE mount, then run
+  `stack-plex scan`; do not empty trash while the mount is unavailable.

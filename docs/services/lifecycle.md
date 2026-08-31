@@ -21,6 +21,27 @@ was retired, why, and what it would take to bring it back.
 
 | Service | Retired | Reason | Re-adoption watcher | Where it went |
 |---------|---------|--------|---------------------|---------------|
+| `traefik` | 2026-08-30 | 2026-08-30 slim-down (extreme scenario): direct host ports replace reverse proxy; cert management + crowdsec bouncer no longer needed | ❌ none (decision) | removed (no archive) |
+| `loki` | 2026-08-30 | 2026-08-30 slim-down: observability stack removed; docker json-file logging retained | ❌ none (decision) | removed (no archive) |
+| `promtail` | 2026-08-30 | 2026-08-30 slim-down: shipped docker logs to loki (retired with it) | ❌ none (decision) | removed (no archive) |
+| `grafana` | 2026-08-30 | 2026-08-30 slim-down: observability stack removed | ❌ none (decision) | removed (no archive) |
+| `prometheus` | 2026-08-30 | 2026-08-30 slim-down: observability stack removed | ❌ none (decision) | removed (no archive) |
+| `alertmanager` | 2026-08-30 | 2026-08-30 slim-down: observability stack removed (Discord alerting gone with it) | ❌ none (decision) | removed (no archive) |
+| `node-exporter` | 2026-08-30 | 2026-08-30 slim-down: host metrics had no consumer after prometheus retirement | ❌ none (decision) | removed (no archive) |
+| `cadvisor` | 2026-08-30 | 2026-08-30 slim-down: was eating 370–410MB to watch other containers; retired with prometheus | ❌ none (decision) | removed (no archive) |
+| `nzbdav-exporter` | 2026-08-30 | 2026-08-30 slim-down: queue/config metrics had no consumer after prometheus retirement | ❌ none (decision) | removed (no archive) |
+| `arr-dashboard` | 2026-08-30 | 2026-08-30 slim-down (extreme scenario): fish functions cover the same ops surface | ❌ none (decision) | removed (no archive) |
+| `landing-page` | 2026-08-30 | 2026-08-30 slim-down (extreme scenario): registry-driven portal for a stack that no longer exists | ❌ none (decision) | removed (no archive) |
+| `metacache` | 2026-08-30 | 2026-08-30 slim-down (extreme scenario): optional Plex metadata accelerator, not core acquisition | ❌ none (decision) | removed (no archive) |
+| `lidarr` | 2026-08-30 | 2026-08-30 slim-down: long-tail acquisitions unused | ❌ none (decision) | removed (no archive) |
+| `readarr` | 2026-08-30 | 2026-08-30 slim-down: long-tail acquisitions unused | ❌ none (decision) | removed (no archive) |
+| `bazarr` | 2026-08-30 | 2026-08-30 slim-down: was crash-looping OOM at 128m; subtitles deemed non-essential | ❌ none (decision) | removed (no archive) |
+| `audiobookshelf` | 2026-08-30 | 2026-08-30 slim-down: long-tail media server unused | ❌ none (decision) | removed (no archive) |
+| `komga` | 2026-08-30 | 2026-08-30 slim-down: long-tail media server unused | ❌ none (decision) | removed (no archive) |
+| `adguard` | 2026-08-30 | 2026-08-30 slim-down: LAN DNS blocker, non-media | ❌ none (decision) | removed (no archive) |
+| `crowdsec` | 2026-08-30 | 2026-08-30 slim-down: intrusion detection depended on traefik (retired with it) | ❌ none (decision) | removed (no archive) |
+| `vaultwarden` | 2026-08-30 | 2026-08-30 slim-down: password manager, non-media | ❌ none (decision) | removed (no archive) |
+| `watchstate` | 2026-08-30 | 2026-08-30 slim-down: watch-state tracking, non-essential | ❌ none (decision) | removed (no archive) |
 | `cleanuparr` | 2026-08-29 | Torrent-only; no SABnzbd/Usenet client, so nothing to monitor in the Usenet-only stack | ✅ `cleanuparr-sabnzbd-watch.yml` | removed (no archive) |
 | `uptime-kuma` | 2026-08-29 | Dropped from expansion scope by decision (image still CVE-blocked at the time) | ❌ none (decision) | removed (no archive) |
 | `n8n` | 2026-08-29 | Workflow automation removed by decision — Discord notifications are handled by alertmanager/CrowdSec hooks; no workflow glue needed | ❌ none (decision) | removed (no archive) |
@@ -50,6 +71,30 @@ was retired, why, and what it would take to bring it back.
   baseline).
 
 ## Retired by decision (no watcher)
+
+### 2026-08-30 slim-down (extreme, with Seerr and Unpackerr retained)
+
+After hours of instability (Bazarr OOM crash-loop, Radarr API 500s from an orphaned
+quality-profile reference and 1GB DB with MediaInfo blobs, ~19Gi of mem caps against
+22Gi host RAM), the stack was pared from 29 configured services to 8 by decision. The retained services are
+`prowlarr`, `radarr`, `sonarr`, `nzbdav`, `nzbdav_rclone`, `seerr`, `plex`, and
+`unpackerr`.
+Removed end to end: the observability stack (loki, promtail, grafana, prometheus,
+alertmanager, cadvisor, node-exporter, nzbdav-exporter), the security stack (traefik,
+crowdsec, adguard), non-media utilities (vaultwarden, watchstate), long-tail
+acquisitions (lidarr, readarr, audiobookshelf, komga), subtitles (bazarr, which was
+crash-looping OOM at 128m), and the dashboard/portal pair (arr-dashboard, landing-page)
+plus metacache. Seerr and Unpackerr were intentionally retained for request
+handling and automatic extraction. Traefik was dropped in favor of direct host
+ports; env vars
+(`TRAEFIK_DASHBOARD_AUTH`, `LIDARR_API_KEY`, `READARR_API_KEY`, `TMDB_KEY`, `TVDB_KEY`,
+`METACACHE_API_KEY`, `WS_*`, `ADGUARD_*`, `VAULTWARDEN_ADMIN_TOKEN`,
+`DISCORD_WEBHOOK_URL`, `GRAFANA_*`, `OMDB_KEY`, `MDBLIST_KEY`, and `FANART_KEY`)
+and their fish functions, config/data
+dirs, docs pages, and test entries were removed. Companion fixes shipped with the
+slim-down: Radarr movie 60308's orphaned quality-profile-17 reference was repaired,
+MediaInfo blob pruning was identified, and Bazarr's OOM was resolved by removal.
+Re-adoption of any retired service is a fresh, tracked implementation, not a copy.
 
 ### uptime-kuma
 

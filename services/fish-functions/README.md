@@ -36,10 +36,15 @@ tools); override with `<APP>_URL` / `PLEX_URL` env vars if needed.
 | `stack-queue-status` | Live queue with speed/ETA |
 | `stack-nzbdav-queue` | NzbDAV download queue |
 | `stack-plex-sessions` | Who is watching what |
-| `stack-watchstate-status` | WatchState sync state |
+| `stack-plex-image-clean` | Remove generated Plex PhotoTranscoder cache and print reclaimed space |
 | `stack-help` | List all commands |
 
 Run `stack-help` for the full list.
+
+For manual Plex cache maintenance, run `stack-plex-image-clean`. It starts the profile-gated
+ImageMaid service, removes only generated PhotoTranscoder cache files, and prints the
+`Space Recovered:` amount. It does not resize artwork or perform other Plex maintenance.
+Run it while Plex is idle.
 
 Tab completions are generated for every command (descriptions, positional
 choices like `radarr|sonarr`, butler task names, `-y` flags, docker container
@@ -78,6 +83,6 @@ scripts/            # install.sh, uninstall.sh, gen-completions.fish
 ```
 
 Each function calls a service-specific helper (`__arr_api`, `__arr_api_url`,
-`__arr_api_key`, `__plex_api`, `__nzbdav_api`, `__watchstate_api`) which uses
+`__arr_api_key`, `__plex_api`, `__nzbdav_api`) which uses
 curl to hit the service API directly. No backend proxy. The shared `fmt_*`
 formatting helpers in `__cli_format.fish` load via `conf.d` at fish startup.

@@ -1,154 +1,117 @@
 # Troubleshooting
 
-Playbooks for the failures that actually happen. Start with the symptom, follow the steps.
-
----
+Start with the first unhealthy component in dependency order. The active stack is:
+Prowlarr → NzbDAV → rclone FUSE mount → Radarr/Sonarr/Plex/Unpackerr, with Seerr
+providing requests.
 
 ## Everything is unhealthy
 
 ```bash
-docker compose ps          # which are down/unhealthy?
-grep changeme .env         # placeholder values left?
-docker compose config --quiet   # config still valid?
-df -h                      # disk full? (Loki/Prometheus/caches)
+docker compose ps
+docker compose config --quiet
+df -h
 ```
 
-Most likely causes:
-1. `.env` has placeholders → fill real values, `--force-recreate`
-2. FUSE mount down → everything depending on it is unhealthy
-3. Port conflict (cAdvisor's 8080, etc.) → `ss -tlnp | grep <port>`
+Check the first failure in this order:
 
----
+1. `prowlarr` and `nzbdav` healthchecks
+2. `nzbdav_rclone` mount health
+3. Radarr/Sonarr/Plex/Unpackerr
+4. Seerr
 
-## Plex shows 19,000 items "deleted"
+## Plex shows red trash cans or missing files
 
-Classic FUSE-mount-death symptom:
+This is usually a scan performed while the FUSE mount was unavailable. Do not empty
+trash or rescan until the mount is healthy:
 
 ```bash
-docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav; echo $?   # nonzero = dead
+docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav
+docker exec nzbdav_rclone ls /mnt/remote/nzbdav | head
 ```
 
 Recovery:
+
 ```bash
-docker compose restart nzbdav nzbdav_rclone          # mount owner first
-docker compose restart radarr sonarr plex unpackerr  # then dependents
-# Trigger a Plex rescan (web UI or API)
+docker compose restart nzbdav nzbdav_rclone
+# Wait for the mount healthcheck, then restart consumers.
+docker compose restart radarr sonarr plex unpackerr
+# Trigger a Plex library scan, then empty trash only after expected files reappear.
 ```
 
-**Do not** let Plex run a full scan while the mount is down — it marks items deleted.
+## Mount gone while the container is Up
 
----
-
-## Mount gone but container "Up"
-
-The rclone process can crash-loop while Docker reports the container running between
-restarts. The healthcheck (`mountpoint -q`) is the truth, not `docker ps`:
+The rclone process can fail between Docker restarts. The mountpoint check is authoritative:
 
 ```bash
 docker inspect --format '{{.State.Health.Status}}' nzbdav_rclone
+docker logs --tail=100 nzbdav_rclone
 ```
 
-If unhealthy, restart it (and dependents per the playbook above).
+The rclone entrypoint clears stale FUSE state before mounting. If it still loops, check
+for stale host mounts and follow the FUSE recovery procedure in
+[docs/services/nzbdav-rclone.md](../services/nzbdav-rclone.md).
 
----
+## NzbDAV returns 401
 
-## Radarr/Sonarr imports stuck on "importing"
+Verify both the running environment and the client key:
 
 ```bash
-docker compose logs --tail=50 radarr sonarr nzbdav
+docker exec nzbdav env | grep FRONTEND_BACKEND_API_KEY
+grep '^FRONTEND_BACKEND_API_KEY=' .env
+```
+
+Radarr and Sonarr must use the same value as `FRONTEND_BACKEND_API_KEY`. NzbDAV’s WebDAV
+remote uses the credentials in `config/nzbdav-rclone/rclone.conf`.
+
+## NzbDAV queue is not accessible
+
+```bash
+KEY=$(grep '^FRONTEND_BACKEND_API_KEY=' .env | cut -d= -f2)
+curl -s "http://localhost:3000/api?mode=queue&output=json&apikey=$KEY"
+```
+
+Do not recreate NzbDAV while the queue is unknown. Use
+`scripts/check_nzbdav_queue.py` or the guarded update script first.
+
+## Radarr/Sonarr imports are stuck
+
+```bash
+docker compose logs --tail=100 radarr sonarr nzbdav unpackerr
 docker exec nzbdav_rclone ls /mnt/remote/nzbdav/completed-symlinks | head
 ```
 
-- If the symlinks dir is empty/absent → the download didn't complete or the mount is stale
-- If files exist but imports hang → use Unpackerr logs or the *arr queue UI
-- Confirm the download client config points at `nzbdav:3000` with the right API key
+Confirm the download client is `nzbdav:3000`, the API key matches, the FUSE mount is
+healthy, and the root folders are `/data/movies` and `/data/shows`.
 
----
+## Seerr requests do not download
 
-## Traefik routes 404 / service unreachable
+Check Seerr’s connections to Plex, Radarr, and Sonarr, then inspect the relevant *arr
+queue and NzbDAV queue. Seerr itself should respond at `http://HOST_IP:5055`.
 
-```bash
-docker compose ps traefik
-docker logs traefik | tail -50           # routing errors show here
-docker inspect <service> | grep -A3 traefik.enable
-```
-
-Common causes:
-- Service missing `traefik.enable=true` (exposedByDefault is false)
-- `HOST_IP` changed but the service wasn't recreated (labels are baked at create)
-- nip.io DNS issue → test `dig +short panel.192.168.1.100.nip.io`
-
----
-
-## Metacache "Fix Match" for everything
+## Hardware transcoding falls back to software
 
 ```bash
-curl -s localhost:8765/warm/status        # is a warm running/done?
-curl -s localhost:8765/metrics            # hit rate?
+docker exec plex ls -l /dev/dri
 ```
 
-- Run `POST /warm/all` once, then refresh metadata in Plex
-- Check `TMDB_KEY` is valid (bad key = every lookup fails)
-- Check disk: `data/metacache/` full → images evict, metadata still fine
+Plex Pass, GPU drivers, `/dev/dri`, and hardware acceleration in Plex settings are
+required. Library scans still use CPU even when playback uses VAAPI.
 
----
+## Container will not stop
 
-## Hardware transcode falling back to software
+Plex has a required 90-second grace period. Give it time before escalating:
 
 ```bash
-docker exec plex ls /dev/dri               # needs card1 + renderD128 + by-path
-docker exec plex ls /dev/dri/renderD128    # world-writable check
+docker stop -t 90 plex
 ```
 
-- Plex Pass required; verify in Plex → Settings → Transcoder
-- The **whole** `/dev/dri` must be mapped (not just renderD128)
-- Intel GPU drivers on the host must expose VAAPI
-
----
-
-## Container won't die (D-state hang)
-
-Plex is the known case. Restarting the FUSE mount owner (nzbdav_rclone) is the designed
-escape — it aborts the wedged FUSE connection. Manual fallback:
-
-```bash
-docker compose restart nzbdav nzbdav_rclone   # abort the mount first
-docker stop -t 90 plex                          # give the grace period its due
-```
-
----
-
-## Secrets lost / .env deleted
-
-If `secrets/` or `.env` vanish:
-
-```bash
-cp .env.template .env
-./scripts/setup.sh --non-interactive     # regenerates secrets/ (new values!)
-```
-
-> Regenerated secrets are **new** values — every app's stored API key will mismatch
-> until you copy each app's self-generated key into `.env` (Radarr/Sonarr/Prowlarr
-> generate their own on boot). This is why backups matter.
-
----
-
-## Grafana blank / no datasources
-
-```bash
-docker compose logs grafana | tail -30
-docker exec grafana ls /etc/grafana/provisioning/datasources
-```
-
-Provisioning is bind-mounted read-only — broken YAML = silently empty dashboards.
-Validate: `docker compose exec grafana cat /etc/grafana/provisioning/datasources/*.yaml`
-
----
+For a wedged FUSE handle, restore/restart the mount owner first, then restart consumers.
 
 ## Escalation order
 
-1. `docker compose ps` → find the first unhealthy in dependency order
-2. Fix the root cause, not the symptom (a FUSE restart fixes 8 containers at once — mount owner + 7 dependents)
-3. Restart dependents after mount-owner changes
-4. If nothing obvious: `docker compose logs --tail=200 <service>`
-5. Data loss? Stop immediately, see [Backup & Restore](backup-restore.md)
+1. `docker compose ps`
+2. Check the NzbDAV queue before any recreate.
+3. Check the FUSE mount before any Plex scan.
+4. Inspect logs for the first unhealthy service.
+5. Restore from backup before destructive cleanup; see
+   [backup & restore](backup-restore.md).

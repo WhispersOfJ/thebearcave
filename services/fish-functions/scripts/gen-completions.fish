@@ -36,6 +36,8 @@ function extra_completions --argument-names name
             echo "complete -c $name -n 'test (count (commandline -opc)) -eq 2' -a 'on off'"
         case stack-plex
             echo "complete -c $name -n 'test (count (commandline -opc)) -eq 1' -a 'scan empty-trash optimize-db clean-bundles'"
+        case stack-plex-image-clean
+            # No arguments: this is a deliberately narrow, PhotoTranscoder-only run.
         case stack-plex-butler
             echo "complete -c $name -n 'test (count (commandline -opc)) -eq 1' -a 'backup-database clean-cache-files clean-log-files deep-media-analysis garbage-collect-blobs garbage-collect-media generate-ad-markers generate-chapter-thumbs generate-credits-markers generate-intro-markers generate-media-index generate-voice-activity loudness-analysis music-analysis process-assets refresh-epg refresh-libraries refresh-local-media upgrade-media-analysis'"
         case stack-seerr-requests

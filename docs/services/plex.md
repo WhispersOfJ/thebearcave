@@ -1,78 +1,50 @@
 # Plex
 
-The media server. **The one service not behind Traefik** — it runs on the host network.
+Plex is the media server and the only container using host networking. It serves the
+Movies and Shows libraries from symlinks backed by the NzbDAV WebDAV/FUSE mount.
 
 | | |
 |---|---|
-| **Image** | `plexinc/pms-docker:beta` |
-| **Port** | 32400 (host network) |
-| **Network** | `host` (deliberate — see below) |
-| **Healthcheck** | `curl -sf http://localhost:32400/identity` |
-| **Config** | `config/plex/` (~33 GB library, gitignored) |
-| **Transcode** | `services/plex/transcode/` |
-| **Depends on** | `nzbdav_rclone` healthy (restart cascade) |
-| **Hardware** | `/dev/dri` (whole device, for VAAPI) |
+| Image | `plexinc/pms-docker` (digest-pinned) |
+| Port | 32400, direct host network |
+| Config | `config/plex/` |
+| Transcode | `config/plex-transcode/` |
+| Depends on | `nzbdav_rclone` healthy, with restart cascade |
+| Hardware | `/dev/dri` for VAAPI |
 
-## Why host networking
+## Library paths
 
-Plex's own guidance: GDM auto-discovery, DLNA, and remote-access NAT-PMP/UPnP
-negotiation are all unreliable on bridge networking. Host networking also means
-`localhost:32400` is shared with the host — which is how host-side tools reach
-Plex directly.
+| Host path | Container path |
+|---|---|
+| `media/movies/` | `/data/movies` |
+| `media/shows/` | `/data/shows` |
+| `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` with `rslave` propagation |
 
-## Volume mounts
+The existing Plex database contains the `Movies` and `Shows` sections. Preserve
+`config/plex/` during upgrades; it contains library metadata and watch history.
 
-| Host path | Container path | Purpose |
-|-----------|----------------|---------|
-| `config/plex/` | `/config` | Full library: DB, metadata, settings |
-| `services/plex/transcode/` | `/transcode` | Transcode scratch space |
-| `media/movies/` | `/data/movies` | Library root |
-| `media/shows/` | `/data/shows` | Library root |
-| `media/anime-movies/` | `/data/anime-movies` | Library root |
-| `media/anime-shows/` | `/data/anime-shows` | Library root |
-| `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` (rslave) | FUSE mount (symlink targets) |
-| `/dev/dri` | `/dev/dri` | Hardware transcode |
+## Required settings
 
-## Key configuration
+- `PLEX_UID=955` and `PLEX_GID=955` preserve the migrated library ownership.
+- `PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR=/config` selects the active database tree.
+- `stop_grace_period: 90s` is required; Plex can take roughly 40 seconds to stop under load.
+- Plex uses direct HTTP at `http://HOST_IP:32400`; there is no reverse proxy or TLS layer.
 
-- `PLEX_UID` / `PLEX_GID` = **955** — matches the original native install's ownership,
-  so the migrated library needed zero chown. Do not change.
-- `PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR=/config` — flat layout, no
-  `Library/Application Support` nesting (matches the migrated layout)
-- `stop_grace_period: 90s` — required. Plex's shutdown legitimately takes ~40s under
-  load; without this, Docker's 10s SIGKILL fires mid-shutdown and can wedge the
-  container into an unkillable D-state hang
-- Scheduled scanning only (`FSEventLibraryUpdatesEnabled` disabled) — new content
-  appears within the scan interval or via a manual scan
+## Stale-mount recovery
 
-## Image channel
+Red trash cans or missing files/seasons usually mean Plex scanned while the FUSE mount
+was unavailable. Do not empty trash first:
 
-The Compose deployment uses Plex's official `beta` tag to track the latest development
-build. This is intentionally not pinned to a specific build number; verify the running
-Plex version after updating and review beta release notes before production upgrades.
+```bash
+docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav
+docker exec nzbdav_rclone ls /mnt/remote/nzbdav | head
+docker compose restart plex
+```
 
-## Environment variables
+After the mount and Plex are healthy, trigger a scan. Empty trash only after the expected
+files are visible again.
 
-| Variable | Purpose |
-|----------|---------|
-| `PLEX_TOKEN` | API token (used by Metacache warm, tests) |
-| `PLEX_URL` | `http://HOST_IP:32400` |
+## Hardware transcoding
 
-## Hardware transcoding notes
-
-- The **whole** `/dev/dri` is mapped, not just `renderD128` — Plex's hardware-eligibility
-  probe needs `card1` and the by-path entries, not just the render node
-- HW transcoding covers play/decode; library scan/analysis/thumbnail passes still use CPU
-- CPU limit is 12 of 16 threads, leaving desktop headroom
-
-## Troubleshooting
-
-- **Unkillable container (D-state)** — the 90s grace period should prevent this; if it
-  happens, `docker kill` may fail too — restarting the FUSE mount owner
-  (nzbdav_rclone) is the designed escape hatch
-- **Everything showing deleted after a scan** — the FUSE mount was down during the scan.
-  Restore the mount, restart Plex, trigger a rescan
-- **Software transcode despite GPU** — check `docker exec plex ls /dev/dri` shows the
-  whole device; confirm Plex Pass is active and HW acceleration is enabled
-- **Plex DB lock contention** — avoid running heavy scans concurrently with WatchState
-  imports and other scheduled DB writers (02:00–06:00 window)
+Verify `/dev/dri` is visible in the container and enable hardware acceleration in Plex.
+Library analysis and scans still use CPU even when playback uses VAAPI.

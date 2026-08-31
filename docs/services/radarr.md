@@ -1,52 +1,46 @@
 # Radarr
 
-Movie management — the movie half of the *arr pair.
+Radarr manages the movie library in the eight-service stack.
 
 | | |
 |---|---|
-| **Image** | `ghcr.io/hotio/radarr:release` |
-| **Port** | 7878 |
-| **Network** | `bearcave` |
-| **Healthcheck** | `curl -sf http://localhost:7878/ping` |
-| **Config** | `config/radarr/` (gitignored) |
-| **Depends on** | `nzbdav_rclone` healthy (restart cascade) |
+| Image | `ghcr.io/hotio/radarr:release-6.3.0.10514` |
+| Port | 7878 |
+| Network | `bearcave` |
+| Config | `config/radarr/` |
+| Depends on | `nzbdav_rclone` healthy, with restart cascade |
 
-## Role
+## Paths
 
-- Tracks the movie library (15,000+ titles), including anime movies (folded in via
-  genre/tag routing — no separate instance)
-- Searches via Prowlarr, grabs through InfiniDysk's SABnzbd-compatible API
-- Imports via symlinks into the FUSE mount (`/mnt/remote/nzbdav/completed-symlinks`)
+| Host path | Container path |
+|---|---|
+| `config/radarr/` | `/config` |
+| `media/movies/` | `/data/movies` |
+| `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` with `rslave` propagation |
 
-## Volume mounts
+The movie root is `/data/movies`; this must match the existing Radarr database.
 
-| Host path | Container path | Purpose |
-|-----------|----------------|---------|
-| `config/radarr/` | `/config` | App state |
-| `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` (rslave) | FUSE mount for symlink imports |
-| `media/movies/` | `/data/movies` | Movie root folder |
-| `media/anime-movies/` | `/data/anime-movies` | Anime movie root folder |
+## Download client
 
-## Environment variables
+Configure InfiniDysk as a SABnzbd-compatible client:
 
-| Variable | Purpose |
-|----------|---------|
-| `RADARR_API_KEY` | API key (generated on first boot, copy into `.env`) |
+- Host: `nzbdav`
+- Port: `3000`
+- API key: `FRONTEND_BACKEND_API_KEY`
+- Root folder: `/data/movies`
 
-## First-run
+Prowlarr supplies indexers. Unpackerr watches the Radarr queue and extracts completed
+archives before import.
 
-1. Open `https://radarr.HOST_IP.nip.io`
-2. Download client → Add → **InfiniDysk**: host `nzbdav`, port 3000,
-   API key = `FRONTEND_BACKEND_API_KEY` from `.env`
-3. Root folders: `/data/movies`, `/data/anime-movies`
-4. Copy the generated API key into `.env`, `docker compose up -d --force-recreate radarr`
-5. Indexers arrive automatically via Prowlarr push-sync
+## Stability notes
 
-## Troubleshooting
+Radarr has a 1536 MiB memory cap because its database contains large MediaInfo blobs.
+Keep quality profiles intact; an orphaned quality-profile reference can make the entire
+movie API return HTTP 500. If that happens, inspect the database backup before editing it.
 
-- **Imports failing with I/O errors** — the FUSE mount may be down. Check
-  `docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav`; restart dependents after.
-- **Queue stuck on "importing"** — files may be broken or the mount stale. Use Control
-  Panel's queue tools or check `docker compose logs radarr`.
-- **API key changed** — every consumer (InfiniDysk, Unpackerr, Metacache)
-  reads `RADARR_API_KEY`; update `.env` and `--force-recreate` the consumers.
+If imports fail, check the FUSE mount before changing Radarr paths:
+
+```bash
+docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav
+docker compose logs --tail=100 radarr nzbdav unpackerr
+```

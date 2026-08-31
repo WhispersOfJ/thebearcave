@@ -1,48 +1,38 @@
 compose:
   - changed-files:
-      - any-glob-to-any-file:
-          - docker-compose.yml
-          - docker-compose.*.yml
-
-traefik:
-  - changed-files:
-      - any-glob-to-any-file:
-          - config/traefik/**
-
-metacache:
-  - changed-files:
-      - any-glob-to-any-file:
-          - services/metacache/**
-
-monitoring:
-  - changed-files:
-      - any-glob-to-any-file:
-          - services/grafana/**
-          - services/prometheus/**
-          - services/loki/**
-          - services/promtail/**
+      - any-glob-to-any-file: [docker-compose.yml, docker-compose.*.yml]
 
 nzbdav:
   - changed-files:
       - any-glob-to-any-file:
           - services/nzbdav/**
           - services/nzbdav-rclone/**
-          - services/nzbdav-exporter/**
+          - config/nzbdav/**
+          - config/nzbdav-rclone/**
+
+media-apps:
+  - changed-files:
+      - any-glob-to-any-file:
+          - services/radarr/**
+          - services/sonarr/**
+          - services/prowlarr/**
+          - services/plex/**
+          - services/seerr/**
+          - services/unpackerr/**
+          - config/radarr/**
+          - config/sonarr/**
+          - config/prowlarr/**
+          - config/plex/**
+          - config/seerr/**
 
 scripts:
   - changed-files:
-      - any-glob-to-any-file:
-          - scripts/**
-          - tests/**
+      - any-glob-to-any-file: [scripts/**, tests/**]
 
 ci:
   - changed-files:
-      - any-glob-to-any-file:
-          - .github/**
+      - any-glob-to-any-file: [.github/**]
 
 docs:
   - changed-files:
-      - any-glob-to-any-file:
-          - docs/**
-          - "*.md"
-          - archive/**
+      - any-glob-to-any-file: [docs/**, "*.md"]

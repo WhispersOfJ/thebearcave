@@ -1,33 +1,14 @@
 # ============================================================================
-# The Bear Cave — Unified Media Stack
+# The Bear Cave — Slim Media Stack
 # ============================================================================
-# A single docker-compose.yml combining all services from media-stack and
-# metacacharr into one cohesive, production-ready media infrastructure.
-#
-# Services: 31 containers
-# - Indexing: Prowlarr
-# - *arr apps: Radarr, Sonarr, Lidarr, Readarr
-# - Subtitles: Bazarr
-# - Media servers: Plex (host network, VAAPI), Audiobookshelf, Komga
-# - Usenet: InfiniDysk (nzbdav) + rclone sidecar
-# - Requests: Seerr
-# - Metadata: Metacache (custom Plex metadata provider)
-# - Queue mgmt: Unpackerr
-# - Watch state: WatchState
-# - Logging: Loki, Promtail, Grafana
-# - Metrics: Prometheus, Node Exporter, cAdvisor, nzbdav-exporter, Alertmanager
-# - Network/security: AdGuard Home, CrowdSec
-# - Utilities: Vaultwarden
-# - ARR dashboard: arr-dashboard
-# - Landing page: Nginx
-# - Reverse proxy: Traefik
+# 8 always-on services (2026-08-30 slim-down, extreme scenario with Seerr/Unpackerr retained):
+# prowlarr, radarr, sonarr, nzbdav, nzbdav_rclone, seerr, plex, unpackerr.
+# ImageMaid is available separately through the manual `maintenance` profile.
+# Direct host ports (no Traefik). Full retirement record:
+# docs/services/lifecycle.md
 # ============================================================================
 
 x-ca-env: &ca-env
-  # In-container CA trust: every service mounts ./config/ca read-only and
-  # points its TLS stack at it. SSL_CERT_FILE / CURL_CA_BUNDLE / REQUESTS_CA_BUNDLE
-  # REPLACE the bundle, so they get ca-bundle.pem (public CAs + mkcert root);
-  # NODE_EXTRA_CA_CERTS appends, so it gets rootCA.pem alone.
   SSL_CERT_FILE: /etc/ssl/certs/mkcert/ca-bundle.pem
   CURL_CA_BUNDLE: /etc/ssl/certs/mkcert/ca-bundle.pem
   REQUESTS_CA_BUNDLE: /etc/ssl/certs/mkcert/ca-bundle.pem
@@ -59,56 +40,19 @@ x-common: &common
 networks:
   bearcave:
     name: bearcave
-  traefik:
-    name: traefik
 
 services:
   # ==========================================================================
-  # Reverse Proxy — Traefik
-  # ==========================================================================
-  traefik:
-    image: traefik:v3.7
-    container_name: traefik
-    mem_limit: 128m
-    cpus: "0.25"
-    restart: unless-stopped
-    logging: *common-logging
-    environment:
-      <<: *ca-env
-    networks: [bearcave, traefik]
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - *ca-mount
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
-      - ./config/traefik/certs:/etc/traefik/certs:ro
-      - ./config/crowdsec/bouncer-key:/etc/traefik/crowdsec/bouncer-key:ro
-      - traefik-certs:/certs
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.dashboard.middlewares=auth,crowdsec@file"
-      - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
-
-  # ==========================================================================
-  # Indexing
+  # Indexing — Prowlarr
   # ==========================================================================
   prowlarr:
     <<: *common
     image: ghcr.io/hotio/prowlarr:release-2.5.2.5491
     container_name: prowlarr
+    mem_limit: 512m
     networks: [bearcave]
+    ports:
+      - "9696:9696"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:9696/ping || exit 1"]
       interval: 30s
@@ -118,25 +62,19 @@ services:
     volumes:
       - *ca-mount
       - ./config/prowlarr:/config
-    ports:
-      - "9696:9696"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.prowlarr.middlewares=crowdsec@file"
-      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
-      - "traefik.http.routers.prowlarr.tls=true"
 
   # ==========================================================================
-  # *arr Apps
+  # *arr apps — Radarr / Sonarr
   # ==========================================================================
   radarr:
     <<: *common
     image: ghcr.io/hotio/radarr:release-6.3.0.10514
     container_name: radarr
-    mem_limit: 1g
-    cpus: "1.0"
+    mem_limit: 1536m
+    cpus: "1.5"
     networks: [bearcave]
+    ports:
+      - "7878:7878"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:7878/ping || exit 1"]
       interval: 30s
@@ -152,22 +90,16 @@ services:
       - ./config/radarr:/config
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/movies:/data/movies
-    ports:
-      - "7878:7878"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.radarr.rule=Host(`radarr.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.radarr.middlewares=crowdsec@file"
-      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
-      - "traefik.http.routers.radarr.tls=true"
 
   sonarr:
     <<: *common
     image: ghcr.io/hotio/sonarr:release-4.0.19.2979
     container_name: sonarr
-    mem_limit: 2g
-    cpus: "1.0"
+    mem_limit: 1024m
+    cpus: "1.5"
     networks: [bearcave]
+    ports:
+      - "8989:8989"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8989/ping || exit 1"]
       interval: 30s
@@ -183,214 +115,37 @@ services:
       - ./config/sonarr:/config
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/shows:/data/shows
-    ports:
-      - "8989:8989"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.sonarr.middlewares=crowdsec@file"
-      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
-      - "traefik.http.routers.sonarr.tls=true"
 
   # ==========================================================================
-  # Audiobookshelf — Audiobook and podcast server
-  # ==========================================================================
-  audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:2.36.0
-    container_name: audiobookshelf
-    mem_limit: 512m
-    cpus: "0.5"
-    user: "${PUID}:${PGID}"
-    restart: unless-stopped
-    logging: *common-logging
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      METADATA_PATH: /config/metadata   # image default /metadata is root-owned; non-root user can't mkdir (EACCES crash)
-    volumes:
-      - *ca-mount
-      - ./config/audiobookshelf:/config
-      - ./media/audiobooks:/audiobooks
-      - ./media/books:/books
-      - ./media/podcasts:/podcasts
-    ports:
-      - "13378:80"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.audiobookshelf.rule=Host(`audiobookshelf.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.audiobookshelf.middlewares=crowdsec@file"
-      - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
-      - "traefik.http.routers.audiobookshelf.tls=true"
-
-  # ==========================================================================
-  # Komga — Comics and manga server
-  # ==========================================================================
-  komga:
-    image: gotson/komga:1.26.3
-    container_name: komga
-    mem_limit: 1g
-    cpus: "1.0"
-    user: "${PUID}:${PGID}"
-    restart: unless-stopped
-    logging: *common-logging
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-    volumes:
-      - *ca-mount
-      - ./config/komga:/config
-      - ./media/comics:/comics
-    ports:
-      - "25600:25600"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:25600/actuator/health | grep -q UP || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.komga.rule=Host(`komga.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.komga.middlewares=crowdsec@file"
-      - "traefik.http.services.komga.loadbalancer.server.port=25600"
-      - "traefik.http.routers.komga.tls=true"
-
-  # ==========================================================================
-  # Music & Books — Lidarr + Readarr
-  # ==========================================================================
-  lidarr:
-    <<: *common
-    image: ghcr.io/hotio/lidarr:nightly-3.1.4.5029
-    container_name: lidarr
-    mem_limit: 512m
-    cpus: "0.5"
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8686/ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    depends_on:
-      nzbdav_rclone:
-        condition: service_healthy
-        restart: true
-    volumes:
-      - *ca-mount
-      - ./config/lidarr:/config
-      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
-      - ./media/music:/data/music
-    ports:
-      - "8686:8686"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.lidarr.rule=Host(`lidarr.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.lidarr.middlewares=crowdsec@file"
-      - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
-      - "traefik.http.routers.lidarr.tls=true"
-
-  readarr:
-    <<: *common
-    image: linuxserver/readarr:develop-0.4.18.2805-ls157
-    container_name: readarr
-    mem_limit: 256m
-    cpus: "0.5"
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8787/ping || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    depends_on:
-      nzbdav_rclone:
-        condition: service_healthy
-        restart: true
-    volumes:
-      - *ca-mount
-      - ./config/readarr:/config
-      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
-      - ./media/books:/data/books
-    ports:
-      - "8787:8787"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.readarr.rule=Host(`readarr.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.readarr.middlewares=crowdsec@file"
-      - "traefik.http.services.readarr.loadbalancer.server.port=8787"
-      - "traefik.http.routers.readarr.tls=true"
-
-  # ==========================================================================
-  # Subtitles — Bazarr
-  # ==========================================================================
-  bazarr:
-    <<: *common
-    image: ghcr.io/hotio/bazarr:release-1.6.0
-    container_name: bazarr
-    mem_limit: 128m
-    cpus: "0.25"
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:6767/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    depends_on:
-      nzbdav_rclone:
-        condition: service_healthy
-        restart: true
-    volumes:
-      - *ca-mount
-      - ./config/bazarr:/config
-      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
-      - ./media/movies:/data/movies
-      - ./media/shows:/data/shows
-    ports:
-      - "6767:6767"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.bazarr.rule=Host(`bazarr.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.bazarr.middlewares=crowdsec@file"
-      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
-      - "traefik.http.routers.bazarr.tls=true"
-
-  # ==========================================================================
-  # Usenet — InfiniDysk + rclone sidecar
+  # Usenet — InfiniDysk (nzbdav) + rclone FUSE sidecar
   # ==========================================================================
   nzbdav:
-    restart: unless-stopped
-    logging: *common-logging
+    <<: *common
     image: ghcr.io/infinidysk/infinidysk@sha256:7e5b263b4514056cff152b4422f6719489b4cd1b7ef54daef059397beff271f5
     container_name: nzbdav
-    mem_limit: 2g
-    cpus: "1.0"
+    mem_limit: 2560m
+    cpus: "2.0"
     networks: [bearcave]
     depends_on:
       prowlarr:
         condition: service_healthy
+    ports:
+      - "3000:3000"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsSL http://localhost:3000/healthz > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    volumes:
+      - *ca-mount
+      - ./config/nzbdav:/config
+      - /mnt:/mnt
     environment:
-      <<: *ca-env
-      PUID: ${PUID}
-      PGID: ${PGID}
-      TZ: ${TZ}
+      <<: *common-env
       FRONTEND_BACKEND_API_KEY: ${FRONTEND_BACKEND_API_KEY}
       NZBDAV_CONFIG__API__KEY: ${FRONTEND_BACKEND_API_KEY}
-      NZBDAV_CONFIG__API__CATEGORIES: "tv,movies,music,books,audiobooks,comics"
+      NZBDAV_CONFIG__API__CATEGORIES: "tv,movies"
       NZBDAV_CONFIG__API__IMPORT_STRATEGY: "symlinks"
       NZBDAV_CONFIG__WEBDAV__USER: ${NZBDAV_WEBDAV_USER}
       NZBDAV_CONFIG__WEBDAV__PASS: ${NZBDAV_WEBDAV_PASS}
@@ -404,7 +159,7 @@ services:
       NZBDAV_CONFIG__REPAIR__ENABLE: "true"
       NZBDAV_CONFIG__REPAIR__HEALTHCHECK_DEPTH: "standard"
       NZBDAV_CONFIG__REPAIR__HEALTHCHECK_AGING: "true"
-      NZBDAV_CONFIG__REPAIR__HEALTHCHECK_CONCURRENCY: "50"
+      NZBDAV_CONFIG__REPAIR__HEALTHCHECK_CONCURRENCY: "24"
       NZBDAV_CONFIG__REPAIR__AUTO_REMOVE_AFTER_FAILURES: "0"
       NZBDAV_CONFIG__REPAIR__AUTO_REMOVE_UNLINKED_ONLY: "true"
       NZBDAV_CONFIG__RCLONE__RC_ENABLED: "true"
@@ -444,30 +199,14 @@ services:
       NZBDAV_CONFIG__WATCHTOWER__GRAB_CAP_PER_RESOLVE: "2"
       NZBDAV_CONFIG__WATCHTOWER__RANKING: "largest"
       NZBDAV_CONFIG__WATCHTOWER__SEASON_BUNDLE_FALLBACK: "true"
-    volumes:
-      - *ca-mount
-      - ./config/nzbdav:/config
-      - /mnt:/mnt
-    ports:
-      - "3000:3000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nzbdav.rule=Host(`nzbdav.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.nzbdav.middlewares=crowdsec@file"
-      - "traefik.http.services.nzbdav.loadbalancer.server.port=3000"
-      - "traefik.http.routers.nzbdav.tls=true"
 
   nzbdav_rclone:
+    <<: *common
     image: rclone/rclone:1.75.0
     container_name: nzbdav_rclone
-    mem_limit: 4g
-    cpus: "1.0"
-    restart: unless-stopped
-    logging: *common-logging
+    mem_limit: 3072m
+    cpus: "2.0"
     networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
     devices:
       - /dev/fuse:/dev/fuse:rwm
     cap_add:
@@ -504,10 +243,13 @@ services:
         --vfs-cache-max-size=50G
         --vfs-cache-max-age=336h
         --buffer-size=0M
-        --vfs-read-chunk-size=16M
-        --vfs-read-chunk-size-limit=512M
+        --vfs-read-chunk-size=32M
+        --vfs-read-chunk-size-limit=256M
+        --vfs-read-ahead=32M
+        --vfs-fast-fingerprint
         --no-checksum
-        --dir-cache-time=1h
+        --attr-timeout=30s
+        --dir-cache-time=6h
         --poll-interval=5m
         --timeout=30s
         --contimeout=15s
@@ -518,168 +260,75 @@ services:
         --rc-pass=${NZBDAV_RCLONE_RC_PASS}
 
   # ==========================================================================
-  # Utilities — Vaultwarden
-  # ==========================================================================
-  vaultwarden:
-    image: vaultwarden/server:1.37.2
-    container_name: vaultwarden
-    mem_limit: 256m
-    cpus: "0.5"
-    restart: unless-stopped
-    logging: *common-logging
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      VAULTWARDEN_ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
-      SIGNUPS_ALLOWED: "false"
-      WEBSOCKET_ENABLED: "true"
-    volumes:
-      - *ca-mount
-      - ./config/vaultwarden:/data
-    ports:
-      - "8222:80"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:80/alive >/dev/null 2>&1 || exit 1"]   # wget not in image; curl is
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.vaultwarden.middlewares=crowdsec@file"
-      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
-      - "traefik.http.routers.vaultwarden.tls=true"
-
-  # ==========================================================================
-  # Network & Security — AdGuard Home + CrowdSec
-  # ==========================================================================
-  adguard:
-    image: adguard/adguardhome:v0.107.79
-    container_name: adguard
-    mem_limit: 128m
-    cpus: "0.25"
-    restart: unless-stopped
-    logging: *common-logging
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      PUID: ${PUID}
-      PGID: ${PGID}
-      ADGUARD_ADMIN_USER: ${ADGUARD_ADMIN_USER}
-      ADGUARD_ADMIN_PASSWORD: ${ADGUARD_ADMIN_PASSWORD}   # used by healthcheck basic-auth only
-    volumes:
-      - *ca-mount
-      - ./config/adguard/conf:/opt/adguardhome/conf
-      - ./config/adguard/work:/opt/adguardhome/work
-    ports:
-      - "${HOST_IP}:53:53/tcp"   # LAN DNS only — host keeps systemd-resolved on 127.0.0.53 (see spec §14)
-      - "${HOST_IP}:53:53/udp"
-      - "3003:3000"
-    healthcheck:
-      # /control/status returns JSON on 200 with basic-auth; BusyBox wget has
-      # no --user/--password flag, so send an Authorization header built from
-      # the injected ADGUARD_ADMIN_* env vars. echo -n avoids a trailing newline
-      # (printf '%%s' gets re-escaped by compose, breaking the credential).
-      test: ["CMD-SHELL", "AUTH=$$(echo -n \"$$ADGUARD_ADMIN_USER:$$ADGUARD_ADMIN_PASSWORD\" | base64); wget -qO- --header=\"Authorization: Basic $$AUTH\" http://localhost:3000/control/status >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.adguard.rule=Host(`adguard.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.adguard.middlewares=crowdsec@file"
-      - "traefik.http.services.adguard.loadbalancer.server.port=3000"
-      - "traefik.http.routers.adguard.tls=true"
-
-  crowdsec:
-    image: crowdsecurity/crowdsec:v1.7.8
-    container_name: crowdsec
-    mem_limit: 128m
-    cpus: "0.25"
-    restart: unless-stopped
-    logging: *common-logging
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      UID: ${PUID}
-      GID: ${PGID}
-      COLLECTIONS: crowdsecurity/linux crowdsecurity/traefik
-    volumes:
-      - *ca-mount
-      - ./config/crowdsec:/etc/crowdsec
-      - ./data/crowdsec:/var/lib/crowdsec/data
-    ports:
-      - "18080:8080"
-    healthcheck:
-      test: ["CMD-SHELL", "cscli lapi status >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # ==========================================================================
-  # Requests
+  # Requests — Seerr
   # ==========================================================================
   seerr:
-    restart: unless-stopped
-    logging: *common-logging
+    <<: *common
     image: ghcr.io/seerr-team/seerr:v3.4.1
     container_name: seerr
     mem_limit: 512m
-    cpus: "0.5"
     networks: [bearcave]
+    ports:
+      - "5055:5055"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5055/api/v1/status >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
     volumes:
       - *ca-mount
       - ./config/seerr:/app/config
-    ports:
-      - "5055:5055"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.seerr.rule=Host(`seerr.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.seerr.middlewares=crowdsec@file"
-      - "traefik.http.services.seerr.loadbalancer.server.port=5055"
-      - "traefik.http.routers.seerr.tls=true"
 
   # ==========================================================================
-  # Media Server — Plex (host network, VAAPI)
+  # Manual Plex maintenance — ImageMaid
+  # ==========================================================================
+  # Profile-gated and excluded from the normal eight-service startup. This
+  # removes generated PhotoTranscoder cache files only; it does not resize or
+  # recompress artwork, remove metadata, empty trash, clean bundles, or touch
+  # the media libraries.
+  imagemaid:
+    image: kometateam/imagemaid:latest@sha256:ac510622d44c8fd0024d28023ec2ce32f0992271ff019db455e227bd693f0052
+    profiles: [maintenance]
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: "0.5"
+    network_mode: none
+    environment:
+      TZ: ${TZ}
+      PLEX_PATH: /plex
+      MODE: nothing
+      PHOTO_TRANSCODER: "True"
+      EMPTY_TRASH: "False"
+      CLEAN_BUNDLES: "False"
+      OPTIMIZE_DB: "False"
+      SCHEDULE: ""
+      LOG_REQUESTS: "False"
+    logging: *common-logging
+    volumes:
+      - ./config/imagemaid:/config
+      - ./config/plex/Plex Media Server:/plex:rw
+
+  # ==========================================================================
+  # Media server — Plex (host network: GDM/DLNA/remote access)
   # ==========================================================================
   plex:
-    restart: unless-stopped
-    logging: *common-logging
-    stop_grace_period: 90s
     image: plexinc/pms-docker@sha256:8aeb4a982ea564ad309861dd251cd9e218aac3f4e4d3da21375568341be1b16f
     container_name: plex
-    mem_limit: 2g
-    cpus: "2.0"
+    mem_limit: 2048m
+    cpus: "4.0"
+    restart: unless-stopped
     network_mode: host
-    devices:
-      - /dev/dri:/dev/dri
+    stop_grace_period: 90s
+    logging: *common-logging
     environment:
       <<: *ca-env
       TZ: ${TZ}
       PLEX_UID: "955"
       PLEX_GID: "955"
       PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR: /config
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:32400/identity || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
     depends_on:
       nzbdav_rclone:
         condition: service_healthy
@@ -688,72 +337,17 @@ services:
       - *ca-mount
       - ./config/plex:/config
       - ./config/plex-transcode:/transcode
+      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./media/movies:/data/movies
       - ./media/shows:/data/shows
-      - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
+    devices:
       - /dev/dri:/dev/dri
-    # Note: Plex runs on host network for GDM/DLNA/remote access.
-    # Traefik does NOT front Plex — it's accessed directly on port 32400.
 
   # ==========================================================================
-  # Metadata — Metacache (custom Plex metadata provider)
-  # ==========================================================================
-  metacache:
-    build:
-      context: ./services/metacache
-      dockerfile: Dockerfile
-    container_name: metacache
-    mem_limit: 256m
-    cpus: "0.25"
-    networks: [bearcave]
-    restart: unless-stopped
-    logging: *common-logging
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      Metacache__BindAddress: "0.0.0.0"
-      Metacache__Port: "8765"
-      Metacache__DataPath: "/app/data/metacache.db"
-      Metacache__Upstream__BaseUrl: "https://api.themoviedb.org/3"
-      Metacache__Tmdb__ApiKey: ${TMDB_KEY:-}
-      Metacache__Upstream__ImageBaseUrl: "https://image.tmdb.org"
-      Metacache__Tvdb__BaseUrl: "https://api.thetvdb.com"
-      Metacache__Tvdb__ApiKey: ${TVDB_KEY:-}
-      Metacache__Arr__RadarrUrl: "http://radarr:7878"
-      Metacache__Arr__RadarrApiKey: ${RADARR_API_KEY:-}
-      Metacache__Arr__SonarrUrl: "http://sonarr:8989"
-      Metacache__Arr__SonarrApiKey: ${SONARR_API_KEY:-}
-      Metacache__Warm__Languages__0: ${WARM_LANG_0:-en-US}
-      Metacache__Auth__ApiKey: ${METACACHE_API_KEY:-}
-    volumes:
-      - *ca-mount
-      - ./data/metacache:/app/data
-    ports:
-      - "8765:8765"
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8765/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.metacache.rule=Host(`metacache.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.metacache.middlewares=crowdsec@file"
-      - "traefik.http.services.metacache.loadbalancer.server.port=8765"
-      - "traefik.http.routers.metacache.tls=true"
-
-  # ==========================================================================
-  # ==========================================================================
-  # ==========================================================================
-  # Queue Management
+  # Queue management — Unpackerr
   # ==========================================================================
   unpackerr:
-    restart: unless-stopped
-    logging: *common-logging
-    # stable (0.15.2, 2026-03-08) carries 3 CRITICAL openssl CVEs, suppressed
-    # in .trivyignore until golift rebuilds stable; the unstable tag's
-    # /unpackerr binary ships non-executable (mode 644) so it cannot run.
+    <<: *common
     image: golift/unpackerr:0.15.2
     container_name: unpackerr
     mem_limit: 64m
@@ -769,402 +363,13 @@ services:
       nzbdav_rclone:
         condition: service_healthy
         restart: true
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      UN_RADARR_0_URL: http://radarr:7878
-      UN_RADARR_0_API_KEY: ${RADARR_API_KEY}
-      UN_SONARR_0_URL: http://sonarr:8989
-      UN_SONARR_0_API_KEY: ${SONARR_API_KEY}
-      UN_LIDARR_0_URL: http://lidarr:8686
-      UN_LIDARR_0_API_KEY: ${LIDARR_API_KEY}
-      UN_READARR_0_URL: http://readarr:8787
-      UN_READARR_0_API_KEY: ${READARR_API_KEY}
     volumes:
       - *ca-mount
       - /mnt/remote/nzbdav:/mnt/remote/nzbdav:rslave
       - ./usenet:/usenet
-
-  # ==========================================================================
-  # Watch State
-  # ==========================================================================
-  watchstate:
-    restart: unless-stopped
-    logging: *common-logging
-    image: ghcr.io/arabcoders/watchstate:v1.10.3
-    container_name: watchstate
-    mem_limit: 256m
-    cpus: "0.25"
-    user: "${PUID}:${PGID}"
     environment:
-      <<: *ca-env
-      TZ: "${TZ}"
-      WS_TZ: "${TZ}"
-      WS_API_KEY: "${WS_API_KEY}"
-      WS_SECURE_API_ENDPOINTS: "true"
-      WS_SYSTEM_SECRET: "${WS_SYSTEM_SECRET}"
-      WS_CRON_IMPORT: "true"
-      WS_CRON_IMPORT_AT: "25 0-1,6-23 * * *"
-      WS_CRON_EXPORT: "false"
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf -H \"X-apikey: $${WS_API_KEY}\" http://localhost:8080/v1/api/system/healthcheck || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    volumes:
-      - *ca-mount
-      - ./config/watchstate:/config
-    ports:
-      - "8705:8080"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.watchstate.rule=Host(`watchstate.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.watchstate.middlewares=crowdsec@file"
-      - "traefik.http.services.watchstate.loadbalancer.server.port=8080"
-      - "traefik.http.routers.watchstate.tls=true"
-
-  # ==========================================================================
-  # Centralized Logging
-  # ==========================================================================
-  loki:
-    restart: unless-stopped
-    logging: *common-logging
-    image: grafana/loki:3.7.6
-    container_name: loki
-    mem_limit: 512m
-    cpus: "0.5"
-    ports:
-      - "3100:3100"
-    volumes:
-      - *ca-mount
-      - ./config/loki/loki-config.yaml:/etc/loki/loki-config.yaml
-      - ./data/loki:/loki
-    command: -config.file=/etc/loki/loki-config.yaml
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD", "/usr/bin/loki", "-version"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  promtail:
-    restart: unless-stopped
-    logging: *common-logging
-    image: grafana/promtail:3.6.11
-    container_name: promtail
-    mem_limit: 128m
-    cpus: "0.25"
-    healthcheck:
-      test: ["CMD", "/usr/bin/promtail", "-check-syntax", "-config.file=/etc/promtail/config.yaml"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    volumes:
-      - *ca-mount
-      # Promtail reads /var/lib/docker/containers directly (static_configs), so
-      # it needs that volume mount but NOT the Docker socket, which it never
-      # calls. Dropping the socket removes a root-equivalent host mount.
-      - /var/lib/docker/containers:/var/lib/docker/containers
-      - ./config/promtail/promtail-config.yaml:/etc/promtail/config.yaml
-    command: -config.file=/etc/promtail/config.yaml
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-    networks: [bearcave]
-    depends_on:
-      loki:
-        condition: service_healthy
-        restart: true
-
-  grafana:
-    restart: unless-stopped
-    logging: *common-logging
-    image: grafana/grafana:13.2.0
-    container_name: grafana
-    mem_limit: 512m
-    cpus: "0.5"
-    ports:
-      - "3001:3000"
-    volumes:
-      - *ca-mount
-      - ./config/grafana/provisioning:/etc/grafana/provisioning
-      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
-      - ./data/grafana:/var/lib/grafana
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-password123}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_INSTALL_PLUGINS: grafana-piechart-panel
-      GF_ALERTING_ENABLED: "false"
-      GF_UNIFIED_ALERTING_ENABLED: "true"
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
-    networks: [bearcave]
-    depends_on:
-      loki:
-        condition: service_healthy
-        restart: true
-      prometheus:
-        condition: service_healthy
-        restart: true
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.${HOST_IP}.nip.io`)"
-      - "traefik.http.routers.grafana.middlewares=crowdsec@file"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-      - "traefik.http.routers.grafana.tls=true"
-
-  # ==========================================================================
-  # Metrics
-  # ==========================================================================
-  nzbdav-exporter:
-    build: ./services/nzbdav-exporter
-    restart: unless-stopped
-    logging: *common-logging
-    container_name: nzbdav-exporter
-    mem_limit: 64m
-    cpus: "0.1"
-    networks: [bearcave]
-    environment:
-      <<: *ca-env
-      NZBDAV_URL: "http://nzbdav:3000"
-      NZBDAV_API_KEY: ${FRONTEND_BACKEND_API_KEY}
-      SCRAPE_INTERVAL: "15"
-    volumes:
-      - *ca-mount
-    depends_on:
-      nzbdav:
-        condition: service_healthy
-        restart: true
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9200/healthz')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  prometheus:
-    restart: unless-stopped
-    logging: *common-logging
-    image: prom/prometheus:v3.14.0
-    container_name: prometheus
-    mem_limit: 1g
-    cpus: "1.0"
-    ports:
-      - "9090:9090"
-    volumes:
-      - *ca-mount
-      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./config/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml
-      - ./data/prometheus:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=30d"
-      - "--storage.tsdb.retention.size=2GB"
-      - "--web.enable-lifecycle"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  alertmanager:
-    restart: unless-stopped
-    logging: *common-logging
-    image: prom/alertmanager:v0.34.0
-    container_name: alertmanager
-    mem_limit: 128m
-    cpus: "0.25"
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
-      - ./data/alertmanager:/alertmanager
-    command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--storage.path=/alertmanager"
-    environment:
-      DISCORD_WEBHOOK_URL: "${DISCORD_WEBHOOK_URL}"
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  node-exporter:
-    restart: unless-stopped
-    logging: *common-logging
-    image: prom/node-exporter:v1.12.1
-    container_name: node-exporter
-    mem_limit: 64m
-    cpus: "0.1"
-    pid: host
-    network_mode: host
-    healthcheck:
-      # wget --spider sends HEAD and closes after headers; node-exporter's
-      # promhttp handler still streams the full ~113KB /metrics body, so the
-      # client's early close floods the logs with one "broken pipe" error per
-      # metric family (~280 lines every 30s). Read the body to completion
-      # instead — cheap (0.5s, 113KB) and error-free.
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9100/metrics || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    volumes:
-      - *ca-mount
-      - /proc:/host/proc
-      - /sys:/host/sys
-      - /:/rootfs
-      # Textfile collector dir: the daily stack health check (systemd user
-      # timer stack-health-metrics.timer, scripts/check_stack_health_daily.sh)
-      # writes stack-health.prom here; node-exporter exposes it so Prometheus
-      # can alert via alertmanager -> Discord on divergence.
-      - /home/bear/.local/share/node-exporter-textfile:/textfile:ro
-    command:
-      - "--path.procfs=/host/proc"
-      - "--path.sysfs=/host/sys"
-      - "--path.rootfs=/rootfs"
-      - "--web.listen-address=:9100"
-      - "--collector.textfile.directory=/textfile"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-      - "--collector.netclass.ignored-devices=^(veth.*)$$"
-      - "--collector.netdev.device-exclude=^(veth.*)$$"
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-
-  cadvisor:
-    restart: unless-stopped
-    logging: *common-logging
-    # gcr.io's cadvisor registry is deprecated (tags end at v0.55.1 and the
-    # repo now publishes to GHCR); the stale gcr.io :latest carried 4
-    # CRITICAL CVEs (openssl, grpc, stdlib). v0.60.5 scans clean.
-    image: ghcr.io/google/cadvisor:v0.60.5
-    container_name: cadvisor
-    mem_limit: 512m
-    cpus: "0.5"
-    privileged: true
-    devices:
-      - /dev/kmsg:/dev/kmsg
-    ports:
-      - "8080:8080"
-    volumes:
-      - *ca-mount
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    environment:
-      <<: *ca-env
-      TZ: ${TZ}
-    networks: [bearcave]
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-
-  # ==========================================================================
-  # ARR Dashboard
-  # ==========================================================================
-  arr-dashboard:
-    image: khak1s/arr-dashboard:2.24.1
-    container_name: arr-dashboard
-    mem_limit: 512m
-    cpus: "0.5"
-    restart: unless-stopped
-    logging: *common-logging
-    healthcheck:
-      test: ["CMD-SHELL", "wget --spider http://127.0.0.1:3000/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    environment:
-      <<: *ca-env
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      DATABASE_URL: file:/config/prod.db
-      SESSION_TTL_HOURS: "24"
-      LOG_LEVEL: info
-    volumes:
-      - *ca-mount
-      - arr-dashboard-data:/config
-    ports:
-      - "41789:3000"
-    networks: [bearcave]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.arr-dashboard.rule=Host(`arr.${HOST_IP}.nip.io`)"
-      - "traefik.http.services.arr-dashboard.loadbalancer.server.port=3000"
-      - "traefik.http.routers.arr-dashboard.tls=true"
-
-  # ==========================================================================
-  # Landing Page
-  # ==========================================================================
-  landing-page:
-    image: nginx:1.31.4-alpine
-    container_name: landing-page
-    mem_limit: 64m
-    cpus: "0.1"
-    restart: unless-stopped
-    logging: *common-logging
-    healthcheck:
-      test: ["CMD-SHELL", "wget --spider http://127.0.0.1:80/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    environment:
-      <<: *ca-env
-      RADARR_API_KEY: ${RADARR_API_KEY}
-      SONARR_API_KEY: ${SONARR_API_KEY}
-      PROWLARR_API_KEY: ${PROWLARR_API_KEY}
-      PLEX_TOKEN: ${PLEX_TOKEN}
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    volumes:
-      - *ca-mount
-      - ./services/landing-page/index.html:/usr/share/nginx/html/index.html:ro
-      - ./services/landing-page/service-registry.json:/usr/share/nginx/html/service-registry.json:ro
-      - ./services/landing-page/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-      # Public root CA for device trust — exposes ONLY the cert, never the key
-      - ./config/ca/rootCA.pem:/usr/share/nginx/html/rootCA.pem:ro
-    ports:
-      - "8000:80"
-    networks: [bearcave]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.landing-page.rule=Host(`bearcave.${HOST_IP}.nip.io`)"
-      - "traefik.http.services.landing-page.loadbalancer.server.port=80"
-      - "traefik.http.routers.landing-page.tls=true"
-
-# ==========================================================================
-# Volumes
-# ==========================================================================
-volumes:
-  traefik-certs:
-  arr-dashboard-data:
+      <<: *common-env
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: ${RADARR_API_KEY}
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: ${SONARR_API_KEY}

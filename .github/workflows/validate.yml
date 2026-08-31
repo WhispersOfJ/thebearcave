@@ -1,9 +1,5 @@
 name: Validate
-# Pinned actions policy: third-party actions are pinned to full commit SHAs
-# (a mutable tag could be retargeted). The trailing "# tag" marks the version.
-# To upgrade: gh api repos/{owner}/{repo}/commits/{new-tag} --jq .sha, then
-# update the SHA and the "# tag" comment on its uses: line.
-
+# All third-party actions are pinned to immutable commit SHAs.
 
 on:
   push:
@@ -12,14 +8,12 @@ on:
       - "**.md"
       - "docs/**"
       - "archive/**"
-      - "config/**"
   pull_request:
     branches: ["main"]
     paths-ignore:
       - "**.md"
       - "docs/**"
       - "archive/**"
-      - "config/**"
   workflow_dispatch:
     inputs:
       skip_actionlint:
@@ -37,35 +31,27 @@ jobs:
       - name: Create dummy .env
         run: cp .env.template .env
 
-      - name: Validate docker-compose.yml
+      - name: Validate Compose
         run: docker compose config --quiet
 
-      - name: Check for merged mount/port/env entries in docker-compose.yml
+      - name: Check Compose mounts
         run: python3 scripts/check_compose_mounts.py
 
-      - name: Regression test - merged-mount guard
-        run: python3 scripts/test_check_compose_mounts.py
+      - name: Run guard regression tests
+        run: |
+          python3 scripts/test_check_compose_mounts.py
+          python3 scripts/test_check_nzbdav_queue.py
+          python3 scripts/test_check_bind_mount_staleness.py
+          python3 scripts/check_nzbdav_queue.py --offline
+          python3 scripts/check_bind_mount_staleness.py --offline
 
-      - name: Regression test - nzbdav queue guard
-        run: python3 scripts/test_check_nzbdav_queue.py
-
-      - name: Regression test - bind-mount staleness guard
-        run: python3 scripts/test_check_bind_mount_staleness.py
-
-      - name: NzbDAV queue guard (offline — no live nzbdav on CI)
-        run: python3 scripts/check_nzbdav_queue.py --offline
-
-      - name: Bind-mount staleness guard (offline — no live docker on CI)
-        run: python3 scripts/check_bind_mount_staleness.py --offline
-
-      - name: Check every compose ${VAR} has a .env.template key
+      - name: Check Compose environment coverage
         run: |
           comm -23 \
             <(grep -ohE '\$\{[A-Z_0-9]+' docker-compose.yml | sed 's/^\${//' | sort -u) \
             <(grep -E '^[A-Z_0-9]+=' .env.template | cut -d= -f1 | sort -u) \
             > missing_vars.txt
           if [ -s missing_vars.txt ]; then
-            echo "Vars referenced in docker-compose.yml but missing from .env.template:"
             cat missing_vars.txt
             exit 1
           fi
@@ -77,52 +63,37 @@ jobs:
           scandir: "."
           ignore_paths: "archive config services data media"
 
-      - name: Ruff (Python lint)
+      - name: Ruff
         run: |
           pip install ruff==0.8.6
           ruff check . --exclude archive/ --exclude "**/migrations"
 
-      - name: Bash syntax checks
+      - name: Bash syntax
         run: |
           for f in scripts/*.sh tests/*/*.sh; do
-            echo "Checking $f..."
             bash -n "$f"
           done
 
-      - name: Fish functions checks
+      - name: Fish functions
         run: |
-          # fish 4.x from the official fish-shell PPA — must match the version
-          # the functions/completions are formatted and tested with locally.
           sudo add-apt-repository -y ppa:fish-shell/release-4
           sudo apt-get update -qq
           sudo apt-get install -y -qq fish
-          fish --version
           for f in services/fish-functions/functions/*.fish \
                    services/fish-functions/completions/*.fish \
                    services/fish-functions/scripts/gen-completions.fish; do
             fish --no-execute "$f"
             fish_indent --check "$f"
           done
-          # completions/ must be current with function descriptions/arg tables
           fish services/fish-functions/scripts/gen-completions.fish --check
-          # static smoke tier: load/define + completion registration checks
           ./tests/fish/test_fish_functions.sh --offline
 
-      - name: Actionlint (workflow lint)
+      - name: Actionlint
         if: ${{ github.event.inputs.skip_actionlint != 'true' }}
         run: |
-          # v1.7.12 pinned — to upgrade, bump the version here and the
-          # sha256 checksum, then re-run validate.
           ACTIONLINT_VERSION="1.7.12"
           curl -sSL -o /tmp/actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" \
-            | sha256sum -c -
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" | sha256sum -c -
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           /tmp/actionlint -color .github/workflows/*.yml
-
-      - name: Unit tests - nzbdav-exporter
-        run: |
-          pip install pytest requests prometheus_client
-          cd services/nzbdav-exporter
-          python -m pytest test_exporter.py -v

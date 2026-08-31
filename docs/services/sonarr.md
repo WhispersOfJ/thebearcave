@@ -1,43 +1,40 @@
 # Sonarr
 
-TV show management — tracks close to 300,000 episode records across the library.
+Sonarr manages the TV library in the eight-service stack.
 
 | | |
 |---|---|
-| **Image** | `ghcr.io/hotio/sonarr:release` |
-| **Port** | 8989 |
-| **Network** | `bearcave` |
-| **Healthcheck** | `curl -sf http://localhost:8989/ping` |
-| **Config** | `config/sonarr/` (gitignored) |
-| **Depends on** | `nzbdav_rclone` healthy (restart cascade) |
+| Image | `ghcr.io/hotio/sonarr:release-4.0.19.2979` |
+| Port | 8989 |
+| Network | `bearcave` |
+| Config | `config/sonarr/` |
+| Depends on | `nzbdav_rclone` healthy, with restart cascade |
 
-## Role
+## Paths
 
-- Tracks the TV library, including anime (folded in via genre/tag routing)
-- Searches via Prowlarr, grabs through InfiniDysk
-- Imports via symlinks into the FUSE mount
+| Host path | Container path |
+|---|---|
+| `config/sonarr/` | `/config` |
+| `media/shows/` | `/data/shows` |
+| `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` with `rslave` propagation |
 
-## Volume mounts
+The TV root is `/data/shows`; this must match the existing Sonarr database.
 
-| Host path | Container path | Purpose |
-|-----------|----------------|---------|
-| `config/sonarr/` | `/config` | App state |
-| `/mnt/remote/nzbdav` | `/mnt/remote/nzbdav` (rslave) | FUSE mount |
-| `media/shows/` | `/data/shows` | TV root folder |
-| `media/anime-shows/` | `/data/anime-shows` | Anime TV root folder |
+## Download client
 
-## Environment variables
+Configure InfiniDysk as a SABnzbd-compatible client:
 
-| Variable | Purpose |
-|----------|---------|
-| `SONARR_API_KEY` | API key (generated on first boot, copy into `.env`) |
+- Host: `nzbdav`
+- Port: `3000`
+- API key: `FRONTEND_BACKEND_API_KEY`
+- Root folder: `/data/shows`
 
-## First-run
+Prowlarr supplies indexers. Unpackerr watches Sonarr’s queue and extracts completed
+archives before import.
 
-Mirror Radarr's steps (see [radarr.md](radarr.md)) with `/data/shows` and
-`/data/anime-shows` as root folders.
+If imports fail, verify the FUSE mount first:
 
-## Notes
-
-- Episode structure is large — scans can be slow; scheduled scanning is the norm
-- Missing-aired entries are a known gap for shows with irregular air dates
+```bash
+docker exec nzbdav_rclone mountpoint -q /mnt/remote/nzbdav
+docker compose logs --tail=100 sonarr nzbdav unpackerr
+```

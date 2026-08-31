@@ -13,7 +13,7 @@
 #   - the 19 stack-plex-* butler wrappers and stack-plex-butler-all /
 #     stack-plex-butler <task>, stack-plex-empty-trash, stack-plex-analyze
 #     (covered by load/define checks instead)
-#   - stack-watchstate-import-now, stack-notify-test, stack-claude-full-backup
+#   - stack-notify-test, stack-claude-full-backup
 #   - stack-arr-logs (follows the log indefinitely)
 #
 # Usage:
@@ -249,7 +249,6 @@ run_live stack-letterboxd-tracked.fish
 run_live stack-mdblist-tracked.fish
 run_live stack-letterboxd-history.fish
 run_live stack-mdblist-history.fish
-run_live stack-customformat-diff.fish radarr
 run_live stack-prowlarr-indexers.fish
 run_live stack-arr-queue-errors.fish
 run_live stack-arr-import-starvation.fish
@@ -271,8 +270,6 @@ run_live stack-plex-libraries.fish
 run_live stack-plex-sessions.fish
 run_live stack-plex-updates.fish
 run_live stack-plex-recently-added.fish 2
-run_live stack-watchstate-status.fish
-run_live stack-watchstate-history.fish 5
 run_live stack-seerr-requests.fish pending
 run_live stack-rating-imdb.fish tt0068646
 run_live stack-rating-mdblist.fish tt0068646
@@ -310,7 +307,6 @@ log_info "Define-only checks (mutating Plex commands)..."
 check_defines stack-plex-empty-trash.fish
 check_defines stack-plex-analyze.fish
 check_defines stack-plex-butler-all.fish
-check_defines stack-watchstate-import-now.fish
 check_defines stack-notify-test.fish
 check_defines stack-claude-full-backup.fish
 for f in "$FUNC_DIR"/stack-plex-*.fish; do

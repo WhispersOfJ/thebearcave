@@ -1,35 +1,19 @@
 #!/usr/bin/env bash
-# One-command pre-push validation gate.
-#
-# Runs the same checks CI's validate job runs locally so problems are caught
-# before the push instead of in a red GitHub Actions run:
-#
-#   1. ruff          — Python lint (CI-identical: ruff check . --exclude archive/ --exclude "**/migrations")
-#   2. py_compile    — all scripts/*.py compile
-#   3. actionlint    — every workflow in .github/workflows/
-#   4. compose       — docker compose config --quiet
-#   5. compose mounts — scripts/check_compose_mounts.py (no merged mount lines)
-#   6. mount drift    — scripts/check_mount_drift.py (live mounts == compose def)
-#   7. MCP baseline  — scripts/check_mcp.py --baseline (0 divergences vs .github/mcp-baseline.json)
-#   8. grafana dashboards — scripts/check_grafana_dashboards.py (valid, un-wrapped dashboard JSON)
-#   9. nzbdav queue   — scripts/check_nzbdav_queue.py (recreate would wipe queued NZBs; offline on CI)
-#  10. bind-mount staleness — scripts/check_bind_mount_staleness.py (container serving stale inode)
-#
-# Every check runs even if an earlier one fails, so one invocation reports
-# everything that is broken. Exit 0 = all pass, 1 = any failure.
-#
-# If a tool is missing (actionlint is not on PATH by default; this repo's
-# pinned build is often downloaded to /tmp/actionlint), the script warns and
-# skips that check — CI still gates it. Override the actionlint path with
-# ACTIONLINT=/path/to/actionlint.
-#
-# Usage:
-#   scripts/preflight.sh
+# One-command pre-push validation gate for the eight-service stack.
 
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
+
+# Guard scripts need the runtime key when preflight runs from a shell that has
+# not exported the repository environment (for example a systemd timer or CI).
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
 
 failures=0
 warnings=0
@@ -52,17 +36,14 @@ warn_skip() {
 
 echo "== pre-push validation ($(basename "$ROOT")) =="
 
-# 1. Ruff (Python lint) — CI-identical invocation
 if command -v ruff >/dev/null 2>&1; then
   check "ruff" ruff check . --exclude archive/ --exclude "**/migrations"
 else
   warn_skip "ruff" "ruff"
 fi
 
-# 2. py_compile — every script compiles
 check "py_compile" python3 -m py_compile scripts/*.py
 
-# 3. Actionlint — workflow lint (resolve: ACTIONLINT env, PATH, /tmp fallback)
 AL="${ACTIONLINT:-}"
 if [ -z "$AL" ] && command -v actionlint >/dev/null 2>&1; then
   AL="$(command -v actionlint)"
@@ -76,39 +57,23 @@ else
   warn_skip "actionlint" "actionlint (set ACTIONLINT=/path/to/actionlint)"
 fi
 
-# 4. Compose config — the stack must be coherent
 if command -v docker >/dev/null 2>&1; then
   check "compose config" docker compose config --quiet
-else
-  warn_skip "compose config" "docker"
-fi
-
-# 5. Compose mounts — no volume/port/env entries merged onto one line
-check "compose mounts" python3 scripts/check_compose_mounts.py
-
-# 6. Mount drift — every running container's mounts match the compose definition
-if command -v docker >/dev/null 2>&1; then
   check "mount drift" python3 scripts/check_mount_drift.py
 else
+  warn_skip "compose config" "docker"
   warn_skip "mount drift" "docker"
 fi
 
-# 7. MCP baseline — probe against .github/mcp-baseline.json
+check "compose mounts" python3 scripts/check_compose_mounts.py
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
 
-# 8. Grafana dashboards — every tracked dashboard JSON is a valid, un-wrapped model
-check "grafana dashboards" python3 scripts/check_grafana_dashboards.py
-
-# 9. NzbDAV queue — recreating nzbdav wipes the non-persistent queue; guard
-#    the recreate boundary. Offline on CI (no live nzbdav); live on the host.
 if [ -n "${NZBDAV_QUEUE_OFFLINE:-}" ]; then
   check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --offline
 else
   check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --allow-unreachable
 fi
 
-# 10. Bind-mount staleness — a container can serve a stale inode after
-#     sed -i/vim edits a bind-mounted config file. Only runs with docker.
 if [ -n "${BIND_MOUNT_OFFLINE:-}" ]; then
   check "bind-mount staleness" python3 scripts/check_bind_mount_staleness.py --offline
 elif command -v docker >/dev/null 2>&1; then
