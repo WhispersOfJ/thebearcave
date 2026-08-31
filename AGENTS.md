@@ -251,6 +251,9 @@ rule applies to every future change, including the change that introduced it.
    with `origin/main` before merging.
 5. **Clean up.** After the PR merges, remove the worktree:
    `git worktree remove <path>`.
+6. **Canonical walkthrough.** Example commands for the full lifecycle
+   (create → edit → push → PR → merge → remove) live in
+   [docs/worktree-lifecycle.md](docs/worktree-lifecycle.md).
 
 ### Before Making Changes
 
