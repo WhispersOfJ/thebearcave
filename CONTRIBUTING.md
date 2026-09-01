@@ -121,21 +121,16 @@ Run these before opening a PR (they mirror what CI runs):
 ```bash
 docker compose config --quiet
 bash -n scripts/*.sh tests/*/*.sh
-bash tests/fish/test_fish_functions.sh --offline
-bash tests/bash/test_bash_functions.sh --offline
-fish services/fish-functions/scripts/gen-completions.fish --check
+
 python3 scripts/check_compose_mounts.py
 ./tests/health/run-all.sh
 ```
 
 - `validate.yml` runs compose validation, env coverage, shellcheck, ruff, and
   actionlint; `nightly-healthcheck.yml` re-validates everything daily.
-- If you change a fish function, regenerate completions
-  (`fish services/fish-functions/scripts/gen-completions.fish`) so the
-  completion-drift check stays green, and run the offline fish smoke test.
-- Live checks (e.g. `./tests/integration/test_pipeline.sh`, the full fish
-  smoke suite) run against the real stack on the host — never rely on them in
-  CI, and never run mutating ones against active queued work.
+- Live checks (e.g. `./tests/integration/test_pipeline.sh`) run against the
+  real stack on the host — never rely on them in CI, and never run mutating
+  ones against active queued work.
 
 ## Code style
 
@@ -143,10 +138,6 @@ python3 scripts/check_compose_mounts.py
   check-script conventions (read-only DB access, `0/1/2` exit codes,
   CI-safe pure-logic tests under `scripts/test_*.py`).
 - **Shell:** ShellCheck-clean, POSIX-ish bash for CI; `bash -n` must pass.
-- **Fish:** `fish_indent`-clean (a missing trailing newline fails CI), one
-  command per file under `services/fish-functions/functions/`, shared
-  `fmt_*` helpers from `__cli_format.fish`, and repo-root resolution via
-  `$BEARCAVE_REPO_DIR` (see `conf.d/bearcave-env.fish`).
 - **Workflows:** third-party actions are SHA-pinned with a `# tag` comment;
   GitHub Actions are validated by `actionlint` (see `docs/ci-cd.md`).
 
