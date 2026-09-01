@@ -95,6 +95,7 @@ docker compose config --quiet    # compose validation
 ./tests/health/run-all.sh        # health-check every configured service
 ./tests/integration/test_pipeline.sh   # FUSE mount → Plex → *arr → NzbDAV
 ./tests/fish/test_fish_functions.sh    # fish shell tools (parse + live smoke)
+./tests/bash/test_bash_functions.sh   # bash port tools (parse + drift + guard)
 ```
 
 ## Git hooks

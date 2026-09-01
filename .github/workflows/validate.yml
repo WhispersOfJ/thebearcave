@@ -76,6 +76,9 @@ jobs:
             bash -n "$f"
           done
 
+      - name: Bash functions
+        run: ./tests/bash/test_bash_functions.sh --offline
+
       - name: Fish functions
         run: |
           sudo add-apt-repository -y ppa:fish-shell/release-4

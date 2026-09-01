@@ -30,6 +30,7 @@ Every active Compose variable must have a name in `.env.template`. CI also runs:
 - NzbDAV queue and bind-mount guard tests
 - Bash syntax checks and ShellCheck
 - Ruff and Python compilation
+- Bash parse, completion-drift, and offline smoke checks (bash port)
 - Fish parse, indentation, completion, and offline smoke checks
 - actionlint on every workflow
 
@@ -40,6 +41,7 @@ docker compose config --quiet
 python3 scripts/test_check_compose_mounts.py
 bash -n scripts/*.sh tests/*/*.sh
 ./tests/fish/test_fish_functions.sh --offline
+./tests/bash/test_bash_functions.sh --offline
 ./scripts/preflight.sh
 ```
 
