@@ -5,7 +5,7 @@
 # Verifies every bash stack-* function loads and its argument layer works.
 # Mirrors tests/fish/test_fish_functions.sh for the bash port.
 #
-# Tiers (all CI-safe — no live stack required):
+# Tiers:
 #   load/define:  every functions/stack-*.sh parses and defines its command
 #   helpers:      __helpers.sh loads and defines __arr_api, __plex_api, ...
 #   docker guard: the guarded docker() wrapper is present and routes
@@ -14,11 +14,13 @@
 #                 completion set == stack-* command set
 #   guard:        mutating/arg-requiring commands invoked with no args on
 #                 closed stdin must print usage and exit 0 or 1
+#   live:         read-only commands invoked for real against the stack
+#                 (skipped under --offline; needs .env + running services)
 #
 # Usage:
-#   ./tests/bash/test_bash_functions.sh            # this suite (offline)
-#   ./tests/bash/test_bash_functions.sh --offline  # alias (CI)
-#   ./tests/bash/test_bash_functions.sh --dry-run  # alias (CI)
+#   ./tests/bash/test_bash_functions.sh            # full suite (offline + live)
+#   ./tests/bash/test_bash_functions.sh --offline  # static tiers only (CI-safe)
+#   ./tests/bash/test_bash_functions.sh --dry-run  # alias of --offline
 # ============================================================================
 set -euo pipefail
 
@@ -40,8 +42,10 @@ COMP_FILE="$BASH_DIR/completions/stack-completions.sh"
 
 cd "$REPO_DIR"
 
+DRY_RUN=false
 case "${1:-}" in
-    ""|--offline|--dry-run) ;;
+    "") ;;
+    --offline|--dry-run) DRY_RUN=true ;;
     *) echo "Unknown option: $1 (usage: $0 [--offline|--dry-run])" >&2; exit 2 ;;
 esac
 
@@ -215,6 +219,44 @@ else
     printf '%s\n' "$bare" | sed 's/^/         - /' | head -10
 fi
 
+# run_live <command> [args...]
+# TIER 1 (live): invoke a read-only command against the running stack.
+# Pass = exit code 0 or 1 (1 is a clean handled-error like "key not set" or
+# "Cannot reach <app>"). A hang or crash (exit >=2, or timeout 124) fails.
+# Sources .env + the loader in a subshell so the command sees real API keys.
+run_live() {
+    local name="$1"; shift
+    local output rc
+    # Optional per-call timeout as $1 when it starts with a digit (e.g.
+    # "run_live stack-disk-config-sizes 120"), else use the default budget.
+    local budget="$SMOKE_TIMEOUT"
+    if [ "$#" -gt 0 ] && [[ "$1" =~ ^[0-9]+$ ]]; then
+        budget="$1"; shift
+    fi
+    # Pass args as positional parameters to the inner script so multi-word
+    # args (e.g. a release title) survive intact. $@ is quoted per-arg.
+    output="$(timeout "$budget" bash -c '
+        STACK_COLOR=false
+        # .env may reference unset vars; source it with -u off so the
+        # loader sees real API keys without tripping set -u.
+        if [ -f "$1" ]; then
+            set +u; set -a; source "$1"; set +a; set -u
+        fi
+        shift
+        source "$1" >/dev/null 2>&1
+        shift
+        "$@"
+    ' _ "$REPO_DIR/.env" "$BASH_DIR/bearcave-bash.sh" "$name" "$@" 2>&1)" && rc=0 || rc=$?
+    if [ "$rc" -le 1 ]; then
+        passed=$((passed + 1))
+        log_success "live: $name $* (exit $rc)"
+    else
+        failed=$((failed + 1))
+        log_error "live: $name $* (exit $rc)"
+        printf '%s\n' "$output" | tail -5 | sed 's/^/         /'
+    fi
+}
+
 # --- Guard tier: mutating/arg-requiring commands must refuse cleanly with no args ---
 # Mirrors the fish TIER 2. Invoke with no args on closed stdin; the command
 # must print usage and exit 0 or 1 (not hang, not crash).
@@ -256,6 +298,46 @@ done
 # stack-restart-all prompts for confirmation; with no stdin it must decline.
 if printf '%s\n' "${STACK_CMDS[@]}" | grep -qx stack-restart-all; then
     run_guard stack-restart-all
+fi
+
+# --- TIER 1: live read-only commands (skipped under --offline) ---
+# Mirrors the fish TIER 1. Each command runs against the real stack with a
+# per-call timeout; exit 0 or 1 passes (1 = clean handled-error).
+if [ "$DRY_RUN" = true ]; then
+    log_warning "Offline mode — skipping live tier (CI-safe)."
+elif [ ! -f "$REPO_DIR/.env" ]; then
+    log_warning "No $REPO_DIR/.env — skipping live tier (run from the main checkout to exercise live calls)."
+else
+    log_info "TIER 1: live read-only invocations..."
+    SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-60}"
+    run_live stack-status
+    run_live stack-version
+    run_live stack-help
+    run_live stack-top
+    run_live stack-docker-disk-usage
+    run_live stack-disk-config-sizes 120  # du over multi-GB config dirs
+    run_live stack-mount-health
+    run_live stack-radarr-health
+    run_live stack-plex-markers
+    run_live stack-prowlarr-indexers
+    run_live stack-command-queue-summary
+    run_live stack-backlog-status
+    run_live stack-queue-status
+    run_live stack-arr-backlog radarr
+    run_live stack-arr-blocklist radarr 3
+    run_live stack-arr-import-candidates radarr
+    run_live stack-cutoff-unmet radarr 3
+    run_live stack-arr-missing-aired radarr 5
+    run_live stack-arr-recently-added radarr 3
+    run_live stack-import-lists radarr
+    run_live stack-nzbdav-queue
+    run_live stack-nzbdav-history 5
+    run_live stack-plex-sessions
+    run_live stack-plex-recently-added 2
+    run_live stack-plex-duplicates
+    run_live stack-loop-candidates sonarr
+    run_live stack-arr-queue-errors sonarr
+    run_live stack-arr-missing-aired sonarr 5
 fi
 
 # --- Summary ---
