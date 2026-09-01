@@ -14,6 +14,9 @@
 #                 completion set == stack-* command set
 #   guard:        mutating/arg-requiring commands invoked with no args on
 #                 closed stdin must print usage and exit 0 or 1
+#   unit:         offline renderer test — mock wanted/missing JSON through the
+#                 real stack-arr-missing-aired sonarr path with a dead series
+#                 URL, asserting '?'-titled degradation
 #   live:         read-only commands invoked for real against the stack
 #                 (skipped under --offline; needs .env + running services)
 #
@@ -214,6 +217,40 @@ else
     failed=$((failed + 1))
     log_error "bare curl -sf sites remain (hang risk):"
     printf '%s\n' "$bare" | sed 's/^/         - /' | head -10
+fi
+
+# --- Unit: stack-arr-missing-aired sonarr renderer (offline) ---
+# Feed mock wanted/missing JSON through the real function with a dead
+# SONARR_URL so the in-python series fetch fails and titles degrade to '?'
+# (the renderer's documented fallback). The bash-side fetch is mocked so the
+# test never touches the network and runs in CI. On the pre-fix renderer this
+# fails (empty SERIES_MAP crashed json.loads), so it pins the rework.
+log_info "unit: stack-arr-missing-aired sonarr renderer (mock wanted/missing)..."
+mock_file="$(mktemp)"
+trap 'rm -f "$mock_file"' EXIT
+printf '%s' '{"records":[{"seriesId":42,"seasonNumber":3,"episodeNumber":7,"title":"The Test"},{"seriesId":7,"seasonNumber":1,"episodeNumber":2,"title":"Second"}],"totalRecords":3}' > "$mock_file"
+unit_out="$(SONARR_URL='http://127.0.0.1:1' SONARR_API_KEY='mock-key' STACK_COLOR=false bash -c '
+    MOCK_FILE="$2"
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    # Replace the curl wrapper: emit the mock payload so the bash side never
+    # touches the network; the python renderer still tries the dead
+    # SONARR_URL and degrades to "?" titles.
+    __stack_curl() { cat "$MOCK_FILE"; }
+    "$3" sonarr 5
+' _ "$BASH_DIR/bearcave-bash.sh" "$mock_file" stack-arr-missing-aired 2>&1)" && rc=0 || rc=$?
+rm -f "$mock_file"
+if [ "$rc" -eq 0 ] \
+    && printf '%s' "$unit_out" | grep -q '? S03E07 The Test' \
+    && printf '%s' "$unit_out" | grep -q '? S01E02 Second' \
+    && printf '%s' "$unit_out" | grep -q '... and 1 more' \
+    && ! printf '%s' "$unit_out" | grep -q 'Cannot reach'; then
+    passed=$((passed + 1))
+    log_success "unit: missing-aired renderer degrades to '?' titles on dead series URL"
+else
+    failed=$((failed + 1))
+    log_error "unit: missing-aired renderer output unexpected (rc=$rc):"
+    printf '%s\n' "$unit_out" | tail -8 | sed 's/^/         /'
 fi
 
 # run_live <command> [args...]
