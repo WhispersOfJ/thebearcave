@@ -86,6 +86,15 @@ The four `__*_api` helpers (`__arr_api`, `__plex_api`, `__seerr_api`,
 call sites in `stack-*.sh` pass the budget explicitly. Python-embedded
 `subprocess.run(['curl', ...])` sites carry inline `--max-time`.
 
+## Passing data to embedded python
+
+Python renderers (`python3 -c` / heredocs) receive bulk data over **stdin**
+(`echo "$result" | python3 -c ...`), never through environment variables: a
+single env var is capped at 128 KB (`MAX_ARG_STRLEN`) on Linux, so a payload
+that scales with library size (series maps, history, full-collection pulls)
+can fail `execve` with E2BIG silently past a few thousand records. Pass only
+scalar config (URLs, keys, IDs, limits) via env; pipe anything data-sized.
+
 ## Safety behavior
 
 The `docker` wrapper routes NzbDAV and `nzbdav_rclone` state-changing
