@@ -395,7 +395,11 @@ def main():
     if opts.run:
         return cmd_run(funcs, opts.run, opts.args)
 
-    StackTui(funcs).loop.run()
+    try:
+        StackTui(funcs).loop.run()
+    except KeyboardInterrupt:
+        # Ctrl+C is a universal quit reflex; exit cleanly, not with a traceback.
+        return 130
     return 0
 
 
