@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+# ============================================================================
+# bearcave-bash.sh — bash equivalent of the fish stack environment
+# ============================================================================
+# Sourced from ~/.bashrc (interactive shells only). Mirrors what the fish
+# setup provides:
+#   1. Repo .env loader (conf.d/bearcave-env.fish equivalent): exports the
+#      stack .env at startup, honoring values already set.
+#   2. Formatting helpers (__cli_format.fish equivalent): fmt_heading,
+#      fmt_success, fmt_error, fmt_warning, fmt_dim, fmt_status_dot, fmt_kv.
+#   3. Guarded docker compose wrapper (functions/docker.fish +
+#      docker-guard.sh equivalent): routes nzbdav/nzbdav_rclone recreates
+#      through scripts/nzbdav-safe-recreate.sh (landmine #3).
+#   4. stack-* function library: sources every services/bash-functions/
+#      functions/stack-*.sh (bash translations of the fish functions).
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 0. Locate repo root (this file lives at <repo>/services/bash-functions/)
+# ----------------------------------------------------------------------------
+_bearcave_self="${BASH_SOURCE[0]}"
+_bearcave_dir="$(cd "$(dirname "$_bearcave_self")" && pwd)"
+BEARCAVE_REPO_DIR="${BEARCAVE_REPO_DIR:-$(cd "$_bearcave_dir/../.." && pwd)}"
+export BEARCAVE_REPO_DIR
+
+# ----------------------------------------------------------------------------
+# 1. Load the repo .env (only sets variables not already set)
+# ----------------------------------------------------------------------------
+__bearcave_load_env() {
+    local env_file="$BEARCAVE_REPO_DIR/.env"
+    [ -f "$env_file" ] || return 0
+    local line key value
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            \#*|"") continue ;;
+        esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        case "$value" in
+            \"*\") value="${value#\"}"; value="${value%\"}" ;;
+            \'*\') value="${value#\'}"; value="${value%\'}" ;;
+        esac
+        if [ -n "$key" ] && [ -z "${!key+x}" ]; then
+            export "$key=$value"
+        fi
+    done < "$env_file"
+}
+__bearcave_load_env
+
+# ----------------------------------------------------------------------------
+# 2. Formatting helpers (respect $STACK_COLOR like the fish versions)
+# ----------------------------------------------------------------------------
+if [ -z "${STACK_COLOR+x}" ]; then
+    if [ -t 1 ]; then STACK_COLOR=true; else STACK_COLOR=false; fi
+fi
+
+_fmt_color_enabled() { [ "$STACK_COLOR" = true ]; }
+
+fmt_heading() {
+    if _fmt_color_enabled; then
+        printf "\033[1m\033[36m%s\033[0m\n" "$1"
+    else
+        echo "$1"
+    fi
+}
+fmt_success() {
+    if _fmt_color_enabled; then printf "\033[32m%s\033[0m\n" "$1"; else echo "$1"; fi
+}
+fmt_error() {
+    if _fmt_color_enabled; then printf "\033[31m%s\033[0m\n" "$1" >&2; else echo "$1" >&2; fi
+}
+fmt_warning() {
+    if _fmt_color_enabled; then printf "\033[33m%s\033[0m\n" "$1"; else echo "$1"; fi
+}
+fmt_dim() {
+    if _fmt_color_enabled; then printf "\033[2m%s\033[0m\n" "$1"; else echo "$1"; fi
+}
+fmt_status_dot() {
+    local st="$1"
+    if ! _fmt_color_enabled; then echo "$st"; return; fi
+    local lc="\033[37m"
+    case "$(echo "$st" | tr '[:upper:]' '[:lower:]')" in
+        running|healthy|up|ok)              lc="\033[32m" ;;
+        exited|down|unhealthy|error|failed) lc="\033[31m" ;;
+        warning|stalled|starting|paused)    lc="\033[33m" ;;
+    esac
+    printf "%s%s\033[0m\n" "$lc" "$st"
+}
+fmt_kv() {
+    if _fmt_color_enabled; then
+        printf "  \033[1m%s:\033[0m %s\n" "$1" "$2"
+    else
+        echo "  $1: $2"
+    fi
+}
+
+# ----------------------------------------------------------------------------
+# 3. Guarded docker compose wrapper (landmine #3: nzbdav non-persistent queue)
+#    Mirrors functions/docker.fish: intercepts `docker compose
+#    up|restart|start|stop|rm|down ... nzbdav|nzbdav_rclone` and routes
+#    through scripts/nzbdav-safe-recreate.sh. Queries pass through; --force
+#    skips the guard (DANGEROUS).
+# ----------------------------------------------------------------------------
+docker() {
+    if [ "$#" -lt 2 ] || [ "$1" != compose ]; then
+        command docker "$@"; return $?
+    fi
+    local sub="$2"
+    case "$sub" in
+        up|restart|start|stop|rm|down)
+            local _svc_hit=false _a
+            for _a in "$@"; do
+                case "$_a" in nzbdav|nzbdav_rclone) _svc_hit=true ;; esac
+            done
+            if [ "$_svc_hit" != true ]; then
+                command docker "$@"; return $?
+            fi
+            local _a2 _args=() _had_force=false
+            for _a2 in "$@"; do
+                if [ "$_a2" = --force ]; then _had_force=true; else _args+=("$_a2"); fi
+            done
+            if [ "$_had_force" = true ]; then
+                fmt_warning "--force: skipping queue guard (queued NZBs WILL be wiped)"
+                command docker "${_args[@]}"
+                return $?
+            fi
+            local guard="$BEARCAVE_REPO_DIR/scripts/nzbdav-safe-recreate.sh"
+            if [ -x "$guard" ]; then
+                shift   # drop leading `docker`
+                bash "$guard" "$@"
+                return $?
+            fi
+            fmt_warning "nzbdav-safe-recreate.sh not found at $guard — running unguarded"
+            command docker "$@"
+            return $?
+            ;;
+        *)
+            command docker "$@"; return $?
+            ;;
+    esac
+}
+
+# ----------------------------------------------------------------------------
+# 4. Interactive aliases (CachyOS fish defaults, bash equivalents)
+# ----------------------------------------------------------------------------
+if command -v eza >/dev/null 2>&1; then
+    alias ls='eza -al --color=always --group-directories-first --icons=always'
+    alias la='eza -a --color=always --group-directories-first --icons=always'
+    alias ll='eza -l --color=always --group-directories-first --icons=always'
+else
+    alias ls='ls --color=auto'
+    alias la='ls -a --color=auto'
+    alias ll='ls -l --color=auto'
+fi
+alias l.='ls -a | grep -e "^\."'
+alias grep='grep --color=auto'
+alias fgrep='fgrep --color=auto'
+alias egrep='egrep --color=auto'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias psmem='ps auxf | sort -nr -k 4'
+alias psmem10='ps auxf | sort -nr -k 4 | head -10'
+alias jctl='journalctl -p 3 -xb'
+
+# copy DIR1 DIR2 -> recursive copy when first arg is a directory (fish parity)
+copy() {
+    if [ "$#" -eq 2 ] && [ -d "$1" ]; then
+        local from="${1%/}"
+        command cp -r "$from" "$2"
+    else
+        command cp "$@"
+    fi
+}
+
+# backup FILE -> FILE.bak (fish parity)
+backup() {
+    [ "$#" -eq 1 ] || { echo "Usage: backup <file>" >&2; return 1; }
+    cp "$1" "$1.bak"
+}
+
+# man pages through bat (matches CachyOS fish config)
+export MANROFFOPT="-c"
+if command -v bat >/dev/null 2>&1; then
+    export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+fi
+
+# ----------------------------------------------------------------------------
+# 5. stack-* function library (bash translations of the fish functions)
+#    Helpers first (__*.sh), then user commands (stack-*.sh), then generated
+#    tab-completions.
+# ----------------------------------------------------------------------------
+_bearcave_fn_dir="$BEARCAVE_REPO_DIR/services/bash-functions/functions"
+if [ -d "$_bearcave_fn_dir" ]; then
+    for _f in "$_bearcave_fn_dir"/__*.sh "$_bearcave_fn_dir"/stack-*.sh; do
+        [ -f "$_f" ] && source "$_f"
+    done
+    unset _f
+fi
+unset _bearcave_fn_dir
+
+_bearcave_comp="$BEARCAVE_REPO_DIR/services/bash-functions/completions/stack-completions.sh"
+[ -f "$_bearcave_comp" ] && source "$_bearcave_comp"
+unset _bearcave_comp
