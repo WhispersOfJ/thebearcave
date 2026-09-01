@@ -94,8 +94,11 @@ Rebalanced during the slim-down (total ≈11.1 GiB, down from ~19 GiB); quotas a
 docker compose config --quiet    # compose validation
 ./tests/health/run-all.sh        # health-check every configured service
 ./tests/integration/test_pipeline.sh   # FUSE mount → Plex → *arr → NzbDAV
-./tests/fish/test_fish_functions.sh    # fish shell tools (parse + live smoke)
+./tests/bash/test_bash_functions.sh   # bash port tools (parse + drift + guard)
 ```
+
+> The retired fish `stack-*` CLI lived under `services/fish-functions/`; see
+> [docs/services/FISH.md](docs/services/FISH.md) for the retirement record.
 
 ## Git hooks
 

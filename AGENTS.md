@@ -51,10 +51,11 @@ Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mo
 
 - **Networking:** every service is published directly on a host port. There is no
   reverse proxy tier; access services at `http://HOST_IP:<port>` (ports below).
-- **Fish functions** (`services/fish-functions/`) are the operational surface: queue
+- **Bash functions** (`services/bash-functions/`) are the operational surface: queue
   management, Plex maintenance (scan/empty-trash/Butler), backlog checks, mount health,
   and the manual ImageMaid PhotoTranscoder cleanup command. See
-  [docs/services/fish-functions.md](docs/services/fish-functions.md).
+  [docs/services/bash-functions.md](docs/services/bash-functions.md). The retired fish
+  functions are recorded in [docs/services/FISH.md](docs/services/FISH.md).
 
 ---
 
@@ -265,8 +266,7 @@ rule applies to every future change, including the change that introduced it.
 ### After Making Changes
 
 1. Run validation: `docker compose config --quiet`
-2. Run bash syntax checks: `bash -n scripts/*.sh tests/*/*.sh`
-3. Run fish smoke tests: `bash tests/fish/test_fish_functions.sh --offline` (drop `--offline` to run the full suite against the live stack)
+2. Run bash syntax checks: `bash -n scripts/*.sh tests/*/*.sh`3. Run bash smoke tests: `bash tests/bash/test_bash_functions.sh --offline` (the bash port is the active operational surface)
 4. Use `./tests/integration/test_pipeline.sh --dry-run` for a live infrastructure check when the NzbDAV queue is non-empty; the full pipeline test intentionally fails rather than treating active queued work as safe.
 5. Keep agent-facing operational output in English.
 6. **Restart containers after editing bind-mounted files** — `sed -i` or `vim` on a bind-mounted file changes the inode; the container keeps serving the old content until restarted. This is invisible (no error).
