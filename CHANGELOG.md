@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.23.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.22.0...v1.23.0) (2026-09-01)
+
+
+### Features
+
+* add Eweka as third Usenet provider slot ([#97](https://github.com/WhispersOfJ/thebearcave/issues/97)) ([8a5f610](https://github.com/WhispersOfJ/thebearcave/commit/8a5f610468ced58f58b1253f3cfe02e854471295))
+* add stack-tui floating-window launcher for the stack-* functions ([#95](https://github.com/WhispersOfJ/thebearcave/issues/95)) ([4aecdcd](https://github.com/WhispersOfJ/thebearcave/commit/4aecdcdfaf590964970c4bbd67a425d3b01586fe))
+* warn at shell load when a pre-set arr key differs from .env ([#99](https://github.com/WhispersOfJ/thebearcave/issues/99)) ([4bf310d](https://github.com/WhispersOfJ/thebearcave/commit/4bf310de3ce62a0da4ea547964ab33a3d1501254))
+
+
+### Bug Fixes
+
+* __arr_api_key error names the real uppercase var ([#98](https://github.com/WhispersOfJ/thebearcave/issues/98)) ([44e54ed](https://github.com/WhispersOfJ/thebearcave/commit/44e54ede570aa2462821795c0fb13466df249e39))
+* cap __stack_containers docker call with a timeout ([#92](https://github.com/WhispersOfJ/thebearcave/issues/92)) ([50b5adf](https://github.com/WhispersOfJ/thebearcave/commit/50b5adf8816120bcd1bd1cfef8235fa647855782))
+* classify destructive Plex butler tasks as danger ([#101](https://github.com/WhispersOfJ/thebearcave/issues/101)) ([1ffd1a1](https://github.com/WhispersOfJ/thebearcave/commit/1ffd1a1b9df4e052fee6ea255fb6fce914e153a9))
+* clear *arr blocklists via the ClearBlocklist command ([#100](https://github.com/WhispersOfJ/thebearcave/issues/100)) ([d1916bb](https://github.com/WhispersOfJ/thebearcave/commit/d1916bb4e77c9b754ac91f12b6e3e41b3a7e0d12))
+* resolve sonarr series titles in-python in stack-arr-missing-aired ([#91](https://github.com/WhispersOfJ/thebearcave/issues/91)) ([de0a5be](https://github.com/WhispersOfJ/thebearcave/commit/de0a5bef6d922572481293603457374725760ae5))
+
 ## [1.22.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.21.0...v1.22.0) (2026-09-01)
 
 
