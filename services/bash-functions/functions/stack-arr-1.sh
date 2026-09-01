@@ -187,7 +187,12 @@ stack-arr-clear-blocklist() {
     url="$(__arr_api_url "$app")"
     key="$(__arr_api_key "$app")" || return 1
 
-    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X DELETE "$url/api/v3/blocklist" -H "X-Api-Key: $key" >/dev/null 2>&1; then
+    # *arr has no collection-wide DELETE on /blocklist (405); the supported
+    # clear is the ClearBlocklist command. It is async: 201 = accepted, and
+    # the wipe completes in the background.
+    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$url/api/v3/command" \
+        -H "X-Api-Key: $key" -H "Content-Type: application/json" \
+        -d '{"name":"ClearBlocklist"}' >/dev/null 2>&1; then
         fmt_success "Blocklist cleared for $app."
     else
         fmt_error "Failed to clear blocklist for $app."
