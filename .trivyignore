@@ -7,3 +7,11 @@ CVE-2026-59873 # seerr upstream image dependency; remove after image rebuild
 
 # Unpackerr stable image is awaiting an upstream Alpine rebuild.
 CVE-2026-31789 # unpackerr upstream base image; remove after rebuild
+
+# rclone 1.75.0 (latest tag) carries an unfixed golang.org/x/crypto finding.
+CVE-2026-56854 # rclone upstream rebuild; remove after image refresh
+
+# imagemaid Debian 13.4 base packages awaiting an upstream rebuild.
+CVE-2026-33845 # imagemaid upstream base image (libgnutls); remove after rebuild
+CVE-2026-42010 # imagemaid upstream base image (libgnutls); remove after rebuild
+CVE-2026-53215 # imagemaid upstream base image (linux-libc-dev); remove after rebuild
