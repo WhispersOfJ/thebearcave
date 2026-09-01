@@ -16,6 +16,13 @@ Modes:
   stack-tui --list              machine-readable surface: name<TAB>category<TAB>danger<TAB>complete
   stack-tui --run <name> [args] fire one function, stream output, exit with its code
 
+Keys in the TUI:
+  Enter  select/activate the focused function (no-arg safe ones auto-fire)
+  r      Run the selected function (dangerous ones show a confirm step first)
+  c      Confirm — run the selected function after the mutating warning
+  u      Cancel — back out of the confirm step
+  q/esc  quit
+
 Dep: python3 + uv (urwid is auto-provisioned via the inline script metadata).
 """
 
@@ -187,8 +194,9 @@ class StackTui:
         self.out_list = urwid.ListBox(urwid.SimpleListWalker([]))
         self.status_text = urwid.Text(("dim", " ready"), wrap="clip")
         self.run_row = urwid.Pile([pack_c(self.make_run_buttons())])
+        self.confirm_pending = False
 
-        right = urwid.Pile([
+        self.right_pile = urwid.Pile([
             pack_c(urwid.Text(("cat", " Function"))),
             pack_c(self.help_text),
             pack_c(urwid.Text(("cat", " Arguments"))),
@@ -198,10 +206,13 @@ class StackTui:
             pack_c(self.status_text),
             pack_c(self.run_row),
         ])
+        right = self.right_pile
         body = urwid.Columns([weight_c(self.left, 2), weight_c(right, 3)])
         self.frame = urwid.Frame(
             body,
-            header=urwid.Text(("header", " stack-tui — pick a function, set args, Run ")),
+            header=urwid.Text(("header",
+                               " stack-tui — pick a function, set args, Run  "
+                               "(r run · c confirm · u cancel · q quit) ")),
         )
         self.loop = urwid.MainLoop(self.frame, palette=PALETTE,
                                    unhandled_input=self.on_key)
@@ -220,8 +231,14 @@ class StackTui:
 
     def set_default_buttons(self):
         self.run_row.contents = [pack_n(self.make_run_buttons())]
+        self.confirm_pending = False
         self.selected = None
         self.status_text.set_text(("dim", " ready"))
+        # Return focus to the function list so arrow navigation continues.
+        try:
+            self.frame.body.focus_position = 0
+        except Exception:
+            pass
 
     # --- selection -------------------------------------------------------
     def on_select(self, btn):
@@ -243,6 +260,21 @@ class StackTui:
         self.arg_pile.contents = fields or [pack_n(urwid.Text(("dim", " (no arguments)")))]
         self.status_text.set_text(("dim", f" selected {f['name']}"))
 
+        # Keyboard path: land focus in the first arg field so typing works
+        # immediately (urwid's Tab does not traverse the widget tree, and
+        # without this focus would sit on the output pane, swallowing keys).
+        if fields:
+            for i, (w, _opt) in enumerate(self.right_pile.contents):
+                if w is self.arg_pile:
+                    self.right_pile.focus_position = i
+                    break
+            # Also move the outer Columns focus to the right pane, or the
+            # keys still go to the left list's button and get swallowed.
+            try:
+                self.frame.body.focus_position = 1
+            except Exception:
+                pass
+
         # Click-to-fire when no arguments are needed (danger still confirms).
         if not f["args"] and not self.running:
             self.fire()
@@ -252,13 +284,20 @@ class StackTui:
         if self.selected is None or self.running:
             return
         if self.selected["danger"]:
+            self.confirm_pending = True
             self.run_row.contents = [pack_n(self.make_confirm_buttons())]
             self.status_text.set_text(
                 ("err", f" {self.selected['name']} mutates the stack — confirm? "))
+            # Land focus on the confirm row so Enter/'c' can confirm directly.
+            for i, (w, _opt) in enumerate(self.right_pile.contents):
+                if w is self.run_row:
+                    self.right_pile.focus_position = i
+                    break
             return
         self.do_run(self.selected)
 
     def do_run(self, f):
+        self.confirm_pending = False
         self.running = True
         args = [e.edit_text.strip() for e in self.arg_fields if e.edit_text.strip()]
         self.out_list.body.clear()
@@ -298,6 +337,18 @@ class StackTui:
     def on_key(self, key):
         if key in ("q", "esc"):
             self.quit()
+            return True
+        if key == "r":
+            self.fire()
+            return True
+        if key == "enter":
+            self.fire()
+            return True
+        if key == "c" and self.confirm_pending and not self.running:
+            self.do_run(self.selected)
+            return True
+        if key == "u" and self.confirm_pending:
+            self.set_default_buttons()
             return True
         return False
 
