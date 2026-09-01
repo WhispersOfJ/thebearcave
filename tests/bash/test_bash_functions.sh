@@ -370,6 +370,36 @@ else
     log_error "unit: stale arr key warning unexpected (stale=[$stale_out] match=[$match_out] noenv=[$noenv_out])"
 fi
 
+# --- Unit: stack-arr-clear-blocklist posts the ClearBlocklist command ---
+# The old implementation DELETEd /api/v3/blocklist, which *arr rejects with
+# 405 (collection-wide DELETE unsupported). The supported clear is the async
+# ClearBlocklist command. Stub __stack_curl to capture the invocation and
+# assert it POSTs to /command with the command name (no DELETE).
+log_info "unit: clear-blocklist posts the ClearBlocklist command..."
+clear_tmp="$(mktemp)"
+CAPTURE_FILE="$clear_tmp" RADARR_API_KEY='mock-key' \
+    RADARR_URL='http://127.0.0.1:1' STACK_COLOR=false bash -c '
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    # The function redirects the curl call to /dev/null, so capture the
+    # invocation via CAPTURE_FILE instead of stdout.
+    __stack_curl() { printf "%s" "$*" > "$CAPTURE_FILE"; return 0; }
+    stack-arr-clear-blocklist radarr
+' _ "$BASH_DIR/bearcave-bash.sh" >/dev/null 2>&1; rc=$?
+clear_capture="$(cat "$clear_tmp")"
+rm -f "$clear_tmp"
+if [ "$rc" -eq 0 ] \
+    && printf '%s' "$clear_capture" | grep -q -- '-X POST' \
+    && printf '%s' "$clear_capture" | grep -q 'api/v3/command' \
+    && printf '%s' "$clear_capture" | grep -q 'ClearBlocklist' \
+    && ! printf '%s' "$clear_capture" | grep -q -- '-X DELETE'; then
+    passed=$((passed + 1))
+    log_success "unit: clear-blocklist posts the ClearBlocklist command"
+else
+    failed=$((failed + 1))
+    log_error "unit: clear-blocklist invocation unexpected (rc=$rc): [$clear_capture]"
+fi
+
 # run_live <command> [args...]
 # TIER 1 (live): invoke a read-only command against the running stack.
 # Pass = exit code 0 or 1 (1 is a clean handled-error like "key not set" or
