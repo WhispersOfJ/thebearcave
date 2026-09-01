@@ -312,6 +312,27 @@ else
     log_error "unit: __stack_containers docker timeout (rc=$rc, ${docker_elapsed}s, output=[$docker_out])"
 fi
 
+# --- Unit: __arr_api_key unset message names the real var (offline) ---
+# With the key unset the helper must name SONARR_API_KEY (uppercase), not the
+# lowercase app-prefixed form — the old message sent users hunting for a
+# nonexistent "sonarr_API_KEY" during stale-key debugging.
+log_info "unit: __arr_api_key unset message names SONARR_API_KEY..."
+key_msg="$(SONARR_API_KEY='' STACK_COLOR=false bash -c '
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    unset SONARR_API_KEY
+    __arr_api_key sonarr
+' _ "$BASH_DIR/bearcave-bash.sh" 2>&1)" && rc=0 || rc=$?
+if [ "$rc" -eq 1 ] \
+    && printf '%s' "$key_msg" | grep -q 'SONARR_API_KEY' \
+    && ! printf '%s' "$key_msg" | grep -q 'sonarr_API_KEY'; then
+    passed=$((passed + 1))
+    log_success "unit: __arr_api_key unset message names SONARR_API_KEY"
+else
+    failed=$((failed + 1))
+    log_error "unit: __arr_api_key unset message unexpected (rc=$rc): [$key_msg]"
+fi
+
 # run_live <command> [args...]
 # TIER 1 (live): invoke a read-only command against the running stack.
 # Pass = exit code 0 or 1 (1 is a clean handled-error like "key not set" or
