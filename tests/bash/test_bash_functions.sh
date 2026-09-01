@@ -288,6 +288,30 @@ else
     printf '%s\n' "$radarr_out" | tail -8 | sed 's/^/         /'
 fi
 
+# --- Unit: __stack_containers docker timeout (offline) ---
+# A wedged Docker daemon must not hang completion: stub a slow `docker`
+# binary earlier in PATH and assert __stack_containers returns within the
+# STACK_DOCKER_TIMEOUT budget (empty output) instead of hanging. Uses the
+# already-sourced loader, so no network or real docker is needed (CI-safe).
+log_info "unit: __stack_containers returns within STACK_DOCKER_TIMEOUT..."
+fake_bin="$(mktemp -d)"
+printf '#!/bin/bash\nsleep 30\n' > "$fake_bin/docker"
+chmod +x "$fake_bin/docker"
+docker_t0=$SECONDS
+docker_out="$(PATH="$fake_bin:$PATH" STACK_DOCKER_TIMEOUT=2 __stack_containers 2>&1)" && rc=0 || rc=$?
+docker_elapsed=$((SECONDS - docker_t0))
+rm -rf "$fake_bin"
+# rc is 124 under set -o pipefail (timeout(1) surfaces through the pipeline)
+# or 0 in an interactive shell — both mean the call was cut at the budget.
+if { [ "$rc" -eq 0 ] || [ "$rc" -eq 124 ]; } \
+    && [ "$docker_elapsed" -le 5 ] && [ -z "$docker_out" ]; then
+    passed=$((passed + 1))
+    log_success "unit: __stack_containers cut at STACK_DOCKER_TIMEOUT (${docker_elapsed}s, empty output)"
+else
+    failed=$((failed + 1))
+    log_error "unit: __stack_containers docker timeout (rc=$rc, ${docker_elapsed}s, output=[$docker_out])"
+fi
+
 # run_live <command> [args...]
 # TIER 1 (live): invoke a read-only command against the running stack.
 # Pass = exit code 0 or 1 (1 is a clean handled-error like "key not set" or

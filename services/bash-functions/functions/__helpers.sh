@@ -16,7 +16,13 @@
 : "${STACK_API_TIMEOUT_LIGHT:=10}"   # status/queue/sessions/indexers
 : "${STACK_API_TIMEOUT_MUTATE:=20}"  # POST/PUT/DELETE command triggers
 : "${STACK_API_TIMEOUT_HEAVY:=30}"  # history, full library pulls, scans
-export STACK_API_TIMEOUT_LIGHT STACK_API_TIMEOUT_MUTATE STACK_API_TIMEOUT_HEAVY
+: "${STACK_DOCKER_TIMEOUT:=5}"     # docker CLI calls (container-name completion)
+export STACK_API_TIMEOUT_LIGHT STACK_API_TIMEOUT_MUTATE STACK_API_TIMEOUT_HEAVY STACK_DOCKER_TIMEOUT
+# Data transport to embedded python: bulk payloads that scale with library
+# size (series maps, history, full-collection pulls) must be piped via stdin
+# (echo "$result" | python3 -c ...), never passed through env vars — a single
+# env var is capped at 128 KB (MAX_ARG_STRLEN) and can fail execve with E2BIG
+# silently. Only scalar config (URLs, keys, IDs, limits) goes via env.
 
 # __stack_curl <budget_secs> <curl args...>
 # Wraps curl with --max-time and --connect-timeout so both a wedged accept()
@@ -205,5 +211,7 @@ __nzbdav_api() {
 
 # __stack_containers — live container names (completion helper).
 __stack_containers() {
-    docker ps -a --format '{{.Names}}' 2>/dev/null | sort
+    # A wedged Docker daemon must not hang tab completion: cap the call and
+    # fail soft to an empty list (mirrors the API timeout discipline).
+    timeout "$STACK_DOCKER_TIMEOUT" docker ps -a --format '{{.Names}}' 2>/dev/null | sort
 }
