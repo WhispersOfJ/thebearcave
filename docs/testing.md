@@ -8,7 +8,6 @@ nzbdav_rclone, Seerr, Plex, and Unpackerr.
 ```bash
 docker compose config --quiet
 bash -n scripts/*.sh tests/*/*.sh
-./tests/fish/test_fish_functions.sh --offline
 ./tests/bash/test_bash_functions.sh --offline
 ./scripts/preflight.sh
 ```

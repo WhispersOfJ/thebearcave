@@ -125,7 +125,8 @@ TheBearCave/
 ## Operational surface
 
 The supported operator surface is Docker Compose, the scripts under `scripts/`,
-the health checks under `tests/health/`, and the Fish functions under
-`services/fish-functions/`. Retired services and their removal rationale are
-tracked in [services/lifecycle.md](services/lifecycle.md); they are not part of
-this architecture.
+the health checks under `tests/health/`, and the bash functions under
+`services/bash-functions/`. Retired services and their removal rationale are
+tracked in [services/lifecycle.md](services/lifecycle.md); the retired fish
+functions are recorded in [services/FISH.md](services/FISH.md). They are not
+part of this architecture.

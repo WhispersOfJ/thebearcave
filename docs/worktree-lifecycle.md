@@ -47,8 +47,7 @@ Run the checks CI will run:
 ```bash
 docker compose config --quiet
 bash -n scripts/*.sh tests/*/*.sh
-bash tests/fish/test_fish_functions.sh --offline
-fish services/fish-functions/scripts/gen-completions.fish --check
+./scripts/preflight.sh
 ```
 
 ## 4. Commit and push
