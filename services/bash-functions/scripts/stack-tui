@@ -35,8 +35,17 @@ import sys
 import threading
 from pathlib import Path
 
-import urwid
-from urwid.widget import WHSettings
+# urwid is only needed for the interactive TUI. Importing it at module level
+# would force --list/--run (and the CI contract test) to depend on it, so
+# degrade to None when it is absent and require it only in the TUI path.
+# The `uv run --script` shebang provisions urwid automatically for
+# interactive use; plain `python3` users get a clear hint, not a traceback.
+try:
+    import urwid
+    from urwid.widget import WHSettings
+except ImportError:
+    urwid = None
+    WHSettings = None
 
 REPO = Path(__file__).resolve().parents[3]
 META_SH = REPO / "services" / "bash-functions" / "functions" / "__metadata.sh"
@@ -370,6 +379,12 @@ def main():
         return 0
     if opts.run:
         return cmd_run(funcs, opts.run, opts.args)
+
+    if urwid is None:
+        print("error: interactive mode needs urwid — run via the script's uv "
+              "shebang (`./services/bash-functions/scripts/stack-tui`), which "
+              "provisions it automatically", file=sys.stderr)
+        return 1
 
     try:
         StackTui(funcs).loop.run()
