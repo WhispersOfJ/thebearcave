@@ -51,6 +51,12 @@ failed=0
 # Source the full loader once into the running shell so the stack-*
 # functions, fmt_* helpers, __helpers, and the docker wrapper are all
 # defined for the subsequent per-function checks. Keep output quiet.
+# Read by the sourced bearcave-bash.sh (fmt_* helpers check STACK_COLOR to
+# decide color output); shellcheck cannot see into the sourced file.
+# shellcheck disable=SC2034
+# Read by the sourced bearcave-bash.sh (fmt_* helpers check STACK_COLOR to
+# decide color output); shellcheck cannot see into the sourced file.
+# shellcheck disable=SC2034
 STACK_COLOR=false
 # shellcheck disable=SC1091
 source "$BASH_DIR/bearcave-bash.sh" >/dev/null 2>&1
