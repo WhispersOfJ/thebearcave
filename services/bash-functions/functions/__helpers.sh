@@ -105,7 +105,7 @@ __arr_api_key() {
             return 1 ;;
     esac
     if [ -z "$key" ]; then
-        echo "API key for $1 not set (expected ${1}_API_KEY uppercase in environment)" >&2
+        echo "API key for $1 not set (expected ${1^^}_API_KEY uppercase in environment)" >&2
         return 1
     fi
     echo "$key"
