@@ -55,6 +55,7 @@ Seerr `:5055`, Plex `:32400`.
 ```bash
 services/bash-functions/scripts/gen-bash-completions.sh --check   # drift gate
 bash -n services/bash-functions/functions/*.sh                   # syntax gate
+./tests/bash/test_bash_functions.sh --offline                   # full offline smoke
 ```
 
 ## Relationship to the fish functions

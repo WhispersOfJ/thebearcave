@@ -266,7 +266,7 @@ rule applies to every future change, including the change that introduced it.
 
 1. Run validation: `docker compose config --quiet`
 2. Run bash syntax checks: `bash -n scripts/*.sh tests/*/*.sh`
-3. Run fish smoke tests: `bash tests/fish/test_fish_functions.sh --offline` (drop `--offline` to run the full suite against the live stack)
+3. Run fish smoke tests: `bash tests/fish/test_fish_functions.sh --offline` (drop `--offline` to run the full suite against the live stack). Run the bash-port equivalent: `bash tests/bash/test_bash_functions.sh --offline`
 4. Use `./tests/integration/test_pipeline.sh --dry-run` for a live infrastructure check when the NzbDAV queue is non-empty; the full pipeline test intentionally fails rather than treating active queued work as safe.
 5. Keep agent-facing operational output in English.
 6. **Restart containers after editing bind-mounted files** — `sed -i` or `vim` on a bind-mounted file changes the inode; the container keeps serving the old content until restarted. This is invisible (no error).

@@ -122,6 +122,7 @@ Run these before opening a PR (they mirror what CI runs):
 docker compose config --quiet
 bash -n scripts/*.sh tests/*/*.sh
 bash tests/fish/test_fish_functions.sh --offline
+bash tests/bash/test_bash_functions.sh --offline
 fish services/fish-functions/scripts/gen-completions.fish --check
 python3 scripts/check_compose_mounts.py
 ./tests/health/run-all.sh
