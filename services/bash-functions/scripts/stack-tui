@@ -39,70 +39,45 @@ import urwid
 from urwid.widget import WHSettings
 
 REPO = Path(__file__).resolve().parents[3]
-FN_DIR = REPO / "services" / "bash-functions" / "functions"
+META_SH = REPO / "services" / "bash-functions" / "functions" / "__metadata.sh"
 LOADER = REPO / "services" / "bash-functions" / "bearcave-bash.sh"
 ENV_FILE = REPO / ".env"
 
 RUN_TIMEOUT = int(os.environ.get("STACK_TUI_TIMEOUT", "300"))
 
-DEF_RE = re.compile(r"^(stack-[a-z0-9-]+)\(\)\s*\{")
-COMPLETE_RE = re.compile(r"^#\s*complete:\s*(.+)$")
-SEP_RE = re.compile(r"^#\s*=+$")
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
-
-# Signals found in a function body that classify it as mutating. Over-approximates
-# on purpose: the cost of a false "mutating" is one extra confirm click.
-DANGER_SIGNALS = (
-    "STACK_API_TIMEOUT_MUTATE",
-    "-X POST", "-X PUT", "-X DELETE",
-    "method='POST'", "method='PUT'", "method='DELETE'",
-    "--force",
-    "compose restart", "compose stop", "compose rm", "compose down",
-    "compose up", "compose recreate",
-    "rm -", "truncate", "emptyTrash", "clear-blocklist",
-)
 
 
 def parse_functions():
-    """Return a list of {name, category, complete, danger, help} dicts."""
+    """Return a list of {name, category, complete, danger, help} dicts.
+
+    The metadata is parsed once by the shared bash parser
+    (functions/__metadata.sh — the single source of truth also used by
+    gen-bash-completions.sh and stack-help) and fetched via subprocess, so
+    the TUI can never drift from the other surfaces. Contract per line:
+    name<TAB>category<TAB>desc<TAB>danger<TAB>complete<TAB>help where help
+    joins its lines with a literal two-char "\n".
+    """
+    proc = subprocess.run(
+        ["bash", "-c", 'source "$1"; __stack_metadata', "_", str(META_SH)],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"__stack_metadata failed (rc={proc.returncode}): {proc.stderr}")
     funcs = []
-    for f in sorted(FN_DIR.glob("stack-*.sh")):
-        lines = f.read_text(encoding="utf-8").splitlines()
-        n = len(lines)
-        i = 0
-        while i < n:
-            m = DEF_RE.match(lines[i])
-            if not m:
-                i += 1
-                continue
-            name = m.group(1)
-            help_lines = []
-            j = i - 1
-            while j >= 0 and lines[j].startswith("#"):
-                if not SEP_RE.match(lines[j]):
-                    help_lines.insert(0, lines[j].lstrip("# ").rstrip())
-                j -= 1
-            body = []
-            k = i + 1
-            while k < n and not DEF_RE.match(lines[k]) and lines[k] != "}":
-                body.append(lines[k])
-                k += 1
-            complete = ""
-            for bl in body:
-                cm = COMPLETE_RE.match(bl)
-                if cm:
-                    complete = cm.group(1).strip()
-                    break
-            danger = any(sig in "\n".join(body) for sig in DANGER_SIGNALS)
-            funcs.append({
-                "name": name,
-                "category": f.stem,
-                "complete": complete,
-                "danger": danger,
-                "help": help_lines or ["(no help comment)"],
-                "args": complete.split() if complete else [],
-            })
-            i = k
+    for line in proc.stdout.splitlines():
+        if not line:
+            continue
+        name, category, _desc, danger, complete, help_ = line.split("\t", 5)
+        funcs.append({
+            "name": name,
+            "category": category,
+            "complete": complete,
+            "danger": danger == "danger",
+            "help": help_.split("\\n") if help_ else ["(no help comment)"],
+            "args": complete.split() if complete else [],
+        })
     return funcs
 
 
@@ -386,7 +361,8 @@ def main():
 
     funcs = parse_functions()
     if not funcs:
-        print(f"error: no stack-* functions found in {FN_DIR}", file=sys.stderr)
+        print("error: __stack_metadata returned no functions "
+              "(check services/bash-functions/functions/)", file=sys.stderr)
         return 1
 
     if opts.list:
