@@ -109,7 +109,7 @@ stack-plex() {
             fi
             for key in $sections; do
                 total=$((total + 1))
-                curl -sf -X POST "$plex_url/library/sections/$key/refresh?X-Plex-Token=$token" >/dev/null 2>&1 \
+                __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$plex_url/library/sections/$key/refresh?X-Plex-Token=$token" >/dev/null 2>&1 \
                     || failed=$((failed + 1))
             done
             if [ "$failed" -eq 0 ]; then
@@ -129,7 +129,7 @@ stack-plex() {
             fi
             for key in $sections; do
                 total=$((total + 1))
-                curl -sf -X PUT "$plex_url/library/sections/$key/emptyTrash?X-Plex-Token=$token" >/dev/null 2>&1 \
+                __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X PUT "$plex_url/library/sections/$key/emptyTrash?X-Plex-Token=$token" >/dev/null 2>&1 \
                     || failed=$((failed + 1))
             done
             if [ "$failed" -eq 0 ]; then
@@ -149,7 +149,7 @@ stack-plex() {
             fi
             for key in $sections; do
                 total=$((total + 1))
-                curl -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
+                __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
                     || failed=$((failed + 1))
             done
             if [ "$failed" -eq 0 ]; then

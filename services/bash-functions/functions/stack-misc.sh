@@ -14,7 +14,7 @@ stack-seerr-requests() {
 # stack-notify-test — send a test notification via Discord webhook
 stack-notify-test() {
     if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-        if curl -sf -X POST "$DISCORD_WEBHOOK_URL" \
+        if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$DISCORD_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d '{"content": "🧪 Test notification from The Bear Cave"}' >/dev/null 2>&1; then
             fmt_success "Test notification sent."

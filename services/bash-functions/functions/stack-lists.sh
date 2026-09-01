@@ -131,7 +131,7 @@ stack-mdblist-import() {
     fi
 
     local result
-    result="$(curl -sf "$endpoint" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$endpoint" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot fetch list from MDBList"
         return 1
@@ -239,7 +239,7 @@ stack-letterboxd-import() {
 
     local rss_url="$feed_url/rss/"
     local result
-    result="$(curl -sfL "$rss_url" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_HEAVY" -sfL "$rss_url" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot fetch Letterboxd feed from $rss_url"
         return 1

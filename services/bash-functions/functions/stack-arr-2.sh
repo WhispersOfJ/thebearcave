@@ -19,7 +19,7 @@ stack-arr-import() {
     name="DownloadedMoviesScan"
     [ "$app" = sonarr ] && name="DownloadedEpisodesScan"
 
-    if curl -sf -X POST "$url/api/v3/command" -H "X-Api-Key: $key" \
+    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$url/api/v3/command" -H "X-Api-Key: $key" \
         -H 'Content-Type: application/json' \
         -d "{\"name\": \"$name\"}" >/dev/null 2>&1; then
         fmt_success "$app: $name triggered."
@@ -44,7 +44,7 @@ stack-arr-import-all() {
     name="DownloadedMoviesScan"
     [ "$app" = sonarr ] && name="DownloadedEpisodesScan"
 
-    if curl -sf -X POST "$url/api/v3/command" -H "X-Api-Key: $key" \
+    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$url/api/v3/command" -H "X-Api-Key: $key" \
         -H 'Content-Type: application/json' \
         -d "{\"name\": \"$name\"}" >/dev/null 2>&1; then
         fmt_success "$app: $name triggered."
@@ -71,7 +71,7 @@ stack-arr-import-candidates() {
 
     # Query queue for completed downloads awaiting import (same as fish version;
     # the bare /manualimport endpoint hangs Radarr when called without params)
-    result="$(curl -sf --max-time 15 "$url/api/v3/queue?pageSize=100&status=completed" -H "X-Api-Key: $key" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/queue?pageSize=100&status=completed" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
         return 1
@@ -122,7 +122,7 @@ stack-arr-logs() {
     fmt_heading "$app — Recent Logs ($lines lines)"
     echo ""
 
-    result="$(curl -sf "$url/api/v3/log?pageSize=$lines&sortKey=time&sortDirection=descending" \
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/log?pageSize=$lines&sortKey=time&sortDirection=descending" \
         -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"

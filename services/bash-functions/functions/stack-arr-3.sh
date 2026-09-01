@@ -31,7 +31,7 @@ stack-arr() {
     url="$(__arr_api_url "$app")" || { echo "Cannot determine URL for $app" >&2; return 1; }
     key="$(__arr_api_key "$app")" || { echo "Cannot determine API key for $app" >&2; return 1; }
 
-    if curl -sf -X POST "$url/api/v3/command" \
+    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$url/api/v3/command" \
         -H "X-Api-Key: $key" \
         -H "Content-Type: application/json" \
         -d "{\"name\": \"$api_cmd\"}" 2>/dev/null >/dev/null; then
@@ -52,15 +52,15 @@ stack-backlog-status() {
         key="$(__arr_api_key "$app")" || continue
 
         if [ "$app" = radarr ]; then
-            total="$(curl -sf "$url/api/v3/movie?pageSize=1" -H "X-Api-Key: $key" 2>/dev/null \
+            total="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/movie?pageSize=1" -H "X-Api-Key: $key" 2>/dev/null \
                 | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("totalRecords", "?"))' 2>/dev/null)"
-            missing="$(curl -sf "$url/api/v3/movie?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null \
+            missing="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/movie?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null \
                 | python3 -c 'import sys,json; d=json.load(sys.stdin); print(sum(1 for i in d if i.get("monitored") and not i.get("hasFile") and i.get("isAvailable")))' 2>/dev/null)"
             echo "  $app: $total monitored, $missing released+missing"
         else
-            total="$(curl -sf "$url/api/v3/series?pageSize=1" -H "X-Api-Key: $key" 2>/dev/null \
+            total="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/series?pageSize=1" -H "X-Api-Key: $key" 2>/dev/null \
                 | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("totalRecords", "?"))' 2>/dev/null)"
-            missing="$(curl -sf "$url/api/v3/missing?pageSize=1" -H "X-Api-Key: $key" 2>/dev/null \
+            missing="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/missing?pageSize=1" -H "X-Api-Key: $key" 2>/dev/null \
                 | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("totalRecords", "?"))' 2>/dev/null)"
             echo "  $app: $total series, $missing aired episodes missing"
         fi
@@ -75,7 +75,7 @@ stack-command-queue-summary() {
     for app in radarr sonarr; do
         url="$(__arr_api_url "$app")"
         key="$(__arr_api_key "$app")" || continue
-        count="$(curl -sf "$url/api/v3/command?pageSize=50" -H "X-Api-Key: $key" 2>/dev/null \
+        count="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/command?pageSize=50" -H "X-Api-Key: $key" 2>/dev/null \
             | python3 -c "import sys,json; d=json.load(sys.stdin); recs=d.get('records',d) if isinstance(d,dict) else d; print(len([c for c in recs if c.get('status')=='queued']))" 2>/dev/null)"
         echo "  $app: $count queued commands"
     done
@@ -97,7 +97,7 @@ stack-import-lists() {
     fmt_heading "$app — Import Lists"
     echo ""
 
-    result="$(curl -sf "$url/api/v3/importlist" -H "X-Api-Key: $key" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/importlist" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
         return 1
@@ -160,7 +160,7 @@ stack-prowlarr-indexers() {
     echo ""
 
     local result
-    result="$(curl -sf "$url/api/v1/indexer" -H "X-Api-Key: $key" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v1/indexer" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach Prowlarr"
         return 1

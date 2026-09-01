@@ -21,7 +21,7 @@ stack-arr-backlog() {
     echo ""
 
     local result
-    result="$(curl -sf "$url/api/v3/command?pageSize=50" -H "X-Api-Key: $key" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/command?pageSize=50" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
         return 1
@@ -59,7 +59,7 @@ stack-arr-recently-added() {
     echo ""
 
     local result
-    result="$(curl -sf "$url/api/v3/$endpoint?pageSize=$limit&sortKey=added&sortDirection=descending" \
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/$endpoint?pageSize=$limit&sortKey=added&sortDirection=descending" \
         -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
@@ -152,7 +152,7 @@ stack-arr-blocklist() {
     echo ""
 
     local result
-    result="$(curl -sf "$url/api/v3/blocklist?pageSize=$limit&sortKey=date&sortDirection=descending" \
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/blocklist?pageSize=$limit&sortKey=date&sortDirection=descending" \
         -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
@@ -187,7 +187,7 @@ stack-arr-clear-blocklist() {
     url="$(__arr_api_url "$app")"
     key="$(__arr_api_key "$app")" || return 1
 
-    if curl -sf -X DELETE "$url/api/v3/blocklist" -H "X-Api-Key: $key" >/dev/null 2>&1; then
+    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X DELETE "$url/api/v3/blocklist" -H "X-Api-Key: $key" >/dev/null 2>&1; then
         fmt_success "Blocklist cleared for $app."
     else
         fmt_error "Failed to clear blocklist for $app."
@@ -214,7 +214,7 @@ stack-arr-missing-aired() {
 
     local result
     if [ "$app" = radarr ]; then
-        result="$(curl -sf "$url/api/v3/movie?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null)"
+        result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/movie?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null)"
         if [ $? -ne 0 ]; then
             fmt_error "Cannot reach $app"
             return 1
@@ -242,9 +242,9 @@ else:
         # Episode records do not embed the series, so resolve titles from
         # /api/v3/series.
         local series_map
-        series_map="$(curl -sf "$url/api/v3/series?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null \
+        series_map="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/series?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null \
             | python3 -c "import sys,json; print(json.dumps({s['id']: s.get('title','?') for s in json.load(sys.stdin)}))" 2>/dev/null)"
-        result="$(curl -sf "$url/api/v3/wanted/missing?pageSize=$limit&sortKey=airDateUtc&sortDirection=descending" \
+        result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/wanted/missing?pageSize=$limit&sortKey=airDateUtc&sortDirection=descending" \
             -H "X-Api-Key: $key" 2>/dev/null)"
         if [ $? -ne 0 ]; then
             fmt_error "Cannot reach $app"
@@ -295,7 +295,7 @@ stack-cutoff-unmet() {
     echo ""
 
     local result
-    result="$(curl -sf "$url/api/v3/wanted/cutoff?pageSize=$limit" -H "X-Api-Key: $key" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/wanted/cutoff?pageSize=$limit" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
         return 1

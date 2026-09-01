@@ -21,7 +21,7 @@ stack-loop-candidates() {
     echo ""
 
     # Items with multiple failed grabs in history
-    result="$(curl -sf "$url/api/v3/history?pageSize=200&eventTypes=grabFailed" \
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/history?pageSize=200&eventTypes=grabFailed" \
         -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
@@ -71,7 +71,7 @@ stack-loop-exclude() {
     key="$(__arr_api_key radarr)" || return 1
 
     # Exclusions are keyed by TMDb id, so resolve the movie first
-    movie="$(curl -sf "$url/api/v3/movie/$id" -H "X-Api-Key: $key" 2>/dev/null)"
+    movie="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/movie/$id" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot fetch movie $id from Radarr"
         return 1
@@ -92,7 +92,7 @@ print(m.get('title', '?').replace(chr(10), ' '))
         return 1
     fi
 
-    if curl -sf -X POST "$url/api/v3/exclusions" \
+    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$url/api/v3/exclusions" \
         -H "X-Api-Key: $key" \
         -H "Content-Type: application/json" \
         -d "{\"tmdbId\": $tmdb_id, \"movieTitle\": \"$title\"}" >/dev/null 2>&1; then
@@ -131,7 +131,7 @@ stack-loop-unmonitor() {
 
     # Get current item, then update monitored=false
     local item
-    item="$(curl -sf "$url/api/v3/$endpoint/$id" -H "X-Api-Key: $key" 2>/dev/null)"
+    item="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/$endpoint/$id" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot fetch item $id from $app"
         return 1
@@ -142,7 +142,7 @@ import sys, json, subprocess, os
 item = json.load(sys.stdin)
 item['monitored'] = False
 subprocess.run([
-    'curl', '-sf', '-X', 'PUT',
+    'curl', '-sf', '--connect-timeout', '5', '--max-time', os.environ.get('STACK_API_TIMEOUT_MUTATE', '20'), '-X', 'PUT',
     os.environ['URL'] + '/api/v3/' + os.environ['ENDPOINT'] + '/' + os.environ['ID'],
     '-H', 'X-Api-Key: ' + os.environ['KEY'],
     '-H', 'Content-Type: application/json',
@@ -165,7 +165,7 @@ stack-tmdb-missing() {
     echo ""
 
     local sections
-    sections="$(curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null)"
+    sections="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach Plex"
         return 1
@@ -227,7 +227,7 @@ stack-rating-imdb() {
     fi
 
     local result
-    result="$(curl -sf "http://www.omdbapi.com/?i=$1&apikey=$omdb_key" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_HEAVY" -sf "http://www.omdbapi.com/?i=$1&apikey=$omdb_key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach OMDb API"
         return 1
@@ -260,7 +260,7 @@ stack-rating-mdblist() {
 
     local payload result
     payload="$(python3 -c 'import json, sys; print(json.dumps({"query": sys.argv[1]}))' "$1")"
-    result="$(curl -sf -X POST "https://api.mdblist.com/api/search?apikey=$mdblist_key" \
+    result="$(__stack_curl "$STACK_API_TIMEOUT_HEAVY" -sf -X POST "https://api.mdblist.com/api/search?apikey=$mdblist_key" \
         -H "Content-Type: application/json" \
         -d "$payload" 2>/dev/null)"
     if [ $? -ne 0 ]; then
