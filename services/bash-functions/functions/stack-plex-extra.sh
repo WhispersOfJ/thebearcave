@@ -12,7 +12,7 @@ stack-plex-duplicates() {
     fmt_heading "Plex — Duplicates"
     echo ""
 
-    curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    __stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | PLEX_URL="$plex_url" TOKEN="$token" python3 -c "
 import sys, json, urllib.request, os
 try:
@@ -104,7 +104,7 @@ stack-plex-deep-media-analysis() {
     fmt_heading "Plex — Deep Media Analysis"
     echo ""
     local sections failed=0 total=0 key
-    sections="$(curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    sections="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c 'import sys,json; [print(d["key"]) for d in json.load(sys.stdin)["MediaContainer"].get("Directory", [])]' 2>/dev/null)"
     if [ -z "$sections" ]; then
         fmt_error "Cannot reach Plex or no libraries found."
@@ -112,7 +112,7 @@ stack-plex-deep-media-analysis() {
     fi
     for key in $sections; do
         total=$((total + 1))
-        curl -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
+        __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
             || failed=$((failed + 1))
     done
     if [ "$failed" -eq 0 ]; then
@@ -134,7 +134,7 @@ stack-plex-upgrade-media-analysis() {
     fmt_heading "Plex — Upgrade Media Analysis"
     echo ""
     local sections failed=0 total=0 key
-    sections="$(curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    sections="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c 'import sys,json; [print(d["key"]) for d in json.load(sys.stdin)["MediaContainer"].get("Directory", [])]' 2>/dev/null)"
     if [ -z "$sections" ]; then
         fmt_error "Cannot reach Plex or no libraries found."
@@ -142,7 +142,7 @@ stack-plex-upgrade-media-analysis() {
     fi
     for key in $sections; do
         total=$((total + 1))
-        curl -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
+        __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
             || failed=$((failed + 1))
     done
     if [ "$failed" -eq 0 ]; then
@@ -164,7 +164,7 @@ stack-plex-music-analysis() {
     fmt_heading "Plex — Music Analysis"
     echo ""
     local sections key
-    sections="$(curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    sections="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c 'import sys,json; [print(d["key"]) for d in json.load(sys.stdin)["MediaContainer"].get("Directory", []) if d.get("type")=="artist"]' 2>/dev/null)"
     if [ -z "$sections" ]; then
         fmt_warning "No music libraries found."
@@ -173,7 +173,7 @@ stack-plex-music-analysis() {
     local failed=0 total=0
     for key in $sections; do
         total=$((total + 1))
-        curl -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
+        __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
             || failed=$((failed + 1))
     done
     if [ "$failed" -eq 0 ]; then
@@ -195,7 +195,7 @@ stack-plex-loudness-analysis() {
     fmt_heading "Plex — Loudness Analysis"
     echo ""
     local sections key failed=0 total=0
-    sections="$(curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    sections="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c 'import sys,json; [print(d["key"]) for d in json.load(sys.stdin)["MediaContainer"].get("Directory", []) if d.get("type")=="artist"]' 2>/dev/null)"
     if [ -z "$sections" ]; then
         fmt_warning "No music libraries found."
@@ -203,7 +203,7 @@ stack-plex-loudness-analysis() {
     fi
     for key in $sections; do
         total=$((total + 1))
-        curl -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
+        __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X PUT "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1 \
             || failed=$((failed + 1))
     done
     if [ "$failed" -eq 0 ]; then

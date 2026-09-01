@@ -12,7 +12,7 @@ stack-queue-status() {
     for app in radarr sonarr; do
         url="$(__arr_api_url "$app")"
         key="$(__arr_api_key "$app")" || continue
-        result="$(curl -sf "$url/api/v3/queue?pageSize=50" -H "X-Api-Key: $key" 2>/dev/null)"
+        result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/queue?pageSize=50" -H "X-Api-Key: $key" 2>/dev/null)"
         if [ $? -ne 0 ]; then
             echo "  $app: unreachable"
             continue
@@ -53,7 +53,7 @@ stack-arr-queue-errors() {
     fmt_heading "$app — Queue Errors"
     echo ""
 
-    result="$(curl -sf "$url/api/v3/queue?page=1&pageSize=100" -H "X-Api-Key: $key" 2>/dev/null)"
+    result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/queue?page=1&pageSize=100" -H "X-Api-Key: $key" 2>/dev/null)"
     if [ $? -ne 0 ]; then
         fmt_error "Cannot reach $app"
         return 1

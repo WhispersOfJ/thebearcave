@@ -65,6 +65,26 @@ the bash port is additive. The planned retirement of the fish functions into a
 `docs/services/FISH.md` retirement record is tracked separately and will land
 in a follow-up PR after this port is validated in daily use.
 
+## API call timeouts
+
+Every API call routes through a central `__stack_curl` wrapper that injects
+`--connect-timeout 5 --max-time <budget>`, so a wedged or dead service can
+never hang a `stack-*` command forever — it fails-soft (curl exit 28) and the
+caller's existing `Cannot reach <app>` guard prints the message.
+
+Budgets are per-call type and overridable via env vars:
+
+| Budget | Default | Covers | Override |
+|---|---|---|---|
+| `STACK_API_TIMEOUT_LIGHT` | 10s | status, queue, sessions, indexers, single-item GETs | |
+| `STACK_API_TIMEOUT_MUTATE` | 20s | POST/PUT/DELETE command triggers, butler, exclusions | |
+| `STACK_API_TIMEOUT_HEAVY` | 30s | history pulls, full library scans, external RSS/OMDb/MDBList | |
+
+The four `__*_api` helpers (`__arr_api`, `__plex_api`, `__seerr_api`,
+`__nzbdav_api`) pick LIGHT/MUTATE from the HTTP method automatically; raw
+call sites in `stack-*.sh` pass the budget explicitly. Python-embedded
+`subprocess.run(['curl', ...])` sites carry inline `--max-time`.
+
 ## Safety behavior
 
 The `docker` wrapper routes NzbDAV and `nzbdav_rclone` state-changing

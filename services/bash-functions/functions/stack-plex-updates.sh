@@ -12,7 +12,7 @@ stack-plex-updates() {
     fmt_heading "Plex — Updates"
     echo ""
 
-    curl -sf -H "Accept: application/json" "$plex_url/updater/check?X-Plex-Token=$token" 2>/dev/null \
+    __stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/updater/check?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c "
 import sys, json
 try:
@@ -38,17 +38,17 @@ stack-plex-analyze() {
     local ok=0 failed=0 key
     if [ "$lib" = all ]; then
         local sections
-        sections="$(curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+        sections="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
             | python3 -c 'import sys,json; [print(d["key"]) for d in json.load(sys.stdin)["MediaContainer"].get("Directory", [])]' 2>/dev/null)"
         for key in $sections; do
-            if curl -sf -X POST "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1; then
+            if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$plex_url/library/sections/$key/analyze?X-Plex-Token=$token" >/dev/null 2>&1; then
                 ok=$((ok + 1))
             else
                 failed=$((failed + 1))
             fi
         done
     else
-        if curl -sf -X POST "$plex_url/library/sections/$lib/analyze?X-Plex-Token=$token" >/dev/null 2>&1; then
+        if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$plex_url/library/sections/$lib/analyze?X-Plex-Token=$token" >/dev/null 2>&1; then
             ok=$((ok + 1))
         else
             failed=$((failed + 1))
@@ -68,7 +68,7 @@ stack-plex-empty-trash() {
     local token="${PLEX_TOKEN:-}"
 
     local sections failed=0 total=0 key
-    sections="$(curl -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
+    sections="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf -H "Accept: application/json" "$plex_url/library/sections?X-Plex-Token=$token" 2>/dev/null \
         | python3 -c 'import sys,json; [print(d["key"]) for d in json.load(sys.stdin)["MediaContainer"].get("Directory", [])]' 2>/dev/null)"
     if [ -z "$sections" ]; then
         fmt_error "Cannot reach Plex or no libraries found."
@@ -76,7 +76,7 @@ stack-plex-empty-trash() {
     fi
     for key in $sections; do
         total=$((total + 1))
-        curl -sf -X PUT "$plex_url/library/sections/$key/emptyTrash?X-Plex-Token=$token" >/dev/null 2>&1 \
+        __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X PUT "$plex_url/library/sections/$key/emptyTrash?X-Plex-Token=$token" >/dev/null 2>&1 \
             || failed=$((failed + 1))
     done
     if [ "$failed" -eq 0 ]; then
@@ -119,7 +119,7 @@ stack-queue-autofix() {
         url="$(__arr_api_url "$app")"
         key="$(__arr_api_key "$app")" || continue
 
-        result="$(curl -sf "$url/api/v3/queue?pageSize=100" -H "X-Api-Key: $key" 2>/dev/null)"
+        result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/queue?pageSize=100" -H "X-Api-Key: $key" 2>/dev/null)"
         if [ $? -ne 0 ]; then
             echo "  $app: unreachable"
             continue
@@ -140,7 +140,7 @@ else:
         title = q.get('title', '?')
         qid = q.get('id')
         subprocess.run([
-            'curl', '-sf', '-X', 'POST',
+            'curl', '-sf', '--connect-timeout', '5', '--max-time', os.environ.get('STACK_API_TIMEOUT_MUTATE', '20'), '-X', 'POST',
             url + '/api/v3/blocklist',
             '-H', 'X-Api-Key: ' + key,
             '-H', 'Content-Type: application/json',
@@ -148,7 +148,7 @@ else:
         ], capture_output=True)
         print(f'  {app}: blocklisted {title}')
     subprocess.run([
-        'curl', '-sf', '-X', 'POST',
+        'curl', '-sf', '--connect-timeout', '5', '--max-time', os.environ.get('STACK_API_TIMEOUT_MUTATE', '20'), '-X', 'POST',
         url + '/api/v3/command',
         '-H', 'X-Api-Key: ' + key,
         '-H', 'Content-Type: application/json',
@@ -164,7 +164,7 @@ stack-sonarr-fix-episode-monitoring() {
     local url key
     url="$(__arr_api_url sonarr)"
     key="$(__arr_api_key sonarr)" || return 1
-    if curl -sf -X POST "$url/api/v3/command" \
+    if __stack_curl "$STACK_API_TIMEOUT_MUTATE" -sf -X POST "$url/api/v3/command" \
         -H "X-Api-Key: $key" \
         -H "Content-Type: application/json" \
         -d '{"name": "RefreshMonitoredDownloads"}' >/dev/null 2>&1; then
