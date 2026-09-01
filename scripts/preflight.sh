@@ -93,6 +93,7 @@ fi
 
 check "compose mounts" python3 scripts/check_compose_mounts.py
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
+check "python env transports" python3 scripts/check_python_env_transports.py
 
 if [ -n "${NZBDAV_QUEUE_OFFLINE:-}" ]; then
   check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --offline

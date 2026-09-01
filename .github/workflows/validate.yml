@@ -70,6 +70,9 @@ jobs:
           pip install ruff==0.8.6
           ruff check . --exclude archive/ --exclude "**/migrations"
 
+      - name: Check python env transports
+        run: python3 scripts/check_python_env_transports.py
+
       - name: Bash syntax
         run: |
           for f in scripts/*.sh scripts/git-hooks/* tests/*/*.sh; do
