@@ -333,6 +333,43 @@ else
     log_error "unit: __arr_api_key unset message unexpected (rc=$rc): [$key_msg]"
 fi
 
+# --- Unit: stale arr key/URL warning (offline) ---
+# A pre-set key that differs from .env must produce a warning naming the var;
+# a matching pre-set value and a missing .env must stay silent. Uses a
+# throwaway fixture .env via BEARCAVE_REPO_DIR so the result is deterministic
+# in CI (dummy .env) and locally (real .env).
+log_info "unit: stale arr key warning fires on mismatch, silent on match..."
+stale_tmp="$(mktemp -d)"
+printf 'SONARR_API_KEY=real-key\nRADARR_URL=http://real:7878\n' > "$stale_tmp/.env"
+stale_out="$(SONARR_API_KEY='stale-key' RADARR_URL='http://real:7878' \
+    BEARCAVE_REPO_DIR="$stale_tmp" STACK_COLOR=false bash -c '
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    __bearcave_warn_stale_keys
+' _ "$BASH_DIR/bearcave-bash.sh" 2>&1)" && rc=0 || rc=$?
+match_out="$(SONARR_API_KEY='real-key' RADARR_URL='http://real:7878' \
+    BEARCAVE_REPO_DIR="$stale_tmp" STACK_COLOR=false bash -c '
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    __bearcave_warn_stale_keys
+' _ "$BASH_DIR/bearcave-bash.sh" 2>&1)" && rc=0 || rc=$?
+noenv_out="$(SONARR_API_KEY='stale-key' BEARCAVE_REPO_DIR="$(mktemp -d)" \
+    STACK_COLOR=false bash -c '
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    __bearcave_warn_stale_keys
+' _ "$BASH_DIR/bearcave-bash.sh" 2>&1)" && rc=0 || rc=$?
+rm -rf "$stale_tmp"
+if printf '%s' "$stale_out" | grep -q 'SONARR_API_KEY' \
+    && ! printf '%s' "$stale_out" | grep -q 'RADARR_URL' \
+    && [ -z "$match_out" ] && [ -z "$noenv_out" ]; then
+    passed=$((passed + 1))
+    log_success "unit: stale arr key warning fires on mismatch, silent on match"
+else
+    failed=$((failed + 1))
+    log_error "unit: stale arr key warning unexpected (stale=[$stale_out] match=[$match_out] noenv=[$noenv_out])"
+fi
+
 # run_live <command> [args...]
 # TIER 1 (live): invoke a read-only command against the running stack.
 # Pass = exit code 0 or 1 (1 is a clean handled-error like "key not set" or

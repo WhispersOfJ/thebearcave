@@ -95,6 +95,33 @@ fmt_kv() {
 }
 
 # ----------------------------------------------------------------------------
+# 2b. Stale arr-key/URL warning (the loader honors pre-set values by design, so
+#     a stale key exported by an old session makes every API call fail with a
+#     confusing "Cannot reach <app>" and re-sourcing never fixes it — surface
+#     the mismatch at load time instead). Compares only vars that exist in .env
+#     and are pre-set and non-empty. Wired to stdout tty only, so non-
+#     interactive sources (tests, CI, the TUI runner) stay silent.
+# ----------------------------------------------------------------------------
+__bearcave_warn_stale_keys() {
+    local env_file="$BEARCAVE_REPO_DIR/.env" key value expected
+    [ -f "$env_file" ] || return 0
+    for key in RADARR_API_KEY SONARR_API_KEY PROWLARR_API_KEY \
+               RADARR_URL SONARR_URL PROWLARR_URL; do
+        [ -n "${!key+x}" ] || continue          # not pre-set: nothing to compare
+        value="${!key}"
+        [ -n "$value" ] || continue             # empty pre-set: loader will fill it
+        expected="$(grep -E "^${key}=" "$env_file" | head -1 | cut -d= -f2- | tr -d '\"' | tr -d "'")"
+        if [ -n "$expected" ] && [ "$value" != "$expected" ]; then
+            fmt_warning "${key} is set in this shell but differs from .env (stale session?) — unset it and re-source, or start a new shell"
+        fi
+    done
+}
+
+if [ -t 1 ]; then
+    __bearcave_warn_stale_keys
+fi
+
+# ----------------------------------------------------------------------------
 # 3. Guarded docker compose wrapper (landmine #3: nzbdav non-persistent queue)
 #    Mirrors functions/docker.fish: intercepts `docker compose
 #    up|restart|start|stop|rm|down ... nzbdav|nzbdav_rclone` and routes
