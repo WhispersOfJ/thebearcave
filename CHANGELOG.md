@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.22.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.21.0...v1.22.0) (2026-09-01)
+
+
+### Features
+
+* add bash port of the stack-* CLI library ([#85](https://github.com/WhispersOfJ/thebearcave/issues/85)) ([adebd0d](https://github.com/WhispersOfJ/thebearcave/commit/adebd0d41d974c00f7eeb227bb443ce5d09505cf))
+* add per-call-type API timeouts so no stack-* command can hang forever ([#86](https://github.com/WhispersOfJ/thebearcave/issues/86)) ([9d3c935](https://github.com/WhispersOfJ/thebearcave/commit/9d3c935435387d8d951126defd095ae3222e3614))
+
 ## [1.21.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.20.0...v1.21.0) (2026-08-31)
 
 
