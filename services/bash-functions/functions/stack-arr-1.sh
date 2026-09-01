@@ -239,25 +239,31 @@ else:
     else
         # Sonarr: the wanted/missing endpoint is already monitored + aired
         # episodes (the bare /missing endpoint returns 401 on current Sonarr).
-        # Episode records do not embed the series, so resolve titles from
-        # /api/v3/series.
-        local series_map
-        series_map="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/series?pageSize=1000" -H "X-Api-Key: $key" 2>/dev/null \
-            | python3 -c "import sys,json; print(json.dumps({s['id']: s.get('title','?') for s in json.load(sys.stdin)}))" 2>/dev/null)"
+        # Episode records do not embed the series, so resolve titles in-python
+        # via a second API call rather than shipping a {id: title} map through
+        # an env var (a large library can exceed the 128KB execve env limit and
+        # fail silently). The map degrades to '?' titles if the fetch fails.
         result="$(__stack_curl "$STACK_API_TIMEOUT_LIGHT" -sf "$url/api/v3/wanted/missing?pageSize=$limit&sortKey=airDateUtc&sortDirection=descending" \
             -H "X-Api-Key: $key" 2>/dev/null)"
         if [ $? -ne 0 ]; then
             fmt_error "Cannot reach $app"
             return 1
         fi
-        echo "$result" | SERIES_MAP="$series_map" LIMIT="$limit" python3 -c "
-import sys, json, os
+        echo "$result" | URL="$url" KEY="$key" LIMIT="$limit" python3 -c "
+import sys, json, os, urllib.request
 try:
     data = json.load(sys.stdin)
 except Exception as e:
     print(f'  Error parsing response: {e}')
     sys.exit(1)
-series = json.loads(os.environ.get('SERIES_MAP', '{}'))
+series = {}
+try:
+    base = os.environ['URL']
+    headers = {'X-Api-Key': os.environ['KEY']}
+    req = urllib.request.Request(base + '/api/v3/series?pageSize=1000', headers=headers)
+    series = {s['id']: s.get('title', '?') for s in json.load(urllib.request.urlopen(req, timeout=int(os.environ.get('STACK_API_TIMEOUT_LIGHT', '10'))))}
+except Exception:
+    series = {}
 records = data.get('records', [])
 total = data.get('totalRecords', len(records))
 if not records:

@@ -14,6 +14,10 @@
 #                 completion set == stack-* command set
 #   guard:        mutating/arg-requiring commands invoked with no args on
 #                 closed stdin must print usage and exit 0 or 1
+#   unit:         offline renderer tests — mock wanted/missing + movie JSON
+#                 through the real stack-arr-missing-aired sonarr/radarr
+#                 paths, asserting '?'-title degradation and monitored +
+#                 missing + available filtering
 #   live:         read-only commands invoked for real against the stack
 #                 (skipped under --offline; needs .env + running services)
 #
@@ -214,6 +218,74 @@ else
     failed=$((failed + 1))
     log_error "bare curl -sf sites remain (hang risk):"
     printf '%s\n' "$bare" | sed 's/^/         - /' | head -10
+fi
+
+# --- Unit: stack-arr-missing-aired sonarr renderer (offline) ---
+# Feed mock wanted/missing JSON through the real function with a dead
+# SONARR_URL so the in-python series fetch fails and titles degrade to '?'
+# (the renderer's documented fallback). The bash-side fetch is mocked so the
+# test never touches the network and runs in CI. On the pre-fix renderer this
+# fails (empty SERIES_MAP crashed json.loads), so it pins the rework.
+log_info "unit: stack-arr-missing-aired sonarr renderer (mock wanted/missing)..."
+mock_file="$(mktemp)"
+trap 'rm -f "$mock_file"' EXIT
+printf '%s' '{"records":[{"seriesId":42,"seasonNumber":3,"episodeNumber":7,"title":"The Test"},{"seriesId":7,"seasonNumber":1,"episodeNumber":2,"title":"Second"}],"totalRecords":3}' > "$mock_file"
+unit_out="$(SONARR_URL='http://127.0.0.1:1' SONARR_API_KEY='mock-key' STACK_COLOR=false bash -c '
+    MOCK_FILE="$2"
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    # Replace the curl wrapper: emit the mock payload so the bash side never
+    # touches the network; the python renderer still tries the dead
+    # SONARR_URL and degrades to "?" titles.
+    __stack_curl() { cat "$MOCK_FILE"; }
+    "$3" sonarr 5
+' _ "$BASH_DIR/bearcave-bash.sh" "$mock_file" stack-arr-missing-aired 2>&1)" && rc=0 || rc=$?
+rm -f "$mock_file"
+if [ "$rc" -eq 0 ] \
+    && printf '%s' "$unit_out" | grep -q '? S03E07 The Test' \
+    && printf '%s' "$unit_out" | grep -q '? S01E02 Second' \
+    && printf '%s' "$unit_out" | grep -q '... and 1 more' \
+    && ! printf '%s' "$unit_out" | grep -q 'Cannot reach'; then
+    passed=$((passed + 1))
+    log_success "unit: missing-aired renderer degrades to '?' titles on dead series URL"
+else
+    failed=$((failed + 1))
+    log_error "unit: missing-aired renderer output unexpected (rc=$rc):"
+    printf '%s\n' "$unit_out" | tail -8 | sed 's/^/         /'
+fi
+
+# --- Unit: stack-arr-missing-aired radarr renderer (offline) ---
+# Feed mock movie JSON through the real function and assert the filter
+# (monitored AND no file AND available) keeps only the right titles; the
+# excluded dimensions (unmonitored / already-has-file / not-yet-available)
+# must not appear. Bash-side fetch is mocked, so no network (CI-safe).
+log_info "unit: stack-arr-missing-aired radarr renderer (mock movies)..."
+radarr_mock="$(mktemp)"
+printf '%s' '[{"title":"Available Miss","year":2020,"monitored":true,"hasFile":false,"isAvailable":true},{"title":"Not Yet Aired","year":2025,"monitored":true,"hasFile":false,"isAvailable":false},{"title":"Already Have","year":2019,"monitored":true,"hasFile":true,"isAvailable":true},{"title":"Unmonitored","year":2021,"monitored":false,"hasFile":false,"isAvailable":true},{"title":"Second Miss","year":2024,"monitored":true,"hasFile":false,"isAvailable":true}]' > "$radarr_mock"
+radarr_out="$(RADARR_API_KEY='mock-key' STACK_COLOR=false bash -c '
+    MOCK_FILE="$2"
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    # Replace the curl wrapper: emit the mock payload so the bash side never
+    # touches the network (the radarr renderer only filters stdin).
+    __stack_curl() { cat "$MOCK_FILE"; }
+    "$3" radarr 1
+' _ "$BASH_DIR/bearcave-bash.sh" "$radarr_mock" stack-arr-missing-aired 2>&1)" && rc=0 || rc=$?
+rm -f "$radarr_mock"
+if [ "$rc" -eq 0 ] \
+    && printf '%s' "$radarr_out" | grep -q 'Available Miss (2020)' \
+    && printf '%s' "$radarr_out" | grep -q '... and 1 more' \
+    && printf '%s' "$radarr_out" | grep -q '2 item(s) missing.' \
+    && ! printf '%s' "$radarr_out" | grep -q 'Not Yet Aired' \
+    && ! printf '%s' "$radarr_out" | grep -q 'Already Have' \
+    && ! printf '%s' "$radarr_out" | grep -q 'Unmonitored' \
+    && ! printf '%s' "$radarr_out" | grep -q 'Cannot reach'; then
+    passed=$((passed + 1))
+    log_success "unit: missing-aired radarr filter keeps monitored+missing+available only"
+else
+    failed=$((failed + 1))
+    log_error "unit: missing-aired radarr filter unexpected (rc=$rc):"
+    printf '%s\n' "$radarr_out" | tail -8 | sed 's/^/         /'
 fi
 
 # run_live <command> [args...]
