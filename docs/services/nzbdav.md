@@ -27,7 +27,10 @@ Important values:
 - `FRONTEND_BACKEND_API_KEY`: shared SABnzbd-compatible API key
 - `NZBDAV_WEBDAV_USER/PASS`: WebDAV credentials used by rclone
 - `NZBDAV_RCLONE_RC_PASS`: rclone remote-control password
-- `NZBDAV_USENET_*`: primary and backup provider credentials
+- `NZBDAV_USENET_*`: provider credentials — `NZBDAV_USENET_*` (primary),
+  `NZBDAV_USENET_BACKUP_*` (backup), and `NZBDAV_USENET_EWEKA_*` (third
+  slot, news.eweka.nl over SSL). All are injected into InfiniDysk's
+  `NZBDAV_CONFIG__USENET__PROVIDERS` JSON in Compose.
 - `NZBDAV_PROFILE_TOKEN`: profile/watchtower token
 
 ## Queue safety
