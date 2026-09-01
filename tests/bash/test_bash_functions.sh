@@ -58,9 +58,12 @@ failed=0
 # Read by the sourced bearcave-bash.sh (fmt_* helpers check STACK_COLOR to
 # decide color output); shellcheck cannot see into the sourced file.
 # shellcheck disable=SC2034
+<<<<<<< HEAD
 # Read by the sourced bearcave-bash.sh (fmt_* helpers check STACK_COLOR to
 # decide color output); shellcheck cannot see into the sourced file.
 # shellcheck disable=SC2034
+=======
+>>>>>>> f115fd0 (test: pass CI shellcheck on bash smoke test (SC2034 annotated, SC2016 documented))
 STACK_COLOR=false
 # shellcheck disable=SC1091
 source "$BASH_DIR/bearcave-bash.sh" >/dev/null 2>&1
@@ -234,7 +237,10 @@ run_live() {
         budget="$1"; shift
     fi
     # Pass args as positional parameters to the inner script so multi-word
-    # args (e.g. a release title) survive intact. $@ is quoted per-arg.
+    # args (e.g. a release title) survive intact. The single-quoted script is
+    # intentional: $1/$@ must expand inside the inner shell, not here
+    # (shellcheck SC2016 is expected and correct here).
+    # shellcheck disable=SC2016
     output="$(timeout "$budget" bash -c '
         STACK_COLOR=false
         # .env may reference unset vars; source it with -u off so the
