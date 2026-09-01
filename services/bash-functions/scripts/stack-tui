@@ -1,0 +1,352 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["urwid"]
+# ///
+"""stack-tui — floating-window launcher for the stack-* bash functions.
+
+Renders one clickable button per stack-* function, grouped by category,
+with a help preview, inline argument fields derived from each function's
+"# complete:" directive, and a live output pane. Firing runs the REAL bash
+function in a subshell (source .env + bearcave-bash.sh), so the TUI never
+reimplements stack logic — the functions remain the operational surface.
+
+Modes:
+  stack-tui                     interactive TUI (tmux floating popup when inside tmux)
+  stack-tui --list              machine-readable surface: name<TAB>category<TAB>danger<TAB>complete
+  stack-tui --run <name> [args] fire one function, stream output, exit with its code
+
+Dep: python3 + uv (urwid is auto-provisioned via the inline script metadata).
+"""
+
+import argparse
+import os
+import queue
+import re
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+import urwid
+from urwid.widget import WHSettings
+
+REPO = Path(__file__).resolve().parents[3]
+FN_DIR = REPO / "services" / "bash-functions" / "functions"
+LOADER = REPO / "services" / "bash-functions" / "bearcave-bash.sh"
+ENV_FILE = REPO / ".env"
+
+RUN_TIMEOUT = int(os.environ.get("STACK_TUI_TIMEOUT", "300"))
+
+DEF_RE = re.compile(r"^(stack-[a-z0-9-]+)\(\)\s*\{")
+COMPLETE_RE = re.compile(r"^#\s*complete:\s*(.+)$")
+SEP_RE = re.compile(r"^#\s*=+$")
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+# Signals found in a function body that classify it as mutating. Over-approximates
+# on purpose: the cost of a false "mutating" is one extra confirm click.
+DANGER_SIGNALS = (
+    "STACK_API_TIMEOUT_MUTATE",
+    "-X POST", "-X PUT", "-X DELETE",
+    "method='POST'", "method='PUT'", "method='DELETE'",
+    "--force",
+    "compose restart", "compose stop", "compose rm", "compose down",
+    "compose up", "compose recreate",
+    "rm -", "truncate", "emptyTrash", "clear-blocklist",
+)
+
+
+def parse_functions():
+    """Return a list of {name, category, complete, danger, help} dicts."""
+    funcs = []
+    for f in sorted(FN_DIR.glob("stack-*.sh")):
+        lines = f.read_text(encoding="utf-8").splitlines()
+        n = len(lines)
+        i = 0
+        while i < n:
+            m = DEF_RE.match(lines[i])
+            if not m:
+                i += 1
+                continue
+            name = m.group(1)
+            help_lines = []
+            j = i - 1
+            while j >= 0 and lines[j].startswith("#"):
+                if not SEP_RE.match(lines[j]):
+                    help_lines.insert(0, lines[j].lstrip("# ").rstrip())
+                j -= 1
+            body = []
+            k = i + 1
+            while k < n and not DEF_RE.match(lines[k]) and lines[k] != "}":
+                body.append(lines[k])
+                k += 1
+            complete = ""
+            for bl in body:
+                cm = COMPLETE_RE.match(bl)
+                if cm:
+                    complete = cm.group(1).strip()
+                    break
+            danger = any(sig in "\n".join(body) for sig in DANGER_SIGNALS)
+            funcs.append({
+                "name": name,
+                "category": f.stem,
+                "complete": complete,
+                "danger": danger,
+                "help": help_lines or ["(no help comment)"],
+                "args": complete.split() if complete else [],
+            })
+            i = k
+    return funcs
+
+
+def run_function(name, args, on_line=None):
+    """Run <name> <args> in a subshell with .env + loader; yield output lines."""
+    script = """\
+set +u
+[ -f "$1" ] && { set -a; source "$1"; set +a; }
+source "$2" >/dev/null 2>&1
+shift 2
+"$@"
+"""
+    cmd = ["timeout", str(RUN_TIMEOUT), "bash", "-c", script, "_",
+           str(ENV_FILE), str(LOADER), name, *args]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, bufsize=1)
+    pending = queue.Queue()
+
+    def pump():
+        for line in proc.stdout:
+            pending.put(line.rstrip("\n"))
+        proc.wait()
+        pending.put(None)
+
+    threading.Thread(target=pump, daemon=True).start()
+    while True:
+        item = pending.get()
+        if item is None:
+            break
+        if on_line:
+            on_line(item)
+        else:
+            print(item)
+    return proc.returncode
+
+
+PALETTE = [
+    ("header", "white", "dark blue"),
+    ("cat", "light cyan", "black"),
+    ("btn", "white", "dark blue"),
+    ("btn_focus", "black", "light gray"),
+    ("danger", "yellow", "dark red"),
+    ("ok", "light green", "black"),
+    ("err", "light red", "black"),
+    ("dim", "dark gray", "black"),
+]
+
+
+def pack_c(widget):
+    """Constructor shorthand: (WHSettings.PACK, widget) — widget sizes itself."""
+    return (WHSettings.PACK, widget)
+
+
+def weight_c(widget, n=1):
+    """Constructor shorthand: (WHSettings.WEIGHT, n, widget) — proportional."""
+    return (WHSettings.WEIGHT, n, widget)
+
+
+def pack_n(widget):
+    """contents-assignment form: (widget, (WHSettings.PACK, None))."""
+    return (widget, (WHSettings.PACK, None))
+
+
+class StackTui:
+    def __init__(self, funcs):
+        self.funcs = funcs
+        self.by_name = {f["name"]: f for f in funcs}
+        self.selected = None
+        self.running = False
+        self.arg_fields = []
+        self.out_q = queue.Queue()
+
+        left_items = []
+        last_cat = None
+        for f in funcs:
+            if f["category"] != last_cat:
+                last_cat = f["category"]
+                left_items.append(urwid.Text(("cat", f" {f['category']} ")))
+            label = ("danger", f" {f['name']} ") if f["danger"] else \
+                    ("btn", f" {f['name']} ")
+            btn = urwid.Button(label, on_press=self.on_select)
+            btn.stack_name = f["name"]
+            left_items.append(urwid.AttrMap(btn, None, "btn_focus"))
+        self.left = urwid.ListBox(urwid.SimpleListWalker(left_items))
+
+        self.help_text = urwid.Text(("dim", " Select a function on the left."),
+                                    wrap="clip")
+        self.arg_pile = urwid.Pile([])
+        self.out_list = urwid.ListBox(urwid.SimpleListWalker([]))
+        self.status_text = urwid.Text(("dim", " ready"), wrap="clip")
+        self.run_row = urwid.Pile([pack_c(self.make_run_buttons())])
+
+        right = urwid.Pile([
+            pack_c(urwid.Text(("cat", " Function"))),
+            pack_c(self.help_text),
+            pack_c(urwid.Text(("cat", " Arguments"))),
+            pack_c(self.arg_pile),
+            pack_c(urwid.Text(("cat", " Output"))),
+            weight_c(self.out_list),
+            pack_c(self.status_text),
+            pack_c(self.run_row),
+        ])
+        body = urwid.Columns([weight_c(self.left, 2), weight_c(right, 3)])
+        self.frame = urwid.Frame(
+            body,
+            header=urwid.Text(("header", " stack-tui — pick a function, set args, Run ")),
+        )
+        self.loop = urwid.MainLoop(self.frame, palette=PALETTE,
+                                   unhandled_input=self.on_key)
+
+    # --- buttons ---------------------------------------------------------
+    def make_run_buttons(self):
+        run = urwid.Button(("ok", " Run "), on_press=lambda *_a: self.fire())
+        quit_ = urwid.Button(("err", " Quit "), on_press=lambda *_a: self.quit())
+        return urwid.Columns([pack_c(run), pack_c(quit_)])
+
+    def make_confirm_buttons(self):
+        yes = urwid.Button(("err", " Confirm run (mutating) "),
+                           on_press=lambda *_a: self.do_run(self.selected))
+        no = urwid.Button(("btn", " Cancel "), on_press=lambda *_a: self.set_default_buttons())
+        return urwid.Columns([pack_c(yes), pack_c(no)])
+
+    def set_default_buttons(self):
+        self.run_row.contents = [pack_n(self.make_run_buttons())]
+        self.selected = None
+        self.status_text.set_text(("dim", " ready"))
+
+    # --- selection -------------------------------------------------------
+    def on_select(self, btn):
+        f = self.by_name[btn.stack_name]
+        self.selected = f
+        help_txt = "\n".join(f["help"]) or "(no help)"
+        tag = ("danger", " MUTATING — confirm before run") if f["danger"] \
+              else ("ok", " read-only")
+        self.help_text.set_text([("dim", help_txt + "\n"), tag])
+
+        fields = []
+        self.arg_fields = []
+        for g in f["args"]:
+            parts = [p for p in g.split("|") if p]
+            prefill = parts[0] if parts and not parts[0].startswith("<") else ""
+            edit = urwid.Edit((("dim", f" {g}  "), ""), edit_text=prefill)
+            self.arg_fields.append(edit)
+            fields.append(pack_n(edit))
+        self.arg_pile.contents = fields or [pack_n(urwid.Text(("dim", " (no arguments)")))]
+        self.status_text.set_text(("dim", f" selected {f['name']}"))
+
+        # Click-to-fire when no arguments are needed (danger still confirms).
+        if not f["args"] and not self.running:
+            self.fire()
+
+    # --- firing ----------------------------------------------------------
+    def fire(self):
+        if self.selected is None or self.running:
+            return
+        if self.selected["danger"]:
+            self.run_row.contents = [pack_n(self.make_confirm_buttons())]
+            self.status_text.set_text(
+                ("err", f" {self.selected['name']} mutates the stack — confirm? "))
+            return
+        self.do_run(self.selected)
+
+    def do_run(self, f):
+        self.running = True
+        args = [e.edit_text.strip() for e in self.arg_fields if e.edit_text.strip()]
+        self.out_list.body.clear()
+        self.out_list.body.append(urwid.Text(("dim",
+            f"$ {f['name']} {' '.join(args)}")))
+        self.status_text.set_text(("dim", " running… (timeout "
+                                   f"{RUN_TIMEOUT}s)"))
+        self.loop.draw_screen()
+        threading.Thread(target=self._run_thread, args=(f, args), daemon=True).start()
+        self.loop.set_alarm_in(0.05, self._pump_output)
+
+    def _run_thread(self, f, args):
+        rc = run_function(f["name"], args, on_line=self.out_q.put)
+        self.out_q.put(("done", rc))
+
+    def _pump_output(self, loop, *_a):
+        try:
+            while True:
+                item = self.out_q.get_nowait()
+                if isinstance(item, tuple) and item[0] == "done":
+                    _, rc = item
+                    self.running = False
+                    tag = "ok" if rc == 0 else "err"
+                    self.status_text.set_text((tag, f" exit {rc} "))
+                    self.run_row.contents = [pack_n(self.make_run_buttons())]
+                    self.selected = None
+                else:
+                    self.out_list.body.append(
+                        urwid.Text(ANSI_RE.sub("", item)))
+                    self.out_list.set_focus(len(self.out_list.body) - 1)
+        except queue.Empty:
+            pass
+        if self.running:
+            loop.set_alarm_in(0.05, self._pump_output)
+
+    # --- keys ------------------------------------------------------------
+    def on_key(self, key):
+        if key in ("q", "esc"):
+            self.quit()
+            return True
+        return False
+
+    def quit(self):
+        raise urwid.ExitMainLoop
+
+
+def cmd_list(funcs):
+    for f in funcs:
+        print(f"{f['name']}\t{f['category']}\t"
+              f"{'danger' if f['danger'] else 'safe'}\t{f['complete']}")
+
+
+def cmd_run(funcs, name, args):
+    if name not in {f["name"] for f in funcs}:
+        print(f"error: unknown function {name!r} (see --list)", file=sys.stderr)
+        return 2
+    return run_function(name, args)
+
+
+def main():
+    if os.environ.get("TMUX") and not os.environ.get("STACK_TUI_POPUP"):
+        subprocess.call([
+            "tmux", "display-popup", "-w", "80%", "-h", "80%", "-E",
+            f"STACK_TUI_POPUP=1 {sys.argv[0]}",
+        ])
+        return 0
+
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--list", action="store_true", help="print the function surface (TSV)")
+    parser.add_argument("--run", metavar="NAME", help="fire one function and exit")
+    parser.add_argument("args", nargs="*", help="arguments for --run")
+    opts = parser.parse_args()
+
+    funcs = parse_functions()
+    if not funcs:
+        print(f"error: no stack-* functions found in {FN_DIR}", file=sys.stderr)
+        return 1
+
+    if opts.list:
+        cmd_list(funcs)
+        return 0
+    if opts.run:
+        return cmd_run(funcs, opts.run, opts.args)
+
+    StackTui(funcs).loop.run()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
