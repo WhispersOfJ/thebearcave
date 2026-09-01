@@ -2,12 +2,14 @@
 # ============================================================================
 # gen-bash-completions.sh — generate bash tab-completions for stack-* commands
 # ============================================================================
-# Scans services/bash-functions/functions/stack-*.sh for:
+# Sources the shared metadata parser (functions/__metadata.sh), the single
+# source of truth for the stack-* command surface also used by stack-help
+# and stack-tui. It scans services/bash-functions/functions/stack-*.sh for:
 #   - function definitions:   stack-<name>() {
 #   - completion directives:  # complete: <group1>|<alt> <group2> ... [--flags]
 #
-# Directive syntax (one per function, anywhere in the file after/around it —
-# the directive binds to the most recently seen function definition):
+# Directive syntax (one per function, as the FIRST line of its body —
+# a directive in the help comment above the definition is not picked up):
 #   # complete: radarr|sonarr|all on|off
 #   # complete: -y|--yes
 #   # complete: <container>            (dynamic: docker ps -a names)
@@ -36,23 +38,26 @@ CHECK=false
 mkdir -p "$OUT_DIR"
 
 # ----------------------------------------------------------------------------
-# Collect function definitions and directives
+# Collect function definitions and directives from the shared metadata parser
+# (functions/__metadata.sh) so completions never drift from the other
+# surfaces (stack-help, stack-tui). One TSV record per function:
+#   name<TAB>category<TAB>desc<TAB>danger<TAB>complete<TAB>help
 # ----------------------------------------------------------------------------
+source "$SCRIPT_DIR/../functions/__metadata.sh"
+
 declare -A CMDS      # name -> 1
 declare -A DIRECTIVE # name -> raw directive args
 
-current_fn=""
-for f in "$FN_DIR"/stack-*.sh; do
-    [ -f "$f" ] || continue
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^(stack-[a-z0-9-]+)\(\)\ \{ ]]; then
-            current_fn="${BASH_REMATCH[1]}"
-            CMDS["$current_fn"]=1
-        elif [[ "$line" =~ ^#\ complete:\ (.+)$ ]] && [ -n "$current_fn" ]; then
-            DIRECTIVE["$current_fn"]="${BASH_REMATCH[1]}"
-        fi
-    done < "$f"
-done
+# NB: parse with `cut`, not `read` — tab is IFS whitespace, so read would
+# collapse the empty complete field of directive-less functions and shift
+# the help text into it.
+while IFS= read -r _line; do
+    [ -n "$_line" ] || continue
+    name="$(cut -f1 <<<"$_line")"
+    complete="$(cut -f5 <<<"$_line")"
+    CMDS["$name"]=1
+    [ -n "$complete" ] && DIRECTIVE["$name"]="$complete"
+done < <(__stack_metadata)
 
 if [ "${#CMDS[@]}" -eq 0 ]; then
     echo "ERROR: no stack-* functions found in $FN_DIR" >&2

@@ -158,7 +158,7 @@ __stack_complete() {
         stack-perms-check)
             ;;
         stack-plex)
-            if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "$BUTLER_TASKS" -- "$cur")); return 0; fi
+            if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "refresh-libraries empty-trash analyze scan" -- "$cur")); return 0; fi
             return 0;
             ;;
         stack-plex-analyze)

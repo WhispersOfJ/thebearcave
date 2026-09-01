@@ -68,19 +68,25 @@ stack-version() {
     docker compose images 2>/dev/null || fmt_warning "docker compose images failed"
 }
 
-# stack-help — list all stack-* commands
+# stack-help — list all stack-* command categories (from the shared metadata
+# parser, one line per category/file — same output as before, but derived
+# from __stack_metadata so help can never drift from completions/TUI)
 stack-help() {
     echo "Bear Cave media stack — terminal commands (bash)"
     echo ""
-    local f name desc
-    for f in "$BEARCAVE_REPO_DIR/services/bash-functions/functions"/stack-*.sh; do
-        [ -r "$f" ] || continue
-        name="$(basename "$f" .sh)"
-        desc="$(grep -m1 -o "# desc: .*" "$f" 2>/dev/null | sed 's/^# desc: //')"
+    # NB: parse with `cut`, not `read` — tab is IFS whitespace, so read
+    # would collapse empty fields (e.g. directive-less functions).
+    local prev="" category desc line
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        category="$(cut -f2 <<<"$line")"
+        desc="$(cut -f3 <<<"$line")"
+        [ "$category" = "$prev" ] && continue
+        prev="$category"
         if [ -n "$desc" ]; then
-            printf "  %-45s %s\n" "$name" "$desc"
+            printf "  %-45s %s\n" "$category" "$desc"
         else
-            printf "  %s\n" "$name"
+            printf "  %s\n" "$category"
         fi
-    done
+    done < <(__stack_metadata)
 }
