@@ -169,6 +169,7 @@ stack-plex() {
 # complete: <butler-task>
 # stack-plex-butler <task> — trigger one butler task
 stack-plex-butler() {
+# danger: true (arbitrary butler task; several delete files)
     if [ "$#" -ne 1 ]; then
         echo "Usage: stack-plex-butler <task>" >&2
         return 1
@@ -178,6 +179,7 @@ stack-plex-butler() {
 
 # stack-plex-butler-all — trigger the common butler maintenance tasks
 stack-plex-butler-all() {
+# danger: true (CleanOldBundles deletes old bundles)
     fmt_heading "Plex Butler — All Tasks"
     echo ""
     local task

@@ -44,6 +44,15 @@ SPOT = {
     "stack-arr-toggle-search": (True,  ["radarr|sonarr|all", "on|off"]),
     "stack-arr-blocklist":     (False, ["radarr|sonarr"]),
     "stack-plex":              (True,  ["refresh-libraries|empty-trash|analyze|scan"]),
+    # Explicit "# danger: true" annotations — butler tasks with destructive
+    # server-side effects (media/blob deletion, cache/log cleanup, updates).
+    "stack-plex-garbage-collect-media": (True, []),
+    "stack-plex-garbage-collect-blobs": (True, []),
+    "stack-plex-clean-cache-files":     (True, []),
+    "stack-plex-clean-log-files":       (True, []),
+    "stack-plex-automatic-updates":     (True, []),
+    "stack-plex-butler":                (True, []),
+    "stack-plex-butler-all":            (True, []),
 }
 
 EXPECTED_COUNT = 93

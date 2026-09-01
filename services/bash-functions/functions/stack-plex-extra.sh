@@ -41,10 +41,12 @@ except Exception as e:
 # --- thin butler task wrappers -----------------------------------------------
 
 stack-plex-garbage-collect-media() {
+# danger: true (deletes media files server-side)
     __plex_butler garbage-collect-media
 }
 
 stack-plex-garbage-collect-blobs() {
+# danger: true (deletes orphaned blob files)
     __plex_butler garbage-collect-blobs
 }
 
@@ -53,6 +55,7 @@ stack-plex-backup-database() {
 }
 
 stack-plex-automatic-updates() {
+# danger: true (installs Plex updates)
     __plex_butler automatic-updates
 }
 
@@ -69,10 +72,12 @@ stack-plex-refresh-local-media() {
 }
 
 stack-plex-clean-cache-files() {
+# danger: true (deletes cache files)
     __plex_butler clean-cache-files
 }
 
 stack-plex-clean-log-files() {
+# danger: true (deletes log files)
     __plex_butler clean-log-files
 }
 
