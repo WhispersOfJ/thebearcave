@@ -10,7 +10,8 @@
 #   name     stack-<name> (the function definition)
 #   category file basename minus .sh (stack-arr-1, stack-plex-core, ...)
 #   desc     the file's first "# desc:" header (same for all fns in a file)
-#   danger   "danger" if the body mutates the stack, else "safe"
+#   danger   "danger" if the body mutates the stack (heuristic signals,
+#            or an explicit in-body "# danger: true" directive), else "safe"
 #   complete the function's "# complete:" spec (first in-body directive)
 #   help     comment block above the def, minus "# ===" separators, each
 #            line stripped of leading '#'/spaces and trailing whitespace,
@@ -71,12 +72,24 @@ __stack_metadata() {
                         break
                     fi
                 done
-                # --- danger: mutation signals in the body -------------------
-                local danger="safe"
-                local body_text
-                body_text="$(printf '%s\n' "${body[@]}")"
-                if grep -Eq 'STACK_API_TIMEOUT_MUTATE| -X (POST|PUT|DELETE)|method=.POST.|method=.PUT.|method=.DELETE.|--force|compose (restart|stop|rm|down|up|recreate)|rm -|truncate|emptyTrash|clear-blocklist' <<<"$body_text"; then
-                    danger="danger"
+                # --- danger: explicit annotation overrides the heuristic ---
+                # "# danger: true" (or yes) as an in-body directive forces the
+                # flag even when no mutation signal is visible (e.g. helpers
+                # like __plex_butler that POST server-side). The signal list
+                # below is the fallback for unannotated functions.
+                local danger="safe" dl
+                for dl in "${body[@]}"; do
+                    if [[ "$dl" =~ ^#[[:space:]]*danger:[[:space:]]*(true|yes) ]]; then
+                        danger="danger"
+                        break
+                    fi
+                done
+                if [ "$danger" = safe ]; then
+                    local body_text
+                    body_text="$(printf '%s\n' "${body[@]}")"
+                    if grep -Eq 'STACK_API_TIMEOUT_MUTATE| -X (POST|PUT|DELETE)|method=.POST.|method=.PUT.|method=.DELETE.|--force|compose (restart|stop|rm|down|up|recreate)|rm -|truncate|emptyTrash|clear-blocklist' <<<"$body_text"; then
+                        danger="danger"
+                    fi
                 fi
                 # --- help join: literal backslash-n -------------------------
                 local help=""
