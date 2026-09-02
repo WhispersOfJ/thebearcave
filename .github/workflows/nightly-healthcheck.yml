@@ -34,6 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the config-drift guard test resolves pin-change
+          # dates via `git log -S` against docker-compose.yml.
+          fetch-depth: 0
       - name: Bash syntax and guard tests
         run: |
           for f in scripts/*.sh scripts/git-hooks/* tests/*/*.sh; do bash -n "$f"; done

@@ -17,7 +17,11 @@ nightly-healthcheck.yml, and locally via
 holds, 1 otherwise.
 """
 
+import contextlib
 import importlib.util
+import io
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -130,6 +134,85 @@ expect("partial stack drift names only the drifted service",
                     "sonarr": "ghcr.io/hotio/sonarr:OLD",
                     "unpackerr": "golift/unpackerr:v0.16.1"}),
        ["sonarr"])
+
+# --- main() drift path end-to-end (faked docker) ------------------------
+#
+# The pure fixtures never execute main()'s drift branch; this one does, with
+# canned docker output, so the report + recreate-hint rendering cannot rot.
+
+def fake_docker(cmd, timeout=None):
+    class P:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+    if cmd[:2] == ["docker", "compose"]:
+        P.stdout = json.dumps({
+            "name": "thebearcave",
+            "services": {
+                "radarr": {"image": "ghcr.io/hotio/radarr:release-x"},
+                "unpackerr": {"image": "golift/unpackerr:v0.16.1"},
+            },
+        })
+    elif cmd[:2] == ["docker", "ps"]:
+        P.stdout = "\n".join([
+            json.dumps({"Labels": "com.docker.compose.service=radarr",
+                        "Names": "radarr"}),
+            json.dumps({"Labels": "com.docker.compose.service=unpackerr",
+                        "Names": "unpackerr"}),
+        ])
+    elif cmd[:2] == ["docker", "inspect"]:
+        P.stdout = json.dumps([
+            {"Name": "/radarr",
+             "Config": {"Image": "ghcr.io/hotio/radarr:release-x"}},
+            {"Name": "/unpackerr",
+             "Config": {"Image": "golift/unpackerr:0.15.2"}},
+        ])
+    return P
+
+orig_run = mod.run
+mod.run = fake_docker
+try:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = mod.main([])
+    text = buf.getvalue()
+finally:
+    mod.run = orig_run
+
+expect("main() drift path exits 1", rc, 1)
+expect("main() names the drifted service", "[drift] unpackerr" in text, True)
+expect("main() prints the recreate hint",
+       "hint: apply the pins with: docker compose up -d --no-deps unpackerr"
+       in text, True)
+
+# --- recreate-reminder hint ---------------------------------------------
+
+expect("hint lists services sorted + pin date",
+       mod.hint_for(["unpackerr", "plex"], "2026-08-31"),
+       "hint: apply the pins with: docker compose up -d --no-deps "
+       "plex unpackerr (pins last changed 2026-08-31)")
+expect("hint without a pin date",
+       mod.hint_for(["plex"], None),
+       "hint: apply the pins with: docker compose up -d --no-deps plex")
+expect("empty drift list stays valid",
+       mod.hint_for([], None),
+       "hint: apply the pins with: docker compose up -d --no-deps ")
+
+# pin_changed_on against this repo's own history: the unpackerr v0.16.1
+# pin entered docker-compose.yml on 2026-08-31 (dependabot) — the exact
+# 2026-09-02 drift class this hint exists for. A shallow clone (CI default
+# without the fetch-depth: 0 override in validate.yml/nightly-healthcheck)
+# must degrade to None instead of misattributing the pin to today.
+shallow_proc = subprocess.run(["git", "rev-parse", "--is-shallow-repository"],
+                              capture_output=True, text=True, cwd=str(ROOT))
+if shallow_proc.returncode == 0 and shallow_proc.stdout.strip() == "true":
+    expect("pin_changed_on degrades to None in a shallow checkout",
+           mod.pin_changed_on(ROOT, "golift/unpackerr:v0.16.1"), None)
+else:
+    expect("pin_changed_on finds the dependabot bump date",
+           mod.pin_changed_on(ROOT, "golift/unpackerr:v0.16.1"), "2026-08-31")
+expect("pin_changed_on returns None for unknown strings",
+       mod.pin_changed_on(ROOT, "nonexistent/registry/never:pinned"), None)
 
 if failures == 0:
     print("test_check_config_drift: all assertions passed")
