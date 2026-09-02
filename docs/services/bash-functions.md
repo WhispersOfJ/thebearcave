@@ -222,4 +222,10 @@ Digest pins must be satisfied exactly (a mutable-tag ref does not satisfy
 a `@sha256` pin); tag pins are satisfied by any running ref with the same
 name+tag. Backed by `scripts/check_config_drift.py`; read-only and safe to
 run any time. Exit 0 = every running service matches its pin; 1 = drift
-(or docker unavailable).
+(or docker unavailable). A drift report ends with a **recreate-reminder**:
+the exact `docker compose up -d --no-deps <svc>` command and the oldest
+date the drifted pins entered the compose file (`git log -S`) — dependabot
+re-pins the docker images weekly and merging never recreates containers, so
+that date is how stale the mismatch is. The 2026-08-31 dependabot bumps
+(unpackerr 0.15.2→v0.16.1, plex digest) were found drifting on 2026-09-02
+exactly this way.

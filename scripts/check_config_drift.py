@@ -34,6 +34,13 @@ Comparison semantics:
     currency is not this check's job)
   * neither                   — plain name:tag comparison
 
+A drift report ends with a recreate-reminder line: the command to apply the
+pins plus the oldest date the drifted pins entered the compose file (`git
+log -S`) — dependabot re-pins the docker images weekly and merging never
+recreates containers, so pinned-but-never-recreated services are the
+expected drift class (2026-08-31: unpackerr 0.15.2/v0.16.1 and the plex
+digest bump, both found drifting on 2026-09-02).
+
 Name normalization: case-folded; a missing tag defaults to `latest` (what
 the registries resolve it to anyway). Tag parsing is slash-aware so a
 registry port (`localhost:5000/app`) is not mistaken for a tag.
@@ -59,7 +66,9 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
 DIGEST_RE = re.compile(r"^(?P<name>.+)@(?P<digest>sha256:[0-9a-f]{64})$")
 
 
@@ -133,6 +142,52 @@ def check_drift(pins: dict[str, str],
                 "why": why,
             })
     return drift
+
+
+def hint_for(drift_services: list[str], pin_changed: str | None) -> str:
+    """The recreate-reminder line printed under a drift report.
+
+    ``drift_services`` sorted; ``pin_changed`` is the oldest date the drifted
+    pins entered the compose file (None when unknown) — the reminder then
+    says how stale the mismatch is, e.g. dependabot bumped the pin Aug 31
+    and nothing recreated the container since.
+    """
+    svc = " ".join(sorted(drift_services))
+    base = f"hint: apply the pins with: docker compose up -d --no-deps {svc}"
+    if pin_changed:
+        base += f" (pins last changed {pin_changed})"
+    return base
+
+
+def pin_changed_on(repo: Path, image: str) -> str | None:
+    """Oldest date a compose pin string entered the file (via git log -S).
+
+    None when git is unavailable or the string is not in the file's history.
+    Used to make a drift reminder actionable: dependabot bumped the pin on
+    that date; the container has been stale since.
+    """
+    try:
+        shallow = subprocess.run(["git", "rev-parse", "--is-shallow-repository"],
+                                 capture_output=True, text=True, timeout=30,
+                                 cwd=str(repo))
+    except (OSError, subprocess.TimeoutExpired):
+        shallow = None
+    if shallow is not None and shallow.returncode == 0 \
+            and shallow.stdout.strip() == "true":
+        # A depth-1 clone (CI default, feature branches) cannot resolve the
+        # introducing commit — git log -S would blame today's synthetic
+        # merge ref for the pin. Report unknown rather than a wrong date.
+        return None
+    try:
+        proc = subprocess.run(
+            ["git", "log", "--format=%ad", "--date=short", "-S", image, "--",
+             "docker-compose.yml"],
+            capture_output=True, text=True, timeout=30, cwd=str(repo))
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    lines = [line.strip() for line in proc.stdout.splitlines()
+             if line.strip()]
+    return lines[-1] if lines else None  # last line == earliest change
 
 
 def run(cmd: list[str], timeout: int | None = None) -> subprocess.CompletedProcess:
@@ -209,6 +264,17 @@ def main(argv: list[str] | None = None) -> int:
     for d in drift:
         print(f"  [drift] {d['service']}: pinned {d['pinned']} != "
               f"running {d['running']} ({d['why']})")
+
+    # Recreate-reminder: say what to run and how stale the pins are
+    # (dependabot bumps the image pins weekly and nothing recreates the
+    # containers — the 2026-08-31 unpackerr/plex drift class).
+    dates = []
+    for d in drift:
+        when = pin_changed_on(ROOT, d["pinned"])
+        if when:
+            dates.append(when)
+    oldest = min(dates) if dates else None
+    print(hint_for([d["service"] for d in drift], oldest))
     return 1
 
 
