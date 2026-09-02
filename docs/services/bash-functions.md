@@ -154,6 +154,7 @@ Maintenance digest — 2026-09-03 05:10
   OK    radarr db      OK: radarr.db page size and footprint within healthy limits.
   WARN  sonarr db      radarr DB not found ... (fresh checkout / DB elsewhere)
   OK    nzbdav queue   PASS nzbdav queue: queue is empty (0 item(s))
+  OK    residue audit  AUDIT OK: no retired-service or dead-path residue found
 DIGEST OK: nightly maintenance verified
 ```
 
@@ -162,10 +163,13 @@ Checks: reclaim-log freshness (mtime vs the last 04:00 boundary),
 `--skip-user-unit NAME`), dotfiles push state compared against the fetched
 remote tip (`FETCH_HEAD` — a bare dotfiles repo keeps no tracking ref, so
 `origin/main` can be stale), Radarr + Sonarr DB health via
-`check_radarr_db_size.py --db`, and the nzbdav queue gate (unreachable =
-soft WARN). Backed by `scripts/maintenance_digest.py`; `--repo` points DB
-resolution at the operational checkout. Suggested schedule: 05:10 daily
-user timer (after the 04:00 reclaim cron).
+`check_radarr_db_size.py --db`, the nzbdav queue gate (unreachable =
+soft WARN), and the full-host retired-residue audit (`stack-audit-residue`,
+TODO.md #2) — a residue finding fails the digest so removal residue shows
+up every morning instead of silently creeping back. Backed by
+`scripts/maintenance_digest.py`; `--repo` points DB resolution at the
+operational checkout. Suggested schedule: 05:10 daily user timer (after the
+04:00 reclaim cron).
 
 ### `stack-audit-residue` — retired-service/path residue audit
 

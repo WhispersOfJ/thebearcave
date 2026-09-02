@@ -23,6 +23,10 @@ Checks (one line each in the digest):
     stack-sonarr-prune remediates).
   * nzbdav queue - delegated to scripts/check_nzbdav_queue.py (recreate
     safety: queue must be empty). API unreachable == soft WARN.
+  * residue audit - delegated to scripts/audit_residue.py (TODO.md #2), full
+    host mode: repo surfaces + crontab + user units. Clean on a CI runner or
+    a fresh checkout; a FAIL means retired-service/dead-path residue slipped
+    back into an operational surface.
 
 Exit codes:
   0  every check passed (or soft-warned)
@@ -228,6 +232,25 @@ def check_nzbdav_queue(repo_root: Path) -> Finding:
     return Finding("nzbdav queue", level, msg)
 
 
+def check_audit_residue(repo_root: Path) -> Finding:
+    """Retired-service/path residue via scripts/audit_residue.py (exit 0/1/2).
+
+    Full host mode (repo + crontab + user units) against repo_root, the
+    *operational* checkout. rc 1 = residue (the audit prints per-finding
+    lines above its summary, which the digest log preserves); rc 2 = the
+    checkout is unusable (soft WARN, mirrors the DB/queue rc-2 semantics).
+    """
+    rc, out = run_script("audit_residue.py", [], repo_root)
+    tail = out.splitlines()[-1][:90] if out else "(no output)"
+    if rc == 0:
+        level, msg = "ok", tail
+    elif rc == 2:
+        level, msg = "warn", tail
+    else:
+        level, msg = "fail", tail
+    return Finding("residue audit", level, msg)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -259,6 +282,7 @@ def main() -> int:
     findings.append(check_dotfiles(Path(args.dotfiles)))
     findings += check_db_gates(repo_root)
     findings.append(check_nzbdav_queue(repo_root))
+    findings.append(check_audit_residue(repo_root))
 
     print(f"Maintenance digest — {_dt.datetime.now():%Y-%m-%d %H:%M}")
     for f in findings:
