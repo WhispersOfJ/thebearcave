@@ -166,3 +166,31 @@ remote tip (`FETCH_HEAD` — a bare dotfiles repo keeps no tracking ref, so
 soft WARN). Backed by `scripts/maintenance_digest.py`; `--repo` points DB
 resolution at the operational checkout. Suggested schedule: 05:10 daily
 user timer (after the 04:00 reclaim cron).
+
+### `stack-audit-residue` — retired-service/path residue audit
+
+TODO.md project #2, the automated form of the exhaustive-removal checklist
+(AGENTS.md landmine #7). Removal residue is caught mechanically instead of
+by hand (the 2026-09-02 session found dead media-stack cron entries and a
+node-exporter-era timer by manual grep): scans the repo surfaces (compose
+non-comment lines, `.env.template` retired variable prefixes,
+workflows minus re-adoption watchers, the functions tree, retired-named
+docs pages) plus host surfaces (`crontab -l`, `~/.config/systemd/user` unit
+files), flagging references to retired services and dead project paths.
+
+```text
+Retired-residue audit
+  FAIL  user units   stack-health-check.service [inert]: mentions retired `media-stack` (3 lines); dead path /home/bear/Claude/media-stack (2 lines)
+  FAIL  user units   media-stack.service [enabled]: name matches retired `media-stack`; dead path /home/bear/Claude/media-stack (1 line)
+AUDIT FAIL: 2 residue finding(s); see lines above
+```
+
+The registry mirrors `docs/services/lifecycle.md`: its "Retired services"
+table is parsed and every recorded service must exist in the checker's
+`RETIRED_SERVICES` (the offline test enforces both directions), so recording
+a retirement without teaching the checker its name fails CI. Deliberate
+in-code mentions take a trailing `audit-residue-ignore` marker. Repo-only
+mode (`--repo-only`) is what preflight and CI run — the full command's host
+findings are a triage list, not a gate. Backed by
+`scripts/audit_residue.py`; host surfaces degrade to WARN when unavailable
+(e.g. a CI runner with no crontab/user units).

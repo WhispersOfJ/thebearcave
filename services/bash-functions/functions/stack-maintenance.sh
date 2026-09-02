@@ -35,3 +35,32 @@ stack-maintenance-digest() {
     # even when the loader itself was sourced from a worktree clone.
     python3 "$repo/scripts/maintenance_digest.py" --repo "$repo"
 }
+
+# stack-audit-residue — retired-service/path residue audit
+# Scans compose, .env.template, workflows, functions, docs filenames,
+# crontab, and user timers for references to retired services and dead
+# project paths — the automated exhaustive-removal checklist (AGENTS.md
+# landmine #7, TODO.md project #2). Backed by scripts/audit_residue.py, whose
+# registry mirrors docs/services/lifecycle.md. Read-only — safe to run any
+# time. Exit 0 = no residue; 1 = residue found (host units print per-unit).
+stack-audit-residue() {
+    if [ "$#" -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+        echo "Usage: stack-audit-residue" >&2
+        echo "Scan for retired-service and dead-path residue (repo + host units/crontab)." >&2
+        return 0
+    fi
+    if [ "$#" -ne 0 ]; then
+        echo "Usage: stack-audit-residue (no arguments)" >&2
+        return 1
+    fi
+
+    local repo="${BEARCAVE_REPO_DIR:-}"
+    if [ -z "$repo" ]; then
+        local self="${BASH_SOURCE[0]}"
+        local real
+        real="$(readlink -f "$self" 2>/dev/null || echo "$self")"
+        repo="$(dirname "$(dirname "$(dirname "$(dirname "$real")")")")"
+    fi
+
+    python3 "$repo/scripts/audit_residue.py"
+}
