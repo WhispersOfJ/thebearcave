@@ -43,10 +43,12 @@ is about running state vs the pin, and the recreate guard is the digest's
 job. Containers running that no compose service pins are out of scope
 (non-stack tools; this check owns the compose project).
 
-Run by scripts/preflight.sh (docker-gated) and locally via
+Run by scripts/preflight.sh (docker-gated), the maintenance digest
+(scripts/maintenance_digest.py, rc-2 soft semantics) and locally via
 `python3 scripts/check_config_drift.py`. Exit 0 = every running compose
-service matches its pin (or nothing is running); 1 = drift, or docker
-unavailable.
+service matches its pin (or nothing is running); 1 = drift; 2 = cannot
+assess (docker/compose unavailable) — the check_* family's soft-exit,
+which the digest reads as a WARN rather than a FAIL.
 
 Usage:
   python3 scripts/check_config_drift.py            # live docker
@@ -149,10 +151,10 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg_proc = compose(["config", "--format", "json"])
     if cfg_proc.returncode != 0:
-        print("CHECK FAILED: `docker compose config` errored:")
+        print("CHECK SKIPPED: cannot assess container drift:")
         print(cfg_proc.stderr.strip().splitlines()[-1]
               if cfg_proc.stderr.strip() else "  docker unavailable?")
-        return 1
+        return 2
     cfg = json.loads(cfg_proc.stdout)
     pins = {
         name: svc["image"] for name, svc in cfg["services"].items()
