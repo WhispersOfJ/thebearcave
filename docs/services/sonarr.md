@@ -45,14 +45,26 @@ Sonarr's database hits the same MediaInfo-blob growth as Radarr (AGENTS.md
 landmine #9): `scripts/check_radarr_db_size.py` with `--blob-table EpisodeFiles`
 detects it, and `stack-sonarr-prune` (backed by `scripts/prune_sonarr_db.py`)
 remediates it: it stops sonarr, backs up `sonarr.db` + `logs.db` to
-`config/sonarr/Backups/manual-maintenance-<ts>/`, prunes `EpisodeFiles.MediaInfo`
-and history older than 90 days, vacuums, verifies integrity, and resumes sonarr.
-The 2026-09-02 maintenance-digest sweep found a 3.2 GiB sonarr.db with ~2.0 GiB
-in `EpisodeFiles.MediaInfo` — the first live instance of this class on Sonarr.
+`config/sonarr/Backups/manual-maintenance-<ts>/`, prunes `EpisodeFiles.MediaInfo`,
+slims the event-JSON payloads, trims history older than 90 days, vacuums,
+verifies integrity, and resumes sonarr. The 2026-09-02 maintenance-digest
+sweep found a 3.2 GiB sonarr.db with ~2.0 GiB in `EpisodeFiles.MediaInfo` —
+the first live instance of this class on Sonarr.
+
+After the MediaInfo prune the DB still carried ~1.1 GiB whose bulk is JSON on
+the event tables (`History.Data`, `DownloadHistory.Data`, `DownloadHistory.
+Release` — 534 MiB measured 2026-09-02). `stack-sonarr-prune` NULLs those
+payloads on rows older than `--keep-data-days` (default 14) — rows are
+**kept**, because the `DownloadId` correlation Sonarr uses to map a finished
+download back to its episodes lives on the row, not the payload — and deletes
+`History` rows older than `--keep-history-days` (default 90). The prune runs
+whenever the footprint/MediaInfo gate trips OR old JSON payloads exist, so it
+doubles as a regular maintenance pass, not just an incident remediator.
 
 ```bash
-stack-sonarr-prune -y              # prune now (stop/start handled)
-stack-sonarr-prune --dry-run       # report what would be done, touch nothing
+stack-sonarr-prune -y                    # prune now (stop/start handled)
+stack-sonarr-prune --dry-run             # report what would be done, touch nothing
+stack-sonarr-prune -y --keep-data-days 7 # keep only a week of full JSON detail
 ```
 
 The checker's blob table is parameterized so Radarr (`MovieFiles`, the
