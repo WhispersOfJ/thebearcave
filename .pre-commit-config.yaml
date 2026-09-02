@@ -1,5 +1,12 @@
 # Pre-commit hooks for The Bear Cave
 # Install: pip install pre-commit && pre-commit install
+# This file is the single source of truth: the same hook set runs locally
+# and in CI (.github/workflows/pre-commit.yml) so an uninstalled local
+# pre-commit cannot bypass the gates.
+#
+# Top-level exclude keeps reference material out of every hook, matching the
+# ruff/quality/validate posture (archive/ is preserved, not maintained).
+exclude: '^archive/'
 
 repos:
   - repo: https://github.com/gitleaks/gitleaks
@@ -18,7 +25,9 @@ repos:
     hooks:
       - id: shellcheck
         args: ["--severity=warning"]
-        exclude: "archive/"
+        # Mirrors validate.yml ignore_paths: these .sh files are library
+        # sources without shebangs (SC2148 noise), not checked by CI either.
+        exclude: "^(archive|config|services|data|media)/"
 
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.12
