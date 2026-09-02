@@ -168,6 +168,30 @@ class TestDelegatedChecks(unittest.TestCase):
             md.run_script = orig
         self.assertEqual(f.level, "ok")
 
+    def test_audit_classification(self):
+        # rc 0 -> ok (clean repo + host), rc 1 -> fail (residue found),
+        # rc 2 -> warn (unusable checkout). Full host mode: no extra args.
+        outcomes = [
+            (0, "AUDIT OK: no retired-service or dead-path residue found"),
+            (1, "AUDIT FAIL: 1 residue finding(s); see lines above"),
+            (2, "not a stack checkout (no docker-compose.yml)"),
+        ]
+        wants = ["ok", "fail", "warn"]
+        seen = []
+        def fake(script, args, repo_root, timeout=120):
+            seen.append((script, args))
+            return outcomes[len(seen) - 1]
+        orig = md.run_script
+        md.run_script = fake
+        try:
+            for i in range(len(outcomes)):
+                f = md.check_audit_residue(Path("/repo"))
+                self.assertEqual(f.level, wants[i], f"outcome {i}")
+        finally:
+            md.run_script = orig
+        self.assertTrue(all(s == "audit_residue.py" and a == [] for s, a in seen),
+                        "residue audit must run full host mode with no args")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
