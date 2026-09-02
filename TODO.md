@@ -29,6 +29,12 @@ signals. Would have caught the 17-day silent dotfiles-push failure and the
 dead media-stack cron entries within 24h. Optional Discord ping via the
 existing `DISCORD_WEBHOOK_URL` pattern (alertmanager removed Discord alerting).
 
+**Status (2026-09-02): ✅ built and live.** `scripts/maintenance_digest.py` runs
+from a 05:10 user timer and reports nine surfaces — reclaim log, user timers,
+dotfiles, radarr + sonarr DB gates, nzbdav queue, residue audit, monthly
+sonarr prune log, and config drift (#3's surface) — with `rc` honoring the
+check_* family's 0/1/2 semantics.
+
 ## 2. `stack-audit-residue` — retired-service/path residue checker
 
 Scan compose, `.env.template`, docs, workflows, crontab, and user timers for
@@ -42,6 +48,12 @@ residue by hand (media-stack cron entries, node-exporter-era
 `scripts/check_mount_drift.py` / `check_secret_drift.py` (failing `check_*`
 script + guard wiring in `validate.yml` / `nightly-healthcheck.yml`).
 
+**Status (2026-09-02): ✅ built and live.** `stack-audit-residue` (
+`scripts/audit_residue.py`) scans the repo surfaces plus crontab and user
+units; the nine stale units it named were removed the same day and the
+operational run is green. Host-fed into the digest as its residue-audit
+surface.
+
 ## 3. Config-drift checker — running images vs compose pins
 
 Surface containers whose running image differs from the compose pin
@@ -52,6 +64,37 @@ compose's pin — both found manually this session).
 for mounts (`check_mount_drift.py`) and secrets (`check_secret_drift.py`).
 Follow the same `check_*` + CI-guard pattern. Distinct from #2 (this is
 *current-config* drift, not retired residue).
+
+**Status (2026-09-02): ✅ built, live, and already paid for itself.**
+
+**Closeout record.** `scripts/check_config_drift.py` + `stack-config-drift`
+wrapper: compose pins from `docker compose config --format json` vs running
+containers' `docker inspect` `Config.Image`, matched by the
+`com.docker.compose.service` label (cwd-proof). Wired into preflight
+(docker-gated leg), validate/nightly guard tests, completions/TUI/smoke, and
+the digest as its ninth surface. A drift report ends with a recreate-reminder
+line naming the `docker compose up -d --no-deps <svc>` command and the oldest
+date the pins entered the file (`git log -S`; shallow checkouts degrade to
+"unknown"). PRs #124 (checker + wiring) → #125 (digest surface) → #126
+(recreate-reminder).
+
+**First real drift (root-caused and remediated the same day).** The live
+run immediately flagged the two drifts this entry was written about: unpackerr
+`0.15.2` running vs `v0.16.1` pinned, and plex on an older digest. Root cause:
+Dependabot re-pinned both on 2026-08-31 12:45/12:46 (weekly docker bump) and
+nothing ever recreated the containers — compose-edit-without-recreate, not
+image-GC or a manual change. Remediated with `docker compose up -d
+--no-deps plex unpackerr` (queue-idle, per the house rule); `stack-config-drift`
+and the full preflight sweep went green afterwards. The recreate-reminder is
+the recurrence guard for the dependabot-weekly cycle.
+
+**Remaining backlog preview (#4–#8 below):** #4 Bazarr re-adoption (the one
+that needs a deliberate scoping decision — it raises the service count above
+8 and total mem caps ≈12.1g/22g), #5 radarr DB growth-trend predictor (turns
+the prune incident into a calendar entry), #6 thin "what's watchable tonight"
+view, #7 request → arrival Discord notifier, #8 activity feed via the *arr
+webhook events. All stay host-runnable / API-backed, no new always-on
+containers unless #4's scoping call approves one.
 
 ## 4. Bazarr re-adoption (fresh implementation)
 
