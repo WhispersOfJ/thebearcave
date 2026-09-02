@@ -7,7 +7,9 @@ Verifies the DB page-size/bloat guard cannot silently bit-rot:
   * a DB whose page footprint exceeds the high-water mark IS flagged
   * a DB whose MovieFiles.MediaInfo blobs exceed the threshold IS flagged
   * an invalid (non power-of-two) page size IS flagged
-  * missing/oversized defaults from env are honoured via the pure assess()
+  * the blob table is parameterized — Sonarr's EpisodeFiles.MediaInfo blobs
+    are read and flagged via read_metrics(..., blob_table="EpisodeFiles"),
+    and the assess() messages name the table they measured
 
 Runs against the importable pure logic (plus a throwaway SQLite DB for the
 MediaInfo path), so it works on the CI runner. Run by validate.yml and
@@ -33,16 +35,16 @@ spec.loader.exec_module(mod)
 MiB = 1024 * 1024
 
 
-def make_db(media_blob_bytes: int) -> str:
-    """Create a throwaway radarr-schema DB whose MovieFiles.MediaInfo total is
+def make_db(media_blob_bytes: int, table: str = "MovieFiles") -> str:
+    """Create a throwaway *arr-schema DB whose <table>.MediaInfo total is
     ~media_blob_bytes, and whose page footprint is well under the high-water
     mark (so only the MediaInfo gate can legitimately trip)."""
     f = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
     f.close()
     con = sqlite3.connect(f.name)
-    con.execute("CREATE TABLE MovieFiles (Id INTEGER PRIMARY KEY, MediaInfo TEXT)")
+    con.execute(f"CREATE TABLE {table} (Id INTEGER PRIMARY KEY, MediaInfo TEXT)")
     blob = "x" * media_blob_bytes
-    con.execute("INSERT INTO MovieFiles (Id, MediaInfo) VALUES (1, ?)", (blob,))
+    con.execute(f"INSERT INTO {table} (Id, MediaInfo) VALUES (1, ?)", (blob,))
     con.commit()
     con.close()
     return f.name
@@ -58,6 +60,13 @@ def main() -> int:
         else:
             print(f"FAIL: {name} expected {want!r}, got {got!r}")
             failures += 1
+
+    # Per-app footprint defaults: radarr 900, sonarr 2000 (the sonarr steady
+    # state after the 2026-09-02 prune was ~1134 MiB of legit content).
+    expect("radarr footprint default", mod.footprint_default_mb("radarr.db"), 900)
+    expect("sonarr footprint default", mod.footprint_default_mb("sonarr.db"), 2000)
+    expect("unknown db falls back to radarr default",
+           mod.footprint_default_mb("other.db"), 900)
 
     # Pure assess() branches.
     healthy = mod.assess(4096, 500 * MiB, 10 * MiB, 900 * MiB, 200 * MiB)
@@ -88,8 +97,25 @@ def main() -> int:
                        900 * MiB, 200 * MiB)
     expect("bloated DB flagged via read_metrics", len(probs) == 1, True)
 
+    # Sonarr path: same gate, EpisodeFiles blob table (parameterized).
+    sonarr_small = make_db(10 * MiB, table="EpisodeFiles")
+    sm = mod.read_metrics(sonarr_small, blob_table="EpisodeFiles")
+    expect("EpisodeFiles media read via blob_table param",
+           sm["media_bytes"] == 10 * MiB, True)
+    expect("healthy EpisodeFiles DB assess clean",
+           mod.assess(sm["page_size"], sm["footprint_bytes"], sm["media_bytes"],
+                      900 * MiB, 200 * MiB, "sonarr.db", "EpisodeFiles"), [])
+
+    sonarr_bloated = make_db(250 * MiB, table="EpisodeFiles")
+    sbm = mod.read_metrics(sonarr_bloated, blob_table="EpisodeFiles")
+    sprobs = mod.assess(sbm["page_size"], sbm["footprint_bytes"], sbm["media_bytes"],
+                        900 * MiB, 200 * MiB, "sonarr.db", "EpisodeFiles")
+    expect("bloated EpisodeFiles DB flagged via read_metrics", len(sprobs) == 1, True)
+    expect("assess message names the measured blob table",
+           "EpisodeFiles.MediaInfo" in sprobs[0], True)
+
     import os
-    for p in (small, bloated):
+    for p in (small, bloated, sonarr_small, sonarr_bloated):
         os.unlink(p)
 
     if failures == 0:
