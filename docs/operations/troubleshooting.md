@@ -83,12 +83,18 @@ docker exec nzbdav_rclone ls /mnt/remote/nzbdav/completed-symlinks | head
 Confirm the download client is `nzbdav:3000`, the API key matches, the FUSE mount is
 healthy, and the root folders are `/data/movies` and `/data/shows`.
 
-For Sonarr items stuck in the queue as completed, drain them through the manual-import
-path with `scripts/drain_sonarr_queue.py` (dry-run by default; `--apply` acts):
+For *arr items stuck in the queue as completed (including the "matched by ID —
+manual import required" class, where auto-import is impossible by design), drain
+them through the manual-import path with `scripts/drain_sonarr_queue.py` (dry-run
+by default; `--apply` acts). The script serves both apps via `--app`
+(`sonarr` default, `radarr` supported); the matching `$SONARR_API_KEY` /
+`$RADARR_API_KEY` env var is used when `--api-key` is omitted:
 
 ```bash
-python3 scripts/drain_sonarr_queue.py                    # dry-run (default)
-python3 scripts/drain_sonarr_queue.py --apply --limit 10 # act
+python3 scripts/drain_sonarr_queue.py                      # sonarr dry-run (default)
+python3 scripts/drain_sonarr_queue.py --app radarr         # radarr dry-run
+python3 scripts/drain_sonarr_queue.py --apply --limit 10   # act on sonarr
+python3 scripts/drain_sonarr_queue.py --app radarr --apply --limit 10 # act on radarr
 ```
 
 ## Seerr requests do not download

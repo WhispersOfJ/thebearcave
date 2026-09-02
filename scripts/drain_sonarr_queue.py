@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Drain stuck completed items from the Sonarr queue.
+"""Drain stuck completed items from the Sonarr or Radarr queue.
 
-Sonarr keeps completed downloads in the queue when the automatic import
-fails (permissions, naming, a stuck download-client entry). This tool
-unsticks them the same way the UI's manual import does:
+Sonarr and Radarr keep completed downloads in the queue when automatic
+import fails (permissions, naming, a stuck download-client entry, or the
+common \"matched by ID\" class where the *arr release is tied to a series
+or movie id without episode/file metadata — auto-import is impossible by
+design and the UI requires a manual import). This tool unsticks them the
+same way the UI's manual import does:
 
   1. For each completed queue item, preview candidates via
      /api/v3/manualimport?downloadId=<id>&filterExistingFiles=true
   2. POST /api/v3/command {name: ManualImport, files: [...]} to import the
-     resolved series/episodes using the quality/languages from the preview
+     resolved series/episodes (or movie) using the quality/languages from
+     the preview
   3. If the preview is empty or the command fails, remove the queue item
-     (removeFromClient=true, blocklist=false) so the episodes stay
+     (removeFromClient=true, blocklist=false) so the episodes/movie stay
      monitored and can be re-fetched
 
 Dry-run by default: prints what would happen. Pass --apply to act.
@@ -20,9 +24,10 @@ Exit codes:
   1  API/network failure (key missing or queue could not be fetched)
 
 Usage:
-  python3 scripts/drain_sonarr_queue.py
+  python3 scripts/drain_sonarr_queue.py                        # sonarr (default)
+  python3 scripts/drain_sonarr_queue.py --app radarr           # radarr
   python3 scripts/drain_sonarr_queue.py --apply --limit 10
-  python3 scripts/drain_sonarr_queue.py --url http://localhost:8989/api/v3 --api-key "$SONARR_API_KEY"
+  python3 scripts/drain_sonarr_queue.py --app radarr --url http://localhost:7878/api/v3 --api-key "$RADARR_API_KEY"
 """
 
 import argparse
@@ -34,9 +39,33 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_URL = "http://localhost:8989/api/v3"  # all paths below are API-relative
+DEFAULT_URLS = {
+    "sonarr": "http://localhost:8989/api/v3",  # all paths below are API-relative
+    "radarr": "http://localhost:7878/api/v3",
+}
 DEFAULT_TIMEOUT = 60
 DEFAULT_LIMIT = 5
+
+# Per-app schema: which key on a manualimport candidate carries the
+# parent (series for sonarr, movie for radarr), which nested key carries
+# the child records (episodes / movies), and which ids the ManualImport
+# file entry must carry (episodeIds / movieIds). Radarr's preview puts
+# the movie object itself on ``movie`` with no child array, so the child
+# list is the movie repeated once.
+APPS = {
+    "sonarr": {
+        "parent_key": "series",
+        "child_key": "episodes",
+        "parent_id_field": "seriesId",
+        "child_ids_field": "episodeIds",
+    },
+    "radarr": {
+        "parent_key": "movie",
+        "child_key": "movies",
+        "parent_id_field": "movieId",
+        "child_ids_field": "movieIds",
+    },
+}
 
 
 def _request(base_url, api_key, path, method="GET", body=None, timeout=DEFAULT_TIMEOUT):
@@ -50,26 +79,35 @@ def _request(base_url, api_key, path, method="GET", body=None, timeout=DEFAULT_T
     return json.loads(raw.decode()) if raw else {}
 
 
-def build_import_files(preview, download_id):
+def build_import_files(app, preview, download_id):
     """Build ManualImport file entries from a manualimport preview.
 
-    Returns (files, None) when every candidate resolves to a series and
-    episodes, and ([], reason) otherwise. Import is all-or-nothing: a
-    partially-resolved download falls back to queue removal rather than a
-    half-import.
+    Returns (files, None) when every candidate resolves to a series/movie
+    and its episodes/movies, and ([], reason) otherwise. Import is
+    all-or-nothing: a partially-resolved download falls back to queue
+    removal rather than a half-import.
     """
     if not preview:
         return [], "empty preview"
+    cfg = APPS[app]
+    parent_key = cfg["parent_key"]
+    child_key = cfg["child_key"]
     files = []
     for cand in preview:
-        series = cand.get("series") or {}
-        episodes = cand.get("episodes") or []
-        if not series.get("id") or not episodes:
-            return [], "unresolved candidate (no series/episodes)"
+        parent = cand.get(parent_key) or {}
+        parent_id = parent.get("id")
+        if child_key == "movies":
+            # Radarr preview carries the movie on ``movie`` with no child
+            # array; the file entry wants movieId + movieIds.
+            children = [{"id": parent_id}] if parent_id else []
+        else:
+            children = cand.get(child_key) or []
+        if not parent_id or not children:
+            return [], "unresolved candidate (no %s/%s)" % (parent_key, child_key)
         files.append({
             "path": cand.get("path"),
-            "seriesId": series["id"],
-            "episodeIds": [e["id"] for e in episodes],
+            cfg["parent_id_field"]: parent_id,
+            cfg["child_ids_field"]: [c["id"] for c in children],
             "quality": cand.get("quality"),
             "languages": cand.get("languages"),
             "downloadId": download_id,
@@ -77,7 +115,7 @@ def build_import_files(preview, download_id):
     return files, None
 
 
-def import_one(base_url, api_key, item, timeout=DEFAULT_TIMEOUT):
+def import_one(app, base_url, api_key, item, timeout=DEFAULT_TIMEOUT):
     """Try a full manual import for one queue item. Returns (ok, note)."""
     download_id = item.get("downloadId")
     if not download_id:
@@ -89,7 +127,7 @@ def import_one(base_url, api_key, item, timeout=DEFAULT_TIMEOUT):
             timeout=timeout)
     except Exception as exc:  # any API failure -> fall back to removal
         return False, f"preview error: {exc}"
-    files, err = build_import_files(preview, download_id)
+    files, err = build_import_files(app, preview, download_id)
     if err:
         return False, err
     try:
@@ -111,20 +149,20 @@ def import_one(base_url, api_key, item, timeout=DEFAULT_TIMEOUT):
 
 
 def remove_item(base_url, api_key, item, timeout=DEFAULT_TIMEOUT):
-    """Remove a queue item without blacklisting, keeping episodes monitored."""
+    """Remove a queue item without blacklisting, keeping the item monitored."""
     qid = item["id"]
     params = urllib.parse.urlencode({"removeFromClient": "true", "blocklist": "false"})
     _request(base_url, api_key, f"/queue/{qid}?{params}", "DELETE", timeout=timeout)
 
 
-def drain(base_url, api_key, limit, status, apply, timeout=DEFAULT_TIMEOUT):
+def drain(app, base_url, api_key, limit, status, apply, timeout=DEFAULT_TIMEOUT):
     """Process matching queue items; returns (exit_code, summary)."""
     try:
         q = _request(base_url, api_key,
                      f"/queue?page=1&pageSize=200&status={urllib.parse.quote(status)}",
                      timeout=timeout)
     except (urllib.error.URLError, RuntimeError, json.JSONDecodeError, OSError) as exc:
-        return 1, f"Sonarr queue API unreachable: {exc}"
+        return 1, f"{app} queue API unreachable: {exc}"
 
     records = q.get("records") or []
     total = q.get("totalRecords", len(records))
@@ -138,7 +176,7 @@ def drain(base_url, api_key, limit, status, apply, timeout=DEFAULT_TIMEOUT):
             ok += 1
             print(f"[dry] {qid} {title}")
             continue
-        good, note = import_one(base_url, api_key, item, timeout)
+        good, note = import_one(app, base_url, api_key, item, timeout)
         if good:
             ok += 1
             print(f"[imported] {qid} {title} | {note}")
@@ -160,10 +198,12 @@ def drain(base_url, api_key, limit, status, apply, timeout=DEFAULT_TIMEOUT):
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--url", default=os.environ.get("SONARR_URL", DEFAULT_URL),
-                    help="Sonarr base URL (default: %(default)s)")
-    ap.add_argument("--api-key", default=os.environ.get("SONARR_API_KEY", ""),
-                    help="API key (default: $SONARR_API_KEY)")
+    ap.add_argument("--app", choices=sorted(APPS), default="sonarr",
+                    help="which *arr to drain (default: %(default)s)")
+    ap.add_argument("--url", default="",
+                    help="API base URL (default: per-app localhost, or $APP_URL)")
+    ap.add_argument("--api-key", default="",
+                    help="API key (default: $SONARR_API_KEY / $RADARR_API_KEY)")
     ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT,
                     help="max queue items to process (default: %(default)s)")
     ap.add_argument("--status", default="completed",
@@ -174,12 +214,15 @@ def main():
                     help="HTTP timeout seconds (default: %(default)s)")
     args = ap.parse_args()
 
-    if not args.api_key:
-        print("SONARR_API_KEY not set (pass --api-key or export SONARR_API_KEY)",
+    env_suffix = args.app.upper()
+    url = args.url or os.environ.get(f"{env_suffix}_URL", DEFAULT_URLS[args.app])
+    api_key = args.api_key or os.environ.get(f"{env_suffix}_API_KEY", "")
+    if not api_key:
+        print(f"{env_suffix}_API_KEY not set (pass --api-key or export {env_suffix}_API_KEY)",
               file=sys.stderr)
         return 1
 
-    code, summary = drain(args.url, args.api_key, args.limit, args.status,
+    code, summary = drain(args.app, url, api_key, args.limit, args.status,
                           args.apply, args.timeout)
     print(summary)
     return code
