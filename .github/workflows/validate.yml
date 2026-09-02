@@ -89,6 +89,10 @@ jobs:
       - name: Actionlint
         if: ${{ github.event.inputs.skip_actionlint != 'true' }}
         run: |
+          # Release binary of actionlint v1.7.12, checksum-verified against the
+          # official release asset actionlint_1.7.12_checksums.txt. Keep this,
+          # AL_VERSION in scripts/preflight.sh, and the .pre-commit-config.yaml
+          # hook rev in sync so CI and local pre-commit run the same build.
           ACTIONLINT_VERSION="1.7.12"
           curl -sSL -o /tmp/actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"

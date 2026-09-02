@@ -50,6 +50,11 @@ else
   warn_skip "secret drift" "no .git (not a git checkout)"
 fi
 
+# actionlint must be the exact release CI runs — validate.yml downloads the
+# checksum-verified v1.7.12 release tarball and .pre-commit-config.yaml pins
+# the same rev, so a stale local binary must not pass the gate. Keep
+# AL_VERSION in sync with both files when upgrading.
+AL_VERSION="1.7.12"
 AL="${ACTIONLINT:-}"
 if [ -z "$AL" ] && command -v actionlint >/dev/null 2>&1; then
   AL="$(command -v actionlint)"
@@ -57,10 +62,13 @@ fi
 if [ -z "$AL" ] && [ -x /tmp/actionlint ]; then
   AL=/tmp/actionlint
 fi
-if [ -n "$AL" ]; then
-  check "actionlint" "$AL" .github/workflows/*.yml
-else
+if [ -z "$AL" ]; then
   warn_skip "actionlint" "actionlint (set ACTIONLINT=/path/to/actionlint)"
+elif [ "$( "$AL" --version 2>/dev/null | head -1 )" != "$AL_VERSION" ]; then
+  echo "  FAIL  actionlint version at $AL is not the pinned v$AL_VERSION (CI and local pre-commit use v$AL_VERSION)"
+  failures=$((failures + 1))
+else
+  check "actionlint" "$AL" .github/workflows/*.yml
 fi
 
 if command -v docker >/dev/null 2>&1; then
