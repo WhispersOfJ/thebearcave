@@ -20,9 +20,13 @@ criteria's tvdbid) — the class that produced the 2026-09-01 pile-up of
     same deterministic order (never-searched first, like Sonarr),
   * searches in batches of --batch episodes with a --gap pause,
   * stops after each batch for review unless --yes (checkpoint),
-  * with --verify, re-parses every new queue item's title and aborts the
-    sweep when any of them is NO_MATCH or resolves to a different series
-    than the one it was grabbed for (the ARK-into-TPB-Animated class).
+  * with --verify, re-parses every new grab's title -- Grabbed history
+    events newer than a batch-start watermark plus new queue items,
+    including unknown-series ones -- and aborts the sweep (rc 2) when any
+    is NO_MATCH, parses to no episodes, or resolves to a different series
+    than the one it was grabbed for (the ARK-into-TPB-Animated class),
+    even if the download fails before it ever reaches the queue. When the
+    history API is unavailable the queue diff alone still runs.
 
 Read-only against Sonarr except for the POST /command calls --apply
 makes. Dry-run by default.
@@ -166,8 +170,13 @@ def search_commands_for(batch):
 
 
 def fetch_queue_ids(base_url, api_key, timeout=DEFAULT_TIMEOUT):
-    """Set of downloadIds currently in the queue (verify watermark)."""
-    d = _request(base_url, api_key, "/queue?page=1&pageSize=200",
+    """Set of downloadIds currently in the queue (verify watermark).
+
+    includeUnknownSeriesItems=true so unknown-series items (which the
+    default queue view hides) are not a second blind spot.
+    """
+    d = _request(base_url, api_key,
+                 "/queue?page=1&pageSize=200&includeUnknownSeriesItems=true",
                  timeout=timeout)
     return {r.get("downloadId") for r in (d.get("records") or [])
             if r.get("downloadId")}
@@ -179,10 +188,12 @@ def verify_new_items(base_url, api_key, before_ids, timeout=DEFAULT_TIMEOUT):
     Returns (ok, offenders). ok is False when any new item's /parse
     result is NO_MATCH (no series) or resolves to a different series than
     the queue item's own seriesId -- the Id-matched wrong-show grab class
-    (ARK into TPB-Animated, The Sticky into The Tick, ...). Offenders are
-    (release title, queue seriesId, parsed series title or "NO_MATCH").
+    (ARK into TPB-Animated, The Sticky into The Tick, ...). Unknown-series
+    items (seriesId is None) can never be verified and are always
+    suspects. Offenders are dicts {downloadId, title, seriesId, parsed}.
     """
-    d = _request(base_url, api_key, "/queue?page=1&pageSize=200",
+    d = _request(base_url, api_key,
+                 "/queue?page=1&pageSize=200&includeUnknownSeriesItems=true",
                  timeout=timeout)
     offenders = []
     for r in d.get("records") or []:
@@ -196,12 +207,97 @@ def verify_new_items(base_url, api_key, before_ids, timeout=DEFAULT_TIMEOUT):
                 base_url, api_key,
                 f"/parse?title={urllib.parse.quote(title)}", timeout=timeout)
         except Exception as exc:  # conservative: cannot verify => suspect
-            offenders.append((title, sid, f"parse error: {exc}"))
+            offenders.append({"downloadId": dl, "title": title,
+                              "seriesId": sid, "parsed": f"parse error: {exc}"})
             continue
         pseries = parsed.get("series") or {}
         if pseries.get("id") != sid or not (parsed.get("episodes") or []):
-            offenders.append((title, sid, pseries.get("title") or "NO_MATCH"))
+            offenders.append({"downloadId": dl, "title": title,
+                              "seriesId": sid,
+                              "parsed": pseries.get("title") or "NO_MATCH"})
     return (not offenders), offenders
+
+
+def _grab_key(record):
+    """Return a sortable (date, id) key for a grabbed-history record."""
+    return (str(record.get("date") or ""), int(record.get("id") or 0))
+
+
+def fetch_grab_watermark(base_url, api_key, timeout=DEFAULT_TIMEOUT):
+    """Return the batch-start (max grab date, id) watermark.
+
+    Grabs that fail before they are ever queue-visible (dead NZBs failing
+    seconds after grab) never appear in the queue, so a queue diff alone
+    cannot see them. The watermark lets verify re-read /history for Grabbed
+    events newer than the batch start. None means the history API was
+    unavailable; the caller must use the queue-diff-only fallback rather
+    than treating the entire recent history as new.
+    """
+    try:
+        d = _request(base_url, api_key,
+                     "/history?page=1&pageSize=100&eventType=1",
+                     timeout=timeout)
+    except Exception:
+        return None
+    records = [r for r in (d.get("records") or []) if r.get("id")]
+    return max((_grab_key(r) for r in records), default=("", 0))
+
+
+def new_grab_offenders(base_url, api_key, watermark, timeout=DEFAULT_TIMEOUT):
+    """Parse every Grabbed history event newer than the watermark.
+
+    Returns (available, offenders). available=False when the history API
+    could not be read or its batch-start watermark was unavailable (the
+    caller falls back to the queue diff alone). Offenders have the same
+    dict shape as verify_new_items; any grab whose title parses NO_MATCH,
+    to no episodes, or to a different series than the grab's own seriesId
+    is listed regardless of whether the download is still in the queue.
+    """
+    if watermark is None:
+        return False, []
+    try:
+        d = _request(base_url, api_key,
+                     "/history?page=1&pageSize=100&eventType=1",
+                     timeout=timeout)
+    except Exception:
+        return False, []
+    offenders = []
+    for r in d.get("records") or []:
+        if not r.get("id") or _grab_key(r) <= watermark:
+            continue
+        sid = r.get("seriesId")
+        title = str(r.get("sourceTitle") or "?")[:90]
+        try:
+            parsed = _request(
+                base_url, api_key,
+                f"/parse?title={urllib.parse.quote(title)}", timeout=timeout)
+        except Exception as exc:  # conservative: cannot verify => suspect
+            offenders.append({"downloadId": r.get("downloadId"), "title": title,
+                              "seriesId": sid, "parsed": f"parse error: {exc}"})
+            continue
+        pseries = parsed.get("series") or {}
+        if pseries.get("id") != sid or not (parsed.get("episodes") or []):
+            offenders.append({"downloadId": r.get("downloadId"), "title": title,
+                              "seriesId": sid,
+                              "parsed": pseries.get("title") or "NO_MATCH"})
+    return True, offenders
+
+
+def merge_offenders(*groups):
+    """Dedupe offender dicts from history and queue verification.
+
+    A downloadId is shared by the two views when available. A missing id
+    gets a stable content key so multiple unknown queue items are retained.
+    """
+    out = {}
+    for group in groups:
+        for offender in group:
+            key = offender.get("downloadId")
+            if not key:
+                key = (offender.get("title"), offender.get("seriesId"),
+                       offender.get("parsed"))
+            out[key] = offender
+    return list(out.values())
 
 
 def run(base_url, api_key, series_ids, all_series, batch_size, gap,
@@ -228,33 +324,46 @@ def run(base_url, api_key, series_ids, all_series, batch_size, gap,
             for c in cmds:
                 print(f"  [dry] POST /command {c}")
             if verify:
-                # Read-only pre-flight: the code path is exercised against
-                # the live queue; nothing was searched so nothing is new.
+                # Read-only pre-flight: both verify legs run against the
+                # live APIs; nothing was searched so nothing is new.
+                watermark = fetch_grab_watermark(base_url, api_key, timeout)
+                hist_ok, hist = new_grab_offenders(base_url, api_key,
+                                                   watermark, timeout)
                 before = fetch_queue_ids(base_url, api_key, timeout)
-                ok, offenders = verify_new_items(base_url, api_key, before,
-                                                 timeout)
-                state = "OK" if ok else f"SUSPECT: {offenders[0]}"
+                _, qoff = verify_new_items(base_url, api_key, before,
+                                           timeout)
+                if not hist_ok:
+                    print("  verify (dry-run): history API unavailable; "
+                          "queue diff only")
+                offenders = merge_offenders(hist, qoff)
+                state = "OK" if not offenders else f"SUSPECT: {offenders[0]['parsed']}"
                 print(f"  verify (dry-run, nothing searched): "
-                      f"{len(offenders)} new item(s) -> {state}")
+                      f"{len(offenders)} suspect(s) -> {state}")
             continue
 
         before = fetch_queue_ids(base_url, api_key, timeout)
+        watermark = fetch_grab_watermark(base_url, api_key, timeout)
         for c in cmds:
             _request(base_url, api_key, "/command", "POST", c, timeout)
         if gap:
             print(f"  waiting {gap}s before verify/review...")
             time.sleep(gap)
         if verify:
-            ok, offenders = verify_new_items(base_url, api_key, before,
-                                             timeout)
-            if not ok:
+            hist_ok, hist = new_grab_offenders(base_url, api_key,
+                                               watermark, timeout)
+            _, qoff = verify_new_items(base_url, api_key, before, timeout)
+            if not hist_ok:
+                print("  verify: history API unavailable; queue diff only")
+            offenders = merge_offenders(hist, qoff)
+            if offenders:
                 print("VERIFY FAILED -- aborting sweep:")
-                for title, sid, parsed in offenders:
-                    print(f"  {title} | queue series {sid} | parsed {parsed}")
-                return 2, (f"verify-abort: {len(offenders)} suspect queue "
-                           "item(s); review and remove before continuing")
-            print(f"  verify: {len(offenders)} new item(s), all parse to "
-                  "their own series")
+                for o in offenders:
+                    print(f"  {o['title']} | series {o['seriesId']} | "
+                          f"parsed {o['parsed']}")
+                return 2, (f"verify-abort: {len(offenders)} suspect grab(s) "
+                           "(grabbed or queued); review before continuing")
+            print(f"  verify: {len(hist)} new grab(s), {len(qoff)} new queue "
+                  "item(s), all parse to their own series")
         if checkpoint and i < len(batches):
             print("checkpoint: batch {i} done. Review the queue, then "
                   "re-run with the same arguments to resume (groups are "
@@ -282,8 +391,9 @@ def main():
     ap.add_argument("--yes", action="store_true",
                     help="disable checkpoints; run every batch in one pass")
     ap.add_argument("--verify", action="store_true",
-                    help="parse-check new queue items after each batch; abort "
-                         "on NO_MATCH or a different series than the one searched")
+                    help="parse-check new grabs (history watermark) and new "
+                         "queue items after each batch; abort on NO_MATCH or "
+                         "a different series than the one searched")
     ap.add_argument("--apply", action="store_true",
                     help="actually POST search commands; default is a dry run")
     ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,

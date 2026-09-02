@@ -14,6 +14,11 @@ Verifies the pure planning logic and the guarded sweep loop:
   * --verify passes when new queue items parse to their own series,
     aborts with rc 2 and the offenders listed on NO_MATCH or a
     different-series parse, and ignores pre-existing queue items
+  * --verify aborts on a grab that fails before it is ever queue-visible
+    (caught via the grabbed-history watermark), treats unknown-series
+    queue items as suspects, ignores pre-existing grabs via the watermark,
+    and falls back to the queue diff alone when the history API is
+    unavailable
   * checkpoints stop after the first batch; --yes runs every batch
 
 Runs against importable pure-Python logic (no live Sonarr needed), so it
@@ -94,9 +99,13 @@ def main():
     # --- stubbed sweep loop ---
     missing_records = []
     queue_records = []
+    history_records = []
+    queue_paths = []
     parse_map = {}
     posted = []
     post_n = {"n": 0}
+    sim = {"append_queue": True, "append_history": True,
+           "new_series_id": 1, "history_fails": False}
 
     def stub(base_url, api_key, path, method="GET", body=None, timeout=None):
         if path.startswith("/wanted/missing"):
@@ -105,17 +114,35 @@ def main():
             sid = int(path.split("seriesId=", 1)[1].split("&", 1)[0])
             return [r for r in missing_records if r["seriesId"] == sid]
         if path.startswith("/queue"):
+            queue_paths.append(path)
             return {"totalRecords": len(queue_records), "records": queue_records}
+        if path.startswith("/history"):
+            if sim["history_fails"]:
+                raise RuntimeError("history unavailable")
+            return {"totalRecords": len(history_records),
+                    "records": sorted(history_records,
+                                       key=lambda r: r["id"], reverse=True)}
         if path.startswith("/parse"):
             title = urllib.parse.unquote(path.split("title=", 1)[1])
             return parse_map.get(title, {"series": None, "episodes": []})
         if path.startswith("/command") and method == "POST":
             posted.append(body)
-            # Simulate the grab appearing in the queue after each search.
+            # Simulate the grab appearing after each search: in the queue
+            # and/or in the grabbed-history watermark (or neither, for the
+            # instant-failure case).
             post_n["n"] += 1
-            queue_records.append({"id": 900 + post_n["n"],
-                                  "downloadId": f"dl-new-{post_n['n']}",
-                                  "seriesId": 1, "title": "Show.S01E01.WEB"})
+            if sim["append_queue"]:
+                queue_records.append({"id": 900 + post_n["n"],
+                                      "downloadId": f"dl-new-{post_n['n']}",
+                                      "seriesId": sim["new_series_id"],
+                                      "title": "Show.S01E01.WEB"})
+            if sim["append_history"]:
+                history_records.append({"id": 10000 + post_n["n"],
+                                        "eventType": 1,
+                                        "seriesId": sim["new_series_id"],
+                                        "episodeId": 101,
+                                        "downloadId": f"dl-new-{post_n['n']}",
+                                        "sourceTitle": "Show.S01E01.WEB"})
             return {"id": 1}
         raise AssertionError(f"unexpected path: {path}")
 
@@ -180,6 +207,70 @@ def main():
                                 checkpoint=False, verify=True, apply=True)
         check("verify ignores pre-existing queue items",
               code == 0 and "complete" in summary)
+
+        # A grab that fails before it is ever queue-visible must still
+        # abort: it exists in grabbed history (the watermark) even though
+        # the queue never sees it (the wire-to-wire 430-failure case).
+        missing_records = [ep(1, 1, 1, last=None)]
+        parse_map = {}
+        queue_records = []
+        history_records = []
+        posted.clear()
+        sim["append_queue"] = False   # download dies before queue insertion
+        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
+                                all_series=False, batch_size=20, gap=0,
+                                checkpoint=False, verify=True, apply=True)
+        check("verify aborts on a grab that never reaches the queue",
+              code == 2 and "verify-abort" in summary)
+        sim["append_queue"] = True
+
+        # Unknown-series queue items are suspects, and the queue fetch must
+        # include unknown-series items so they are not a second blind spot.
+        queue_paths.clear()
+        parse_map = {}
+        queue_records = []
+        history_records = []
+        posted.clear()
+        sim["new_series_id"] = None
+        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
+                                all_series=False, batch_size=20, gap=0,
+                                checkpoint=False, verify=True, apply=True)
+        check("unknown-series queue item is a verify offender",
+              code == 2 and "verify-abort" in summary)
+        check("queue fetch includes unknown-series items",
+              len(queue_paths) > 0 and all(
+                  "includeUnknownSeriesItems=true" in p for p in queue_paths))
+        sim["new_series_id"] = 1
+
+        # Pre-existing grabs (id <= watermark) are ignored even when their
+        # titles would parse NO_MATCH.
+        missing_records = [ep(1, 1, 1, last=None)]
+        parse_map = {"Show.S01E01.WEB": {"series": {"id": 1, "title": "Show"},
+                                         "episodes": [{"id": 101}]}}
+        history_records = [{"id": 5000, "eventType": 1, "seriesId": 1,
+                            "downloadId": "dl-old-grab",
+                            "sourceTitle": "Old.Grab.NO.MATCH"}]
+        queue_records = []
+        posted.clear()
+        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
+                                all_series=False, batch_size=20, gap=0,
+                                checkpoint=False, verify=True, apply=True)
+        check("pre-existing grabs are ignored via the watermark",
+              code == 0 and "complete" in summary)
+
+        # History API unavailable: the queue diff still runs (fallback).
+        parse_map = {"Show.S01E01.WEB": {"series": {"id": 1, "title": "Show"},
+                                         "episodes": [{"id": 101}]}}
+        queue_records = []
+        history_records = []
+        posted.clear()
+        sim["history_fails"] = True
+        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
+                                all_series=False, batch_size=20, gap=0,
+                                checkpoint=False, verify=True, apply=True)
+        check("queue-diff verify still works when history is unavailable",
+              code == 0 and "complete" in summary)
+        sim["history_fails"] = False
 
         # Checkpoint stops after batch 1; --yes runs every batch.
         missing_records = [ep(1, s, n, last=None) for s in (1, 2)
