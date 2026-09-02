@@ -31,7 +31,8 @@ Every active Compose variable must have a name in `.env.template`. CI also runs:
 - Bash syntax checks and ShellCheck
 - Ruff and Python compilation
 - Bash parse, completion-drift, and offline smoke checks (bash port)
-- actionlint on every workflow
+- actionlint on every workflow (pinned to the v1.7.12 release binary via
+  checksum in `validate.yml`)
 
 Run the local equivalent before pushing:
 
@@ -40,7 +41,7 @@ docker compose config --quiet
 python3 scripts/test_check_compose_mounts.py
 bash -n scripts/*.sh tests/*/*.sh
 ./tests/bash/test_bash_functions.sh --offline
-./scripts/preflight.sh
+./scripts/preflight.sh    # fails if the local actionlint is not exactly v1.7.12
 ```
 
 ## Action pinning
