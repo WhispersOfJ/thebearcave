@@ -89,8 +89,15 @@ fi
 
 if [ -f "$ROOT/config/sonarr/sonarr.db" ] || [ -n "${SONARR_DB:-}" ]; then
   check "sonarr references" python3 scripts/check_sonarr_refs.py
+  # Same landmine #9 gate as radarr, against Sonarr's EpisodeFiles blob
+  # table (the checker's MovieFiles default is absent in sonarr.db and would
+  # read 0 MiB). SONARR_DB honours an external DB like the radarr leg does
+  # via RADARR_DB.
+  check "sonarr db size" python3 scripts/check_radarr_db_size.py \
+    --db "${SONARR_DB:-$ROOT/config/sonarr/sonarr.db}" --blob-table EpisodeFiles
 else
   warn_skip "sonarr references" "no sonarr.db (sonarr not configured here)"
+  warn_skip "sonarr db size" "no sonarr.db (sonarr not configured here)"
 fi
 
 if [ -f "$ROOT/config/prowlarr/prowlarr.db" ] || [ -n "${PROWLARR_DB:-}" ]; then
