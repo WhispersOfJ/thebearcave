@@ -22,7 +22,7 @@ Exit codes:
 Usage:
   python3 scripts/drain_sonarr_queue.py
   python3 scripts/drain_sonarr_queue.py --apply --limit 10
-  python3 scripts/drain_sonarr_queue.py --url http://localhost:8989 --api-key "$SONARR_API_KEY"
+  python3 scripts/drain_sonarr_queue.py --url http://localhost:8989/api/v3 --api-key "$SONARR_API_KEY"
 """
 
 import argparse
@@ -34,7 +34,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_URL = "http://localhost:8989"
+DEFAULT_URL = "http://localhost:8989/api/v3"  # all paths below are API-relative
 DEFAULT_TIMEOUT = 60
 DEFAULT_LIMIT = 5
 
