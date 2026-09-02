@@ -38,6 +38,59 @@ stack-docker-disk-usage() {
     docker system df
 }
 
+# stack-disk-reclaim [-y|--yes] [--dry-run] [--aggressive] — reclaim Docker disk
+# Prunes dangling volumes (explicit rm — docker volume prune skips labeled
+# volumes), dangling images, build cache, and stopped containers. With
+# --aggressive, also removes every image not referenced by docker-compose.yml
+# (cache is re-pullable; this is the retired-stack/tooling accumulation class).
+# Backed by scripts/reclaim_docker_disk.py. Safe to run nightly from cron.
+stack-disk-reclaim() {
+# complete: -y|--yes|--dry-run|--aggressive
+# danger: true
+    if [ "$#" -eq 0 ]; then
+        echo "Usage: stack-disk-reclaim [-y|--yes] [--dry-run] [--aggressive]" >&2
+        return 1
+    fi
+    local assume_yes=false
+    local -a pargs=()
+    for arg in "$@"; do
+        case "$arg" in
+            -y|--yes) assume_yes=true ;;
+            --dry-run|--aggressive) pargs+=("$arg") ;;
+            -h|--help)
+                echo "Usage: stack-disk-reclaim [-y|--yes] [--dry-run] [--aggressive]" >&2
+                echo "Reclaim Docker disk: volumes/images/build-cache; --aggressive adds non-compose image removal." >&2
+                return 0
+                ;;
+            *)
+                echo "Unknown option: $arg (usage: stack-disk-reclaim [-y|--yes] [--dry-run] [--aggressive])" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    local repo="${BEARCAVE_REPO_DIR:-}"
+    if [ -z "$repo" ]; then
+        local self="${BASH_SOURCE[0]}"
+        local real
+        real="$(readlink -f "$self" 2>/dev/null || echo "$self")"
+        repo="$(dirname "$(dirname "$(dirname "$(dirname "$real")")")")"
+    fi
+
+    if [ "$assume_yes" != true ] && ! printf '%s' "${pargs[*]}" | grep -q -- '--dry-run'; then
+        printf 'Reclaim Docker disk space? [y/N] '
+        local reply
+        read -r reply
+        case "$reply" in
+            y|Y) ;;
+            *) echo "Aborted."; return 1 ;;
+        esac
+    fi
+
+    cd "$repo" || return 1
+    python3 "$repo/scripts/reclaim_docker_disk.py" "${pargs[@]}"
+}
+
 # stack-nzbdav-dedup-check — duplicate entries in NzbDAV download history
 stack-nzbdav-dedup-check() {
     fmt_heading "NzbDAV Dedup Check"
