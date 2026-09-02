@@ -40,6 +40,7 @@ jobs:
           python3 scripts/test_check_bind_mount_staleness.py
           python3 scripts/test_check_radarr_profiles.py
           python3 scripts/test_check_radarr_db_size.py
+          python3 scripts/test_prune_radarr_db.py
           python3 scripts/test_check_sonarr_refs.py
           python3 scripts/test_check_prowlarr_refs.py
           python3 scripts/test_check_secret_drift.py

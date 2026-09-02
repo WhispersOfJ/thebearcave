@@ -151,6 +151,92 @@ stack-radarr-health() {
     fi
 }
 
+# stack-radarr-prune [-y|--yes] [--dry-run] — prune radarr.db MediaInfo bloat
+# Stops radarr (when running), backs up radarr.db + logs.db, prunes MediaInfo
+# blobs and old history, vacuums, and verifies via scripts/prune_radarr_db.py,
+# then resumes radarr. Requires an explicit flag — refuses with no args.
+stack-radarr-prune() {
+# complete: -y|--yes|--dry-run
+    if [ "$#" -eq 0 ]; then
+        echo "Usage: stack-radarr-prune [-y|--yes] [--dry-run]" >&2
+        return 1
+    fi
+    local assume_yes=false dry_run=false arg
+    for arg in "$@"; do
+        case "$arg" in
+            -y|--yes) assume_yes=true ;;
+            --dry-run) dry_run=true ;;
+            -h|--help)
+                echo "Usage: stack-radarr-prune [-y|--yes] [--dry-run]" >&2
+                echo "Prune radarr.db bloat: backup, prune, vacuum, verify (see docs/services/radarr.md)." >&2
+                return 0
+                ;;
+            *)
+                echo "Unknown option: $arg (usage: stack-radarr-prune [-y|--yes] [--dry-run])" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    local repo="${BEARCAVE_REPO_DIR:-}"
+    if [ -z "$repo" ]; then
+        local self="${BASH_SOURCE[0]}"
+        local real
+        real="$(readlink -f "$self" 2>/dev/null || echo "$self")"
+        repo="$(dirname "$(dirname "$(dirname "$(dirname "$real")")")")"
+    fi
+
+    local db="$repo/config/radarr/radarr.db"
+    if [ ! -f "$db" ]; then
+        echo "  radarr.db  $(fmt_status_dot "missing")  ($repo/config/radarr/radarr.db)"
+        return 1
+    fi
+
+    local running=false
+    if command -v docker >/dev/null 2>&1 \
+        && docker ps --filter "name=^/radarr$" --format '{{.Names}}' | grep -qx radarr; then
+        running=true
+    fi
+
+    # VACUUM needs an exclusive lock; stop radarr first unless dry-running.
+    local stopped=false
+    if [ "$running" = true ] && [ "$dry_run" = false ]; then
+        if [ "$assume_yes" != true ]; then
+            printf 'Stop radarr while its DB is vacuumed? [y/N] '
+            local reply
+            read -r reply
+            case "$reply" in
+                y|Y) ;;
+                *) echo "Aborted."; return 1 ;;
+            esac
+        fi
+        fmt_heading "Stopping radarr"
+        docker compose -f "$repo/docker-compose.yml" stop radarr \
+            || { fmt_error "could not stop radarr"; return 1; }
+        stopped=true
+    fi
+
+    local -a pargs=()
+    [ "$assume_yes" = true ] && pargs+=(--yes)
+    [ "$dry_run" = true ] && pargs+=(--dry-run)
+    python3 "$repo/scripts/prune_radarr_db.py" "${pargs[@]}"
+    local rc=$?
+
+    if [ "$stopped" = true ]; then
+        fmt_heading "Starting radarr"
+        docker compose -f "$repo/docker-compose.yml" start radarr >/dev/null 2>&1 \
+            || fmt_warning "radarr did not restart cleanly — run stack-restart-all"
+    fi
+
+    echo ""
+    if [ "$rc" -eq 0 ]; then
+        fmt_success "Radarr DB maintenance complete."
+    else
+        fmt_error "Radarr DB maintenance reported problems (exit $rc)."
+    fi
+    return "$rc"
+}
+
 # stack-prowlarr-indexers — Every indexer enabled state + priority
 stack-prowlarr-indexers() {
     local url="${PROWLARR_URL:-http://localhost:9696}"
