@@ -506,6 +506,7 @@ else
     run_live stack-mount-health
     run_live stack-maintenance-digest
     run_live stack-audit-residue
+    run_live stack-config-drift
     run_live stack-radarr-health
     run_live stack-plex-markers
     run_live stack-prowlarr-indexers

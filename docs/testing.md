@@ -12,10 +12,12 @@ bash -n scripts/*.sh tests/*/*.sh
 ./scripts/preflight.sh
 ```
 
-The preflight gate checks compose syntax, mount declarations, mount drift, MCP
-configuration, NzbDAV queue safety, bind-mount staleness, Python compilation,
-Radarr + Sonarr DB size gates (AGENTS.md landmine #9 — `MovieFiles` and
-`EpisodeFiles` MediaInfo bloat), and available lint tools.
+The preflight gate checks compose syntax, mount declarations, mount and
+config drift (running-container images vs compose pins; mount drift vs
+compose definitions), MCP configuration, NzbDAV queue safety, bind-mount
+staleness, Python compilation, Radarr + Sonarr DB size gates (AGENTS.md
+landmine #9 — `MovieFiles` and `EpisodeFiles` MediaInfo bloat), retired
+residue, and available lint tools.
 
 ## Health checks
 
