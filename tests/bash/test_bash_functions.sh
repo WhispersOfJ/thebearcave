@@ -473,7 +473,7 @@ for cmd in \
     stack-arr-import-starvation stack-arr-logs stack-arr-missing-aired \
     stack-arr-queue-errors stack-arr-recently-added stack-arr-toggle-search \
     stack-container stack-cutoff-unmet stack-import-lists stack-loop-candidates \
-    stack-loop-exclude stack-loop-unmonitor stack-worktree; do
+    stack-loop-exclude stack-loop-unmonitor stack-radarr-prune stack-worktree; do
     # only guard commands that are actually defined
     if printf '%s\n' "${STACK_CMDS[@]}" | grep -qx "$cmd"; then
         run_guard "$cmd"
