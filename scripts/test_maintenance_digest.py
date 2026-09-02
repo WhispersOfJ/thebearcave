@@ -28,6 +28,17 @@ def fake_reclaim_log(mtime: dt.datetime) -> Path:
     return p
 
 
+def fake_prune_log(mtime: dt.datetime, exit_code: int | None = 0,
+                   body: str = "VERIFIED: 1134 -> 750 MiB; integrity ok.") -> Path:
+    tmp = tempfile.mkdtemp()
+    p = Path(tmp) / ".sonarr-prune.log"
+    stamp = mtime.strftime("%Y-%m-%d %H:%M:%S UTC")
+    header = f"==== {stamp} (exit {exit_code}) ====" if exit_code is not None else ""
+    p.write_text(header + "\n" + body + "\n")
+    os.utime(p, (mtime.timestamp(), mtime.timestamp()))
+    return p
+
+
 class TestReclaimLog(unittest.TestCase):
     def test_fresh_after_0400_passes(self):
         # log written 05:00 today; checked 09:00 today
@@ -58,6 +69,64 @@ class TestReclaimLog(unittest.TestCase):
         # 06:00 is today's
         self.assertEqual(md.latest_0400(dt.datetime(2026, 9, 3, 6, 0)),
                          dt.datetime(2026, 9, 3, 4, 0))
+
+
+class TestSonarrPruneLog(unittest.TestCase):
+    def test_fresh_run_after_boundary_passes(self):
+        # pruned 03:40 on the 1st; checked midday on the 1st
+        now = dt.datetime(2026, 9, 1, 12, 0)
+        p = fake_prune_log(dt.datetime(2026, 9, 1, 3, 40), exit_code=0)
+        f = md.check_sonarr_prune_log(p, now)
+        self.assertEqual(f.level, "ok", f.render())
+
+    def test_mid_month_previous_run_still_fresh(self):
+        # checked on the 15th; last run was the 1st 03:50
+        now = dt.datetime(2026, 9, 15, 8, 0)
+        p = fake_prune_log(dt.datetime(2026, 9, 1, 3, 50), exit_code=0)
+        f = md.check_sonarr_prune_log(p, now)
+        self.assertEqual(f.level, "ok", f.render())
+
+    def test_missing_monthly_run_is_stale(self):
+        # the 1st-of-month 03:30 run never happened (log is the prior month's)
+        now = dt.datetime(2026, 9, 2, 9, 0)
+        p = fake_prune_log(dt.datetime(2026, 8, 1, 3, 50), exit_code=0)
+        f = md.check_sonarr_prune_log(p, now)
+        self.assertEqual(f.level, "fail", f.render())
+        self.assertIn("stale", f.message)
+
+    def test_missing_log_fails(self):
+        f = md.check_sonarr_prune_log(Path("/nonexistent/prune.log"),
+                                      dt.datetime(2026, 9, 1, 12, 0))
+        self.assertEqual(f.level, "fail")
+        self.assertIn("missing", f.message)
+
+    def test_failed_run_is_flagged_even_when_fresh(self):
+        # the cron fired today but the prune reported problems (rc 1)
+        now = dt.datetime(2026, 9, 1, 12, 0)
+        p = fake_prune_log(dt.datetime(2026, 9, 1, 3, 50), exit_code=1,
+                           body="CHECK FAILED: bloat remains after prune")
+        f = md.check_sonarr_prune_log(p, now)
+        self.assertEqual(f.level, "fail", f.render())
+        self.assertIn("exited", f.message)
+
+    def test_log_without_run_record_fails(self):
+        now = dt.datetime(2026, 9, 1, 12, 0)
+        p = fake_prune_log(dt.datetime(2026, 9, 1, 3, 50), exit_code=None)
+        f = md.check_sonarr_prune_log(p, now)
+        self.assertEqual(f.level, "fail")
+        self.assertIn("no run record", f.message)
+
+    def test_latest_monthly_boundary_wraps(self):
+        # before the 1st's 03:30, the boundary is the prior month's
+        now = dt.datetime(2026, 9, 1, 2, 0)
+        self.assertEqual(md.latest_monthly_boundary(now),
+                         dt.datetime(2026, 8, 1, 3, 30))
+        # January wraps the year
+        self.assertEqual(md.latest_monthly_boundary(dt.datetime(2026, 1, 1, 2, 0)),
+                         dt.datetime(2025, 12, 1, 3, 30))
+        # after 03:30 on the 1st, it is the current month's run
+        self.assertEqual(md.latest_monthly_boundary(dt.datetime(2026, 9, 1, 6, 0)),
+                         dt.datetime(2026, 9, 1, 3, 30))
 
 
 class TestTimers(unittest.TestCase):

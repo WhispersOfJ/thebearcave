@@ -27,6 +27,11 @@ Checks (one line each in the digest):
     host mode: repo surfaces + crontab + user units. Clean on a CI runner or
     a fresh checkout; a FAIL means retired-service/dead-path residue slipped
     back into an operational surface.
+  * sonarr prune  - ~/.sonarr-prune.log must exist with an mtime newer than
+    the most recent 1st-of-month 03:30 boundary (the monthly sonarr.json
+    bounded-maintenance cron fires then), and its most recent run must have
+    exited 0 — so a prune that ran but failed its own verification ("CHECK
+    FAILED" / rc 1) is still flagged, not just a missing run.
 
 Exit codes:
   0  every check passed (or soft-warned)
@@ -50,8 +55,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RECLAIM_LOG = Path.home() / ".stack-disk-reclaim.log"
+DEFAULT_SONARR_PRUNE_LOG = Path.home() / ".sonarr-prune.log"
 DEFAULT_DOTFILES = Path.home() / ".dotfiles"
 RECLAIM_HOUR = 4
+SONARR_PRUNE_DAY = 1
+SONARR_PRUNE_HOUR = 3
+SONARR_PRUNE_MINUTE = 30
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +109,62 @@ def check_reclaim_log(path: Path, now: _dt.datetime | None = None) -> Finding:
                        f"{latest_0400(now):%H:%M} run")
     return Finding("reclaim log", "ok",
                    f"written {mtime:%H:%M} (today's {latest_0400(now):%H:%M} run)")
+
+
+# ---------------------------------------------------------------------------
+# Sonarr prune log freshness (monthly 1st-of-month 03:30 cron)
+# ---------------------------------------------------------------------------
+
+def latest_monthly_boundary(now: _dt.datetime) -> _dt.datetime:
+    """The most recent 1st-of-month 03:30 boundary at or before *now*."""
+    candidate = now.replace(day=SONARR_PRUNE_DAY, hour=SONARR_PRUNE_HOUR,
+                            minute=SONARR_PRUNE_MINUTE, second=0, microsecond=0)
+    if now < candidate:
+        if candidate.month == 1:
+            candidate = candidate.replace(year=candidate.year - 1, month=12)
+        else:
+            candidate = candidate.replace(month=candidate.month - 1)
+    return candidate
+
+
+def last_prune_exit(text: str) -> int | None:
+    """Exit code from the most recent '==== date (exit N) ====' header.
+
+    The monthly runner writes one header per run; None means the log has
+    never recorded a completed run (also the missing-file case upstream).
+    """
+    rc = None
+    for line in text.splitlines():
+        if line.startswith("==== ") and " (exit " in line and line.rstrip().endswith(") ===="):
+            try:
+                rc = int(line.rsplit("(exit ", 1)[1].rsplit(")", 1)[0])
+            except ValueError:
+                continue
+    return rc
+
+
+def check_sonarr_prune_log(path: Path,
+                           now: _dt.datetime | None = None) -> Finding:
+    now = now or _dt.datetime.now()
+    boundary = latest_monthly_boundary(now)
+    if not path.is_file():
+        return Finding("sonarr prune", "fail",
+                       f"missing: {path} (monthly 03:30 cron never wrote it)")
+    mtime = _dt.datetime.fromtimestamp(path.stat().st_mtime)
+    if mtime < boundary:
+        age_d = max(0, int((now - mtime).total_seconds() // 86400))
+        return Finding("sonarr prune", "fail",
+                       f"stale: last written {age_d}d ago, before the "
+                       f"{boundary:%Y-%m-%d} 03:30 run")
+    rc = last_prune_exit(path.read_text(errors="replace"))
+    if rc is None:
+        return Finding("sonarr prune", "fail",
+                       "no run record found in the log")
+    if rc != 0:
+        return Finding("sonarr prune", "fail",
+                       f"last run exited {rc} — prune reported problems")
+    return Finding("sonarr prune", "ok",
+                   f"run {boundary:%Y-%m-%d} ok (monthly 03:30 cron)")
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +324,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--reclaim-log", default=str(DEFAULT_RECLAIM_LOG))
+    ap.add_argument("--sonarr-prune-log", default=str(DEFAULT_SONARR_PRUNE_LOG))
     ap.add_argument("--dotfiles", default=str(DEFAULT_DOTFILES))
     ap.add_argument("--repo", default=str(ROOT),
                     help="operational checkout holding config/ (default: this repo)")
@@ -266,7 +332,8 @@ def main() -> int:
                     help="whitelist a user unit that fails by design (repeatable)")
     args = ap.parse_args()
 
-    findings = [check_reclaim_log(Path(args.reclaim_log))]
+    findings = [check_reclaim_log(Path(args.reclaim_log)),
+                check_sonarr_prune_log(Path(args.sonarr_prune_log))]
 
     # systemctl --user --failed --no-legend  (offline test injects text)
     try:
