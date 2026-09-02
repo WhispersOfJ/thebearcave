@@ -97,6 +97,50 @@ python3 scripts/drain_sonarr_queue.py --apply --limit 10   # act on sonarr
 python3 scripts/drain_sonarr_queue.py --app radarr --apply --limit 10 # act on radarr
 ```
 
+### Bulk "Search Missing" sweeps grab wrong shows — search scoped instead
+
+A whole-series or whole-library "Search Missing" blast sends every missing
+episode through the indexer at once and auto-grabs whatever comes back.
+Releases whose titles don't parse to the searched series fall back to the
+"matched by ID" path at grab time (the *arr uses the search criteria's TVDb
+ID when the title won't match), which auto-import refuses — the 2026-09-01
+sweep left 230 stuck items, ~190 GB of which was later mis-imported as
+wrong-show content (ARK into Trailer Park Boys: The Animated Series, The
+Sticky into The Tick, the 2022 Staircase dramatization into the 2004
+documentary).
+
+Prefer `scripts/search_missing_scoped.py` for any sweep: it searches the
+same way Sonarr does internally (per series/season) but in small batches
+(`--batch 20`), pauses between batches (`--gap 60`), stops for review after
+each batch unless `--yes`, and `--verify` re-parses every new queue item's
+title and aborts the sweep — rc 2 — the moment anything is NO_MATCH or a
+different series than the one searched. Dry-run by default; only `--apply`
+POSTs search commands:
+
+```bash
+python3 scripts/search_missing_scoped.py --series 25891                 # dry-run, one series
+python3 scripts/search_missing_scoped.py --all --batch 10               # dry-run, whole library
+python3 scripts/search_missing_scoped.py --series 25891 --apply --verify  # scoped sweep + guard
+python3 scripts/search_missing_scoped.py --all --apply --yes            # no checkpoints
+```
+
+Manually: search one series at a time (never the whole Wanted list) and
+check the queue between series; prefer season-scoped searches, whose
+season packs tend to title-match cleanly.
+
+Three title variants from the Sep-1 burst are *genuine* scene-mapping
+candidates — right content under a variant title. Adding them to the shared
+scene-mapping dataset makes future grabs title-match and auto-import:
+
+* `Chirurgiens.D.Exception` → The Surgeon's Cut (French title)
+* `Trailer.Park.Boys.Out.of.the.Park.Europe` → Trailer Park Boys: Out of the Park
+* `Transformers.War.For.Cybertron.Trilogy.Earthrise` → Transformers: War For Cybertron Trilogy
+
+When a bad grab still lands, the backstop is the drain's safe mode:
+`drain_sonarr_queue.py --apply --auto-safe` imports only queue items whose
+file parses provably to their own series and leaves everything else queued
+for manual review.
+
 ## Seerr requests do not download
 
 Check Seerr’s connections to Plex, Radarr, and Sonarr, then inspect the relevant *arr
