@@ -61,6 +61,13 @@ def main() -> int:
             print(f"FAIL: {name} expected {want!r}, got {got!r}")
             failures += 1
 
+    # Per-app footprint defaults: radarr 900, sonarr 2000 (the sonarr steady
+    # state after the 2026-09-02 prune was ~1134 MiB of legit content).
+    expect("radarr footprint default", mod.footprint_default_mb("radarr.db"), 900)
+    expect("sonarr footprint default", mod.footprint_default_mb("sonarr.db"), 2000)
+    expect("unknown db falls back to radarr default",
+           mod.footprint_default_mb("other.db"), 900)
+
     # Pure assess() branches.
     healthy = mod.assess(4096, 500 * MiB, 10 * MiB, 900 * MiB, 200 * MiB)
     expect("healthy DB: no problems", healthy, [])

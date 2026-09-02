@@ -136,7 +136,7 @@ def main() -> int:
                                                        str(DEFAULT_LOGS_DB)))
     ap.add_argument("--max-footprint", type=float,
                     default=float(os.environ.get("SONARR_MAX_FOOTPRINT_MB",
-                                                 checker.DEFAULT_MAX_FOOTPRINT_MB)))
+                                                 checker.DEFAULT_MAX_FOOTPRINT_MB_SONARR)))
     ap.add_argument("--max-mediainfo", type=float,
                     default=float(os.environ.get("SONARR_MAX_MEDIAINFO_MB",
                                                  checker.DEFAULT_MAX_MEDIAINFO_MB)))

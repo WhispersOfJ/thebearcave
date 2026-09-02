@@ -46,9 +46,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = ROOT / "config" / "radarr" / "radarr.db"
 
-DEFAULT_MAX_FOOTPRINT_MB = 900  # page footprint (page_count*page_size), MiB
+DEFAULT_MAX_FOOTPRINT_MB = 900  # radarr high-water (page footprint), MiB
+# Sonarr's steady state is larger: the 2026-09-02 prune left a healthy
+# sonarr.db at ~1134 MiB (History + DownloadHistory JSON dominate; radarr's
+# 900 MiB gate was tuned to ITS 1 GB OOM history). 2000 gives headroom while
+# still catching the runaway multi-GiB growth class. Override via env.
+DEFAULT_MAX_FOOTPRINT_MB_SONARR = 2000
 DEFAULT_MAX_MEDIAINFO_MB = 200  # total <blob-table>.MediaInfo blob bytes, MiB
 DEFAULT_BLOB_TABLE = "MovieFiles"  # Radarr table; Sonarr passes EpisodeFiles
+
+
+def footprint_default_mb(db_name: str) -> float:
+    """Per-app footprint high-water, honoured by the CLI default so detection
+    (this script) and remediation (prune_radarr_db / prune_sonarr_db) cannot
+    drift: radarr.db -> 900 MiB, sonarr.db -> 2000 MiB, anything else -> the
+    radarr default. Env overrides: RADARR_MAX_FOOTPRINT_MB /
+    SONARR_MAX_FOOTPRINT_MB."""
+    if db_name == "sonarr.db":
+        return float(os.environ.get("SONARR_MAX_FOOTPRINT_MB",
+                                    DEFAULT_MAX_FOOTPRINT_MB_SONARR))
+    return float(os.environ.get("RADARR_MAX_FOOTPRINT_MB",
+                                DEFAULT_MAX_FOOTPRINT_MB))
 
 
 def is_power_of_two(n: int) -> bool:
@@ -135,12 +153,15 @@ def main() -> int:
                                                             DEFAULT_BLOB_TABLE),
                     help="table whose MediaInfo column holds the blobs "
                          "(default: %(default)s; Sonarr passes EpisodeFiles)")
-    ap.add_argument("--max-footprint", type=float,
-                    default=float(os.environ.get("RADARR_MAX_FOOTPRINT_MB", DEFAULT_MAX_FOOTPRINT_MB)))
+    ap.add_argument("--max-footprint", type=float, default=None,
+                    help="footprint high-water in MiB (default: per-app — "
+                         "radarr.db 900, sonarr.db 2000; env overrides)")
     ap.add_argument("--max-mediainfo", type=float,
                     default=float(os.environ.get("RADARR_MAX_MEDIAINFO_MB", DEFAULT_MAX_MEDIAINFO_MB)))
     args = ap.parse_args()
     path = Path(args.db)
+    if args.max_footprint is None:
+        args.max_footprint = footprint_default_mb(path.name)
     if not path.is_file():
         print(f"DB not found at {path}; skipping (set RADARR_DB or --db)")
         return 2
