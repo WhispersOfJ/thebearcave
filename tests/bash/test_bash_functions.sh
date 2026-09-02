@@ -505,6 +505,7 @@ else
     run_live stack-disk-config-sizes 120  # du over multi-GB config dirs
     run_live stack-mount-health
     run_live stack-maintenance-digest
+    run_live stack-audit-residue
     run_live stack-radarr-health
     run_live stack-plex-markers
     run_live stack-prowlarr-indexers
