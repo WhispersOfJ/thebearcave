@@ -154,6 +154,8 @@ Maintenance digest — 2026-09-03 05:10
   OK    radarr db      OK: radarr.db page size and footprint within healthy limits.
   WARN  sonarr db      radarr DB not found ... (fresh checkout / DB elsewhere)
   OK    nzbdav queue   PASS nzbdav queue: queue is empty (0 item(s))
+  OK    sonarr import queue  PASS sonarr import queue: no stuck completed items
+  OK    radarr import queue  PASS radarr import queue: no stuck completed items
   OK    residue audit  AUDIT OK: no retired-service or dead-path residue found
   OK    sonarr prune   run 2026-09-01 ok (monthly 03:30 cron)
   OK    config drift   OK: 8 running container(s) match their compose pins.
@@ -166,15 +168,21 @@ Checks: reclaim-log freshness (mtime vs the last 04:00 boundary),
 remote tip (`FETCH_HEAD` — a bare dotfiles repo keeps no tracking ref, so
 `origin/main` can be stale), Radarr + Sonarr DB health via
 `check_radarr_db_size.py --db`, the nzbdav queue gate (unreachable =
-soft WARN), the full-host retired-residue audit (`stack-audit-residue`,
-TODO.md #2) — a residue finding fails the digest so removal residue shows
-up every morning instead of silently creeping back — and the monthly
-sonarr prune log (`~/.sonarr-prune.log`: fresh vs the last 1st-of-month
-03:30 boundary **and** its last recorded run must have exited 0, so a
-prune that ran but failed its own verification is flagged) — and the
-config-drift gate (`stack-config-drift`, TODO.md #3): running container
-images vs compose pins, rc 2 (docker/compose unavailable) read as a soft
-WARN. Backed by
+soft WARN), the *arr import-queue gate (`check_arr_import_queue.py`,
+one row per app): completed downloads held from import (importBlocked /
+importPending warnings — the matched-by-ID class that piled up 230 items
+on 2026-09-02) counted against a threshold (default 10), over which the
+digest FAILs so the pile is drained (`scripts/drain_sonarr_queue.py
+--app <sonarr|radarr> --apply`, see troubleshooting) before it grows —
+unreachable app reads as a soft WARN — the full-host
+retired-residue audit (`stack-audit-residue`, TODO.md #2) — a residue
+finding fails the digest so removal residue shows up every morning
+instead of silently creeping back — and the monthly sonarr prune log
+(`~/.sonarr-prune.log`: fresh vs the last 1st-of-month 03:30 boundary
+**and** its last recorded run must have exited 0, so a prune that ran but
+failed its own verification is flagged) — and the config-drift gate
+(`stack-config-drift`, TODO.md #3): running container images vs compose
+pins, rc 2 (docker/compose unavailable) read as a soft WARN. Backed by
 `scripts/maintenance_digest.py`; `--repo` points DB resolution at the
 operational checkout. Suggested schedule: 05:10 daily user timer (after the
 04:00 reclaim cron).

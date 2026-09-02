@@ -237,6 +237,44 @@ class TestDelegatedChecks(unittest.TestCase):
             md.run_script = orig
         self.assertEqual(f.level, "ok")
 
+    def test_arr_import_queue_classification(self):
+        # rc 0 -> ok; rc 1 -> fail (stuck pile-up, names the drain);
+        # rc 2 -> warn (unreachable/key missing). Each app must be invoked
+        # with its own --app so the right $APP_API_KEY resolves.
+        outcomes = [
+            (0, "PASS sonarr import queue: no stuck completed items"),
+            (1, "FAIL sonarr import queue: 230 stuck completed item(s)"),
+            (2, "SKIP sonarr import queue: app queue API unreachable"),
+        ]
+        wants = ["ok", "fail", "warn"]
+        seen = []
+
+        def fake(script, args, repo_root, timeout=120):
+            seen.append((script, tuple(args)))
+            return outcomes[len(seen) - 1]
+
+        orig = md.run_script
+        md.run_script = fake
+        try:
+            for i in range(len(outcomes)):
+                f = md.check_arr_import_queue(Path("/repo"), "sonarr")
+                self.assertEqual(f.level, wants[i], f"outcome {i}")
+                self.assertEqual(f.check, "sonarr import queue")
+        finally:
+            md.run_script = orig
+        self.assertTrue(all(s == "check_arr_import_queue.py" and a == ("--app", "sonarr")
+                            for s, a in seen),
+                        "import-queue gate must pass --app per check")
+        # radarr row labels itself radarr
+        def fake2(script, args, repo_root, timeout=120):
+            return (0, "PASS radarr import queue: no stuck completed items")
+        md.run_script = fake2
+        try:
+            f = md.check_arr_import_queue(Path("/repo"), "radarr")
+        finally:
+            md.run_script = orig
+        self.assertEqual((f.check, f.level), ("radarr import queue", "ok"))
+
     def test_audit_classification(self):
         # rc 0 -> ok (clean repo + host), rc 1 -> fail (residue found),
         # rc 2 -> warn (unusable checkout). Full host mode: no extra args.
