@@ -60,6 +60,21 @@ if ! command -v crontab >/dev/null 2>&1; then
     exit 1
 fi
 
+# Backstop cleanup: never leave a temp crontab file behind on early exit
+# (e.g. a failed `crontab` write under set -e).
+#
+# Must always return 0: bash uses the EXIT trap's own last command status as
+# the script's exit status, so a failing test here would corrupt exit codes
+# of branches that never touched a temp file (idempotent install, --check).
+_tmp=""
+_rm_tmp() {
+    if [ -z "$_tmp" ]; then
+        return 0
+    fi
+    rm -f "$_tmp"
+}
+trap _rm_tmp EXIT
+
 # ---------------------------------------------------------------------------
 # Fail-closed validation: the entry must be able to run once installed.
 # ---------------------------------------------------------------------------
@@ -80,52 +95,69 @@ fi
 
 current="$(crontab -l 2>/dev/null || true)"
 
-if printf '%s' "$current" | grep -Fq "$TOKEN"; then
-    installed=1
-else
-    installed=0
-fi
+# Find a real installed *entry* — a crontab line that starts with the
+# literal schedule and contains the command token. The marker comment also
+# contains the token, so matching the token alone would falsely report
+# "installed" from a marker left by hand-editing (or from a retargeted entry
+# for a different checkout).
+installed_entry="$(printf '%s\n' "$current" \
+    | awk -v s="$SCHEDULE " 'index($0, s) == 1' \
+    | grep -F "$TOKEN" | head -1 || true)"
 
 case "$action" in
     check)
-        if [ "$installed" -eq 1 ]; then
+        if [ -n "$installed_entry" ]; then
             printf 'installed: %s\n' "$TOKEN"
-            printf '%s\n' "$current" | grep -F "$TOKEN"
+            printf '%s\n' "$installed_entry"
             exit 0
         fi
         echo "not installed"
         exit 1
         ;;
     remove)
-        if [ "$installed" -eq 0 ]; then
+        if [ -z "$installed_entry" ]; then
             echo "no nightly reclaim entry installed — nothing to remove"
             exit 0
         fi
-        tmp="$(mktemp)"
+        _tmp="$(mktemp)"
         printf '%s\n' "$current" \
-            | grep -Fv -e "$MARKER" -e "$TOKEN" > "$tmp" \
+            | grep -Fv -e "$MARKER" -e "$TOKEN" > "$_tmp" \
             || true
-        crontab "$tmp"
-        rm -f "$tmp"
+        crontab "$_tmp"
         echo "removed nightly Docker disk reclaim: $MARKER"
         exit 0
         ;;
 esac
 
-if [ "$installed" -eq 1 ]; then
-    echo "nightly Docker disk reclaim already installed:"
-    printf '%s\n' "$current" | grep -F "$TOKEN"
+entry="$SCHEDULE bash -lc 'source \"$repo/services/bash-functions/bearcave-bash.sh\" && stack-disk-reclaim -y --aggressive' >> $LOG_FILE 2>&1"
+
+if [ -n "$installed_entry" ]; then
+    if [ "$installed_entry" = "$entry" ]; then
+        echo "nightly Docker disk reclaim already installed:"
+        printf '  %s\n' "$installed_entry"
+        exit 0
+    fi
+    # Same schedule, different target checkout — rewrite the entry instead of
+    # silently keeping the old path (--repo's advertised purpose).
+    _tmp="$(mktemp)"
+    printf '%s\n' "$current" \
+        | grep -Fv -e "$MARKER" -e "$installed_entry" > "$_tmp" \
+        || true
+    printf '%s\n' "$MARKER" >> "$_tmp"
+    printf '%s\n' "$entry" >> "$_tmp"
+    crontab "$_tmp"
+    echo "retargeted nightly Docker disk reclaim:"
+    printf '  old: %s\n' "$installed_entry"
+    printf '  new: %s\n' "$entry"
+    echo "  log: $HOME/.stack-disk-reclaim.log"
     exit 0
 fi
 
-entry="$SCHEDULE bash -lc 'source \"$repo/services/bash-functions/bearcave-bash.sh\" && stack-disk-reclaim -y --aggressive' >> $LOG_FILE 2>&1"
-
-tmp="$(mktemp)"
-printf '%s\n' "$current" > "$tmp"
-printf '%s\n' "$MARKER" >> "$tmp"
-printf '%s\n' "$entry" >> "$tmp"
-crontab "$tmp"
-rm -f "$tmp"
+_tmp="$(mktemp)"
+printf '%s\n' "$current" > "$_tmp"
+printf '%s\n' "$MARKER" >> "$_tmp"
+printf '%s\n' "$entry" >> "$_tmp"
+crontab "$_tmp"
 
 echo "installed nightly Docker disk reclaim:"
 printf '  %s\n' "$MARKER"
