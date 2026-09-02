@@ -1,0 +1,24 @@
+name: Pre-commit Gate
+# Runs the exact hook set from .pre-commit-config.yaml on the whole tree, so
+# an uninstalled or un-run local pre-commit cannot bypass the gates. The
+# config file is the single source of truth; keep the two in sync.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pre-commit
+        run: python3 -m pip install pre-commit==4.6.2
+      - name: Run the local hook set on the whole tree
+        run: pre-commit run --all-files --show-diff-on-failure
