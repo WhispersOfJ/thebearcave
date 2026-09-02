@@ -4,19 +4,20 @@
 Verifies the pure import-file building logic cannot silently bit-rot:
 
   * empty preview -> ([], "empty preview")
-  * a resolvable candidate builds a ManualImport file entry carrying
-    seriesId/episodeIds/quality/languages and the queue downloadId
-  * a candidate missing series or episodes is an all-or-nothing failure
-    (falls back to queue removal instead of a partial import)
-  * the default API base carries the /api/v3 prefix and every request
-    path is joined onto it (regression: the queue endpoint used to be
-    hit at the bare origin, which returns the HTML front page and never
-    parses as JSON — the drain tool could not reach the API at all)
+  * a resolvable sonarr candidate builds a ManualImport file entry
+    carrying seriesId/episodeIds/quality/languages and the downloadId
+  * a radarr candidate builds the same shape with movieId/movieIds
+  * a candidate missing its parent or children is an all-or-nothing
+    failure (falls back to queue removal instead of a partial import)
+  * the per-app default API base carries the /api/v3 prefix and the
+    queue endpoint joins onto it (regression: paths used to hit the bare
+    origin, which returns the HTML front page and never parses as JSON —
+    the drain tool could not reach the API at all)
 
-Runs against importable pure-Python logic (no live Sonarr needed), so it
-works on the CI runner. Run by .github/workflows/validate.yml and locally
-via `python3 scripts/test_drain_sonarr_queue.py`. Exits 0 when every
-assertion holds, 1 otherwise.
+Runs against importable pure-Python logic (no live Sonarr/Radarr
+needed), so it works on the CI runner. Run by .github/workflows/validate.yml
+and locally via `python3 scripts/test_drain_sonarr_queue.py`. Exits 0
+when every assertion holds, 1 otherwise.
 """
 
 import importlib.util
@@ -43,49 +44,83 @@ def check(label, cond):
         print(f"  [FAIL] {label}")
 
 
-def main():
-    # Empty preview.
-    files, err = mod.build_import_files([], "dl-1")
-    check("empty preview reports error", files == [] and err == "empty preview")
-
-    # A fully-resolved candidate.
-    preview = [{
+def sonarr_candidate():
+    return {
         "path": "/data/shows/Show/Season 1/Show S01E01.mkv",
         "series": {"id": 7},
         "episodes": [{"id": 101}, {"id": 102}],
         "quality": {"quality": {"name": "HDTV-720p"}},
         "languages": [{"id": 1, "name": "English"}],
-    }]
-    files, err = mod.build_import_files(preview, "dl-2")
-    check("resolvable candidate builds one file entry",
+    }
+
+
+def radarr_candidate():
+    return {
+        "path": "/data/movies/Movie (2020)/Movie (2020) Bluray-1080p.mkv",
+        "movie": {"id": 42},
+        "quality": {"quality": {"name": "Bluray-1080p"}},
+        "languages": [{"id": 1, "name": "English"}],
+    }
+
+
+def main():
+    # Empty preview.
+    files, err = mod.build_import_files("sonarr", [], "dl-1")
+    check("empty preview reports error", files == [] and err == "empty preview")
+
+    # A fully-resolved sonarr candidate.
+    preview = [sonarr_candidate()]
+    files, err = mod.build_import_files("sonarr", preview, "dl-2")
+    check("resolvable sonarr candidate builds one file entry",
           err is None and len(files) == 1)
     if files:
         entry = files[0]
-        check("entry carries seriesId/episodeIds/downloadId",
+        check("sonarr entry carries seriesId/episodeIds/downloadId",
               entry["seriesId"] == 7
               and entry["episodeIds"] == [101, 102]
               and entry["downloadId"] == "dl-2")
-        check("entry preserves path/quality/languages",
+        check("sonarr entry preserves path/quality/languages",
               entry["path"].endswith("S01E01.mkv")
               and entry["quality"] == preview[0]["quality"]
               and entry["languages"] == preview[0]["languages"])
 
+    # A fully-resolved radarr candidate (movieId/movieIds, no episodeIds).
+    preview = [radarr_candidate()]
+    files, err = mod.build_import_files("radarr", preview, "dl-5")
+    check("resolvable radarr candidate builds one file entry",
+          err is None and len(files) == 1)
+    if files:
+        entry = files[0]
+        check("radarr entry carries movieId/movieIds and no episode fields",
+              entry["movieId"] == 42
+              and entry["movieIds"] == [42]
+              and "seriesId" not in entry
+              and "episodeIds" not in entry
+              and entry["downloadId"] == "dl-5")
+
     # One unresolved candidate fails the whole import (all-or-nothing).
-    bad = [preview[0], {"path": "/x/y.mkv", "series": {}, "episodes": []}]
-    files, err = mod.build_import_files(bad, "dl-3")
-    check("unresolved candidate fails the whole import",
+    bad = [sonarr_candidate(), {"path": "/x/y.mkv", "series": {}, "episodes": []}]
+    files, err = mod.build_import_files("sonarr", bad, "dl-3")
+    check("unresolved sonarr candidate fails the whole import",
           files == [] and err and "unresolved" in err)
 
-    # Missing episodes alone is also all-or-nothing.
+    # Missing children alone is also all-or-nothing.
     no_eps = [{"path": "/x/y.mkv", "series": {"id": 3}, "episodes": []}]
-    files, err = mod.build_import_files(no_eps, "dl-4")
+    files, err = mod.build_import_files("sonarr", no_eps, "dl-4")
     check("missing episodes fails the whole import", files == [] and err)
 
-    # --- URL construction regression (missing /api/v3 prefix) ---
-    check("default base carries the /api/v3 prefix",
-          mod.DEFAULT_URL.endswith("/api/v3"))
+    # Radarr without a movie is all-or-nothing too.
+    no_movie = [{"path": "/x/y.mkv", "movie": {}}]
+    files, err = mod.build_import_files("radarr", no_movie, "dl-6")
+    check("radarr without a movie fails the whole import", files == [] and err)
 
-    # Stub _request and drain() so we can capture the exact queue URL.
+    # --- URL construction regression (missing /api/v3 prefix) ---
+    check("sonarr default base carries the /api/v3 prefix",
+          mod.DEFAULT_URLS["sonarr"].endswith("/api/v3"))
+    check("radarr default base carries the /api/v3 prefix",
+          mod.DEFAULT_URLS["radarr"].endswith("/api/v3"))
+
+    # Stub _request and remove_item so drain() captures the queue URL.
     captured = {}
 
     def fake_request(base_url, api_key, path, method="GET", body=None,
@@ -98,17 +133,19 @@ def main():
     mod._request = fake_request
     mod.remove_item = lambda *a, **k: None
     try:
-        code, summary = mod.drain("http://localhost:8989/api/v3", "k",
-                                  5, "completed", apply=False)
+        for app, base in (("sonarr", "http://localhost:8989/api/v3"),
+                          ("radarr", "http://localhost:7878/api/v3")):
+            captured.clear()
+            code, _ = mod.drain(app, base, "k", 5, "completed", apply=False)
+            check(f"{app} queue URL targets its /api/v3 base",
+                  code == 0 and captured.get("url") ==
+                  f"{base}/queue?page=1&pageSize=200&status=completed")
+            check(f"{app} queue URL never targets the bare origin",
+                  ".8989/queue?" not in captured.get("url", "")
+                  and ".7878/queue?" not in captured.get("url", ""))
     finally:
         mod._request = orig_request
         mod.remove_item = orig_remove
-    check("queue URL targets the /api/v3 base",
-          code == 0 and captured.get("url") ==
-          "http://localhost:8989/api/v3/queue?page=1&pageSize=200"
-          "&status=completed")
-    check("queue URL never targets the bare origin",
-          "8989/queue?" not in captured.get("url", ""))
 
     if failures:
         print(f"\n{failures} assertion(s) failed")
