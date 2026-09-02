@@ -102,3 +102,39 @@ operations through `scripts/nzbdav-safe-recreate.sh`, matching the fish
 wrapper: recreation is blocked when queued NZBs are present, and `--force` is
 explicit and dangerous (queued items are lost). See
 [fish-functions safety behavior](fish-functions.md#safety-behavior).
+
+## Nightly maintenance (cron)
+
+`stack-disk-reclaim -y --aggressive` is designed to run unattended from cron
+(the wrapper's own header says so). Install it with:
+
+```bash
+scripts/install-nightly-reclaim-cron.sh
+```
+
+This adds a single entry to the **current user's crontab** (no root needed —
+the stack runs as the invoking user):
+
+```cron
+# 04:00 daily — prunes dangling volumes/build cache/stopped containers, then
+# (--aggressive) every image not referenced by docker-compose.yml, run from
+# the executable checkout's bash functions with .env resolved.
+0 4 * * * bash -lc 'source "/home/<user>/TheBearCave/services/bash-functions/bearcave-bash.sh" && stack-disk-reclaim -y --aggressive' >> "$HOME/.stack-disk-reclaim.log" 2>&1
+```
+
+The installer fails closed: it refuses to write the entry when the target
+checkout could not actually run the command (missing `stack-disk-reclaim`,
+missing `.env`, missing script, moved repo). Point it at another checkout
+with `--repo DIR` (must hold `.env` and post-slim-down main).
+
+| Action | Command |
+|---|---|
+| Install (idempotent) | `scripts/install-nightly-reclaim-cron.sh` |
+| Target another checkout | `scripts/install-nightly-reclaim-cron.sh --repo DIR` |
+| Remove | `scripts/install-nightly-reclaim-cron.sh --remove` |
+| Check | `scripts/install-nightly-reclaim-cron.sh --check` |
+
+Verify each morning: `tail -n 5 ~/.stack-disk-reclaim.log` should show a
+`Total reclaimed space: ...` line from the aggressive pass; errors are
+logged there too (script output, not silent). To preview what the nightly run
+would remove before trusting it: `stack-disk-reclaim --dry-run --aggressive`.
