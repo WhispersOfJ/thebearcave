@@ -13,8 +13,9 @@ bash -n scripts/*.sh tests/*/*.sh
 ```
 
 The preflight gate checks compose syntax, mount declarations, mount drift, MCP
-configuration, NzbDAV queue safety, bind-mount staleness, Python compilation, and
-available lint tools.
+configuration, NzbDAV queue safety, bind-mount staleness, Python compilation,
+Radarr + Sonarr DB size gates (AGENTS.md landmine #9 — `MovieFiles` and
+`EpisodeFiles` MediaInfo bloat), and available lint tools.
 
 ## Health checks
 
