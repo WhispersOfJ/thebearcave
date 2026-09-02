@@ -20,6 +20,7 @@ services/bash-functions/
 │   ├── stack-disk.sh           # config sizes, docker disk, nzbdav dedup/delete-failures
 │   ├── stack-lists.sh          # mdblist / letterboxd track / import
 │   ├── stack-loop-ratings.sh    # loop candidates, exclude, unmonitor, rating lookups
+│   ├── stack-maintenance.sh     # maintenance digest (reclaim log, timers, DBs)
 │   ├── stack-misc.sh           # seerr, notify, backup, worktree, host checks
 │   ├── stack-nzbdav.sh         # nzbdav queue, history, stats, mount-health
 │   ├── stack-plex-core.sh      # sessions, scan, butler, trash, analyze
@@ -138,3 +139,30 @@ Verify each morning: `tail -n 5 ~/.stack-disk-reclaim.log` should show a
 `Total reclaimed space: ...` line from the aggressive pass; errors are
 logged there too (script output, not silent). To preview what the nightly run
 would remove before trusting it: `stack-disk-reclaim --dry-run --aggressive`.
+
+### `stack-maintenance-digest` — verify the maintenance actually ran
+
+TODO.md project #1. The unattended jobs (04:00 reclaim cron, daily dotfiles
+push, DB gates) fail silently; the digest runs **after** them each morning
+and prints one line per surface, exiting 1 on any FAIL:
+
+```text
+Maintenance digest — 2026-09-03 05:10
+  OK    reclaim log    written 04:00 (today's 04:00 run)
+  OK    user timers    no failed user units
+  OK    dotfiles       main matches the remote tip
+  OK    radarr db      OK: radarr.db page size and footprint within healthy limits.
+  WARN  sonarr db      radarr DB not found ... (fresh checkout / DB elsewhere)
+  OK    nzbdav queue   PASS nzbdav queue: queue is empty (0 item(s))
+DIGEST OK: nightly maintenance verified
+```
+
+Checks: reclaim-log freshness (mtime vs the last 04:00 boundary),
+`systemctl --user --failed` (override deliberate failures with repeated
+`--skip-user-unit NAME`), dotfiles push state compared against the fetched
+remote tip (`FETCH_HEAD` — a bare dotfiles repo keeps no tracking ref, so
+`origin/main` can be stale), Radarr + Sonarr DB health via
+`check_radarr_db_size.py --db`, and the nzbdav queue gate (unreachable =
+soft WARN). Backed by `scripts/maintenance_digest.py`; `--repo` points DB
+resolution at the operational checkout. Suggested schedule: 05:10 daily
+user timer (after the 04:00 reclaim cron).
