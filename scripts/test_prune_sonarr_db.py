@@ -72,7 +72,10 @@ def make_bloated_db(dirpath: Path) -> Path:
     con.execute("CREATE TABLE EpisodeFiles (Id INTEGER PRIMARY KEY, MediaInfo TEXT)")
     con.execute("INSERT INTO EpisodeFiles (Id, MediaInfo) VALUES (1, ?)",
                 ("x" * 250 * MiB,))
-    con.execute("CREATE TABLE History (Id INTEGER PRIMARY KEY, Date TEXT, Data TEXT)")
+    # History.Data mirrors Sonarr's real schema (NOT NULL) — a blind NULL
+    # write must raise/skip, not corrupt; the slim uses '' here.
+    con.execute("CREATE TABLE History (Id INTEGER PRIMARY KEY, Date TEXT, "
+                "Data TEXT NOT NULL)")
     for i, (age, payload) in enumerate(((100, "old-json-" + "x" * 1000),
                                         (40, "mid-json-" + "x" * 1000),
                                         (1, "recent-json-" + "x" * 1000))):
@@ -123,6 +126,16 @@ def main() -> int:
                                   "sonarr.db", prune.BLOB_TABLE)
         expect("bloated DB is flagged before prune", len(problems) == 1, True)
 
+        probe = sqlite3.connect(db)
+        hist_nn = [r for r in probe.execute("PRAGMA table_info(History)")
+                   if r[1] == "Data"][0][3]
+        expect("fixture pins History.Data NOT NULL (real schema)", hist_nn, 1)
+        expect("slim value for History.Data is '' (NOT NULL)",
+               prune.slim_value_for(probe, "History", "Data"), "''")
+        expect("slim value for DownloadHistory.Release is NULL",
+               prune.slim_value_for(probe, "DownloadHistory", "Release"), "NULL")
+        probe.close()
+
         # Backup lands in a timestamped dir next to the DB and holds both DBs.
         dest = prune.backup_files(db, logs, db.parent / "Backups")
         expect("backup dir created", dest.is_dir(), True)
@@ -147,7 +160,8 @@ def main() -> int:
         h_rows = con.execute("SELECT Date, Data FROM History ORDER BY Date").fetchall()
         expect("old history row deleted, mid + recent kept",
                [r[0] for r in h_rows], [MID, RECENT])
-        expect("mid History.Data NULLed", h_rows[0][1], None)
+        expect("mid History.Data slimmed to '' (NOT NULL column, row kept)",
+               h_rows[0][1], "")
         expect("recent History.Data intact",
                h_rows[1][1].startswith("recent-json-"), True)
 
