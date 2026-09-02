@@ -58,14 +58,29 @@ def main() -> int:
     expect("case-insensitive gb", mod.parse_reclaimed("reclaimed 512mb") > 500, True)
 
     # --- removable_image_ids: protected vs removable ------------------------
-    # Simulate local ids where the allowlist resolves only the active ids.
     active = ["ghcr.io/hotio/prowlarr:release-2.5.2.5491"]
     try:
         removable = mod.removable_image_ids(active, ["aaa111", "bbb222"])
-        expect("no docker -> everything conservatively removable by design", len(removable), 2)
+        expect("unresolvable refs are skipped; locals stay removable", len(removable), 2)
     except Exception as exc:  # pragma: no cover - surfaces unexpected breakage
         print(f"FAIL: removable_image_ids raised {exc!r}")
         failures += 1
+
+    # Genuinely docker-independent: a missing docker binary must surface as a
+    # clean RuntimeError from the allowlist path, never a raw traceback.
+    orig_run = mod.subprocess.run
+    mod.subprocess.run = lambda *a, **k: (_ for _ in ()).throw(
+        FileNotFoundError("no such file or directory"))
+    try:
+        try:
+            mod.removable_image_ids(active, ["aaa111"])
+            clean_error = False
+        except RuntimeError as exc:
+            clean_error = "not available" in str(exc)
+        expect("missing docker -> clean RuntimeError (not a traceback)",
+               clean_error, True)
+    finally:
+        mod.subprocess.run = orig_run
 
     # Pure membership rule mirrored here: IDs the allowlist resolves to must
     # never appear in the removable set; everything else is removable.

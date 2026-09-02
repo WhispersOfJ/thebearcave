@@ -36,6 +36,17 @@ MB_RE = re.compile(r"([0-9.]+)([KMG]?)B?", re.I)
 _UNITS = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3}
 
 
+def _docker_run(args: list, timeout: int = 30, cwd=None) -> subprocess.CompletedProcess:
+    """Run a docker command and raise a clean RuntimeError when the docker
+    binary is missing, so no caller ever surfaces a raw traceback (reached by
+    --dry-run on a dockerless host and by the availability probe)."""
+    try:
+        return subprocess.run(["docker"] + args, capture_output=True, text=True,
+                              timeout=timeout, cwd=cwd)
+    except FileNotFoundError as exc:
+        raise RuntimeError("docker is not available on this host") from exc
+
+
 def parse_reclaimed(text: str) -> float:
     """Extract the first reclaimed space figure as MiB from a docker output
     line set (e.g. 'Total reclaimed space: 1.5GB' or 'Total: 298.7MB')."""
@@ -65,11 +76,9 @@ def container_image_ids() -> set:
     image not yet pulled while the old tag still runs); this layer guarantees
     the image behind a live container is never reclaimable."""
     held = set()
-    out = subprocess.run(["docker", "ps", "-aq"], capture_output=True,
-                         text=True, timeout=30)
+    out = _docker_run(["ps", "-aq"], timeout=30)
     for cid in out.stdout.split():
-        r = subprocess.run(["docker", "inspect", "--format", "{{.Image}}", cid],
-                           capture_output=True, text=True, timeout=30)
+        r = _docker_run(["inspect", "--format", "{{.Image}}", cid], timeout=30)
         if r.returncode == 0:
             held.add(r.stdout.strip().split(":")[-1][:12])
     return held
@@ -84,10 +93,7 @@ def removable_image_ids(active_refs: list, local_images: list) -> list:
     allowlist, so a missing image can never blank the protected set."""
     resolved = set()
     for ref in active_refs:
-        out = subprocess.run(
-            ["docker", "image", "inspect", "--format", "{{.Id}}", ref],
-            capture_output=True, text=True, timeout=30,
-        )
+        out = _docker_run(["image", "inspect", "--format", "{{.Id}}", ref], timeout=30)
         if out.returncode == 0:
             # Normalize to the 12-char short ID docker image ls reports.
             resolved.add(out.stdout.strip().split(":")[-1][:12])
@@ -115,8 +121,11 @@ def main() -> int:
     args = ap.parse_args()
 
     if not args.dry_run:
-        probe = subprocess.run(["docker", "version", "--format", "{{.Server.Version}}"],
-                               capture_output=True, text=True, timeout=30)
+        try:
+            probe = _docker_run(["version", "--format", "{{.Server.Version}}"], timeout=30)
+        except RuntimeError as exc:
+            print(f"{exc}; nothing reclaimed.")
+            return 1
         if probe.returncode != 0:
             print("docker is not available on this host; nothing reclaimed.")
             return 1
@@ -142,9 +151,11 @@ def main() -> int:
 
     # Dangling volumes — explicit rm works around docker prune's skip quirk.
     # The listing is read-only and reported identically in dry-run mode.
-    vol_list = subprocess.run(
-        ["docker", "volume", "ls", "-qf", "dangling=true"],
-        capture_output=True, text=True, timeout=60).stdout.split()
+    try:
+        vol_list = _docker_run(["volume", "ls", "-qf", "dangling=true"], timeout=60).stdout.split()
+    except RuntimeError as exc:
+        print(f"  FAIL  {exc}; nothing reclaimed.")
+        return 1
     for v in vol_list:
         res = docker(["volume", "rm", v], args.dry_run)
         if res.returncode != 0:
@@ -164,12 +175,10 @@ def main() -> int:
         # Fail closed: an unreadable compose config must never degenerate into
         # an empty allowlist (that would flag the running services' images).
         try:
-            cfg = subprocess.run(
-                ["docker", "compose", "config", "--format", "json"],
-                capture_output=True, text=True, timeout=60, cwd=os.getcwd(),
-            )
+            cfg = _docker_run(["compose", "config", "--format", "json"],
+                              timeout=60, cwd=os.getcwd())
             compose = json.loads(cfg.stdout) if cfg.returncode == 0 else None
-        except (ValueError, subprocess.SubprocessError):
+        except (ValueError, subprocess.SubprocessError, RuntimeError):
             compose = None
         if compose is None:
             print("  FAIL  aggressive mode needs a readable docker-compose.yml + .env "
@@ -177,18 +186,22 @@ def main() -> int:
             failures += 1
         else:
             active = active_image_refs(compose)
-            local = subprocess.run(
-                ["docker", "image", "ls", "--format", "{{.ID}}"],
-                capture_output=True, text=True, timeout=60).stdout.split()
-            removable = removable_image_ids(active, local)
-            if removable:
+            removable = None
+            try:
+                local = _docker_run(["image", "ls", "--format", "{{.ID}}"],
+                                    timeout=60).stdout.split()
+                removable = removable_image_ids(active, local)
+            except RuntimeError as exc:
+                print(f"  FAIL  {exc}; refusing image removal.")
+                failures += 1
+            if removable is not None and failures == 0:
                 res = docker(["image", "rm", "-f"] + removable, args.dry_run)
                 print(f"  non-compose images ({len(removable)}): "
                       + ("dry-run" if args.dry_run else "removed"))
                 if res.returncode != 0:
                     failures += 1
                     print(f"    {res.stderr.strip()[:300]}")
-            else:
+            elif removable is not None:
                 print("  non-compose images: none removable")
 
     print(f"\nTotal reclaimed: {total_mb:.0f} MiB")
