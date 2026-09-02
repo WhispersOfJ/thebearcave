@@ -18,8 +18,9 @@ Checks (one line each in the digest):
   * radarr db    - delegated to scripts/check_radarr_db_size.py (page-size /
     footprint / MediaInfo bloat; landmine #9 gate).
   * sonarr db    - the same page/footprint checks run against sonarr.db via
-    check_radarr_db_size.py --db (its MovieFiles/MediaInfo probe is skipped
-    when the table is absent, which is exactly Sonarr's shape).
+    check_radarr_db_size.py --db --blob-table EpisodeFiles, so the MediaInfo
+    row measures Sonarr's real EpisodeFiles blobs (the same gate
+    stack-sonarr-prune remediates).
   * nzbdav queue - delegated to scripts/check_nzbdav_queue.py (recreate
     safety: queue must be empty). API unreachable == soft WARN.
 
@@ -191,15 +192,19 @@ def check_db_gates(repo_root: Path) -> list[Finding]:
     Both DB paths are passed explicitly with --db (relative to repo_root, the
     *operational* checkout) because the delegated script resolves its own
     defaults against its file location — which is only right when the two
-    live in the same checkout. Its MovieFiles/MediaInfo probe no-ops when
-    the table is absent (Sonarr's EpisodeFiles shape).
+    live in the same checkout. The sonarr leg also passes
+    --blob-table EpisodeFiles so its MediaInfo probe measures the real blob
+    table (MovieFiles, the radarr default, is absent there and would read 0
+    bytes); per-app footprint defaults resolve from the DB filename.
     """
     findings = []
-    for label, rel in (("radarr db", "config/radarr/radarr.db"),
-                       ("sonarr db", "config/sonarr/sonarr.db")):
-        rc, out = run_script(
-            "check_radarr_db_size.py",
-            ["--db", str(repo_root / rel)], repo_root)
+    for label, rel, blob_table in (
+            ("radarr db", "config/radarr/radarr.db", None),
+            ("sonarr db", "config/sonarr/sonarr.db", "EpisodeFiles")):
+        db_args = ["--db", str(repo_root / rel)]
+        if blob_table:
+            db_args += ["--blob-table", blob_table]
+        rc, out = run_script("check_radarr_db_size.py", db_args, repo_root)
         tail = out.splitlines()[-1][:90] if out else "(no output)"
         if rc == 0:
             findings.append(Finding(label, "ok", tail))

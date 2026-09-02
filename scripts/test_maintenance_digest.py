@@ -128,7 +128,10 @@ class TestDotfiles(unittest.TestCase):
 class TestDelegatedChecks(unittest.TestCase):
     def test_db_gate_classification(self):
         # rc 0 -> ok; rc 1 -> fail; rc 2 -> warn. Both paths must pass an
-        # explicit --db so resolution never depends on script location.
+        # explicit --db so resolution never depends on script location, and
+        # the sonarr leg must pass --blob-table EpisodeFiles so its MediaInfo
+        # probe reads the real table (MovieFiles is absent in sonarr.db and
+        # would read 0 bytes — the 2026-09-02 blind spot).
         seen = []
         def fake(script, args, repo_root, timeout=120):
             seen.append(args)
@@ -146,6 +149,13 @@ class TestDelegatedChecks(unittest.TestCase):
         self.assertEqual(by["sonarr db"].level, "warn")
         self.assertTrue(all(a and a[0] == "--db" for a in seen),
                         "every db gate must pass an explicit --db")
+        radarr_args = next(a for a in seen if "radarr.db" in a[1])
+        sonarr_args = next(a for a in seen if "sonarr.db" in a[1])
+        self.assertNotIn("--blob-table", radarr_args,
+                         "radarr keeps the MovieFiles default")
+        self.assertEqual(sonarr_args[sonarr_args.index("--db") + 2:],
+                         ["--blob-table", "EpisodeFiles"],
+                         "sonarr leg must pass --blob-table EpisodeFiles")
 
     def test_queue_classification(self):
         def fake(script, args, repo_root, timeout=120):
