@@ -10,7 +10,7 @@ assertion holds, 1 otherwise.
 
 The contract:
 
-  * the parsed surface: 94 stack-* functions, unique names, and the
+  * the parsed surface: 95 stack-* functions, unique names, and the
     danger/args classification for representative boundary rows
   * `--list` stays byte-consistent with parse_functions for every function
   * every function has help text (or the "(no help comment)" placeholder,
@@ -55,7 +55,7 @@ SPOT = {
     "stack-plex-butler-all":            (True, []),
 }
 
-EXPECTED_COUNT = 94
+EXPECTED_COUNT = 95
 EXPECTED_PLACEHOLDER_COUNT = 9
 
 
