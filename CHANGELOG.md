@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.26.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.25.0...v1.26.0) (2026-09-02)
+
+
+### Features
+
+* add stack-audit-residue for retired-service/path residue ([#116](https://github.com/WhispersOfJ/thebearcave/issues/116)) ([2e65f94](https://github.com/WhispersOfJ/thebearcave/commit/2e65f94c1d2728c028fb98d7129f8966ecf50f64))
+* add stack-maintenance-digest — verify nightly maintenance ran ([#113](https://github.com/WhispersOfJ/thebearcave/issues/113)) ([4c892dc](https://github.com/WhispersOfJ/thebearcave/commit/4c892dc9bcb2b7866f20425c77079268b9f781ce))
+* add stack-sonarr-prune for sonarr.db MediaInfo bloat ([#114](https://github.com/WhispersOfJ/thebearcave/issues/114)) ([7fd2009](https://github.com/WhispersOfJ/thebearcave/commit/7fd200920e7b54675a0b587d0ef8200680014827))
+* config-drift guard — running container images vs compose pins ([#124](https://github.com/WhispersOfJ/thebearcave/issues/124)) ([f57a5e4](https://github.com/WhispersOfJ/thebearcave/commit/f57a5e4ddea7d42b6a55f43d1c50e07001d8aa2c))
+* digest gains a config-drift surface (running images vs pins) ([#125](https://github.com/WhispersOfJ/thebearcave/issues/125)) ([7989c0f](https://github.com/WhispersOfJ/thebearcave/commit/7989c0f1e7eeee50dad6508fd314e70818b7ae6a))
+* digest gains a full-host residue audit surface ([#119](https://github.com/WhispersOfJ/thebearcave/issues/119)) ([51c3cb9](https://github.com/WhispersOfJ/thebearcave/commit/51c3cb92778d76564c07550f43e7daf70e28343b))
+* digest verifies the monthly sonarr prune log (fresh + exit 0) ([#121](https://github.com/WhispersOfJ/thebearcave/issues/121)) ([63539e2](https://github.com/WhispersOfJ/thebearcave/commit/63539e230ea4857c5b9135bde8b989a1638ed857))
+* preflight sonarr db size leg (EpisodeFiles MediaInfo gate) ([#118](https://github.com/WhispersOfJ/thebearcave/issues/118)) ([ce53597](https://github.com/WhispersOfJ/thebearcave/commit/ce535974ce0619d33491a3ec4d60c797c1e12406))
+* sonarr prune also slims event-table JSON payloads ([#120](https://github.com/WhispersOfJ/thebearcave/issues/120)) ([c267eaf](https://github.com/WhispersOfJ/thebearcave/commit/c267eaf53d8bfdc0933aea87e192deb98077ef84))
+
+
+### Bug Fixes
+
+* bump gitleaks pre-commit hook past the Go 1.24 wasm panic ([#123](https://github.com/WhispersOfJ/thebearcave/issues/123)) ([e23e31b](https://github.com/WhispersOfJ/thebearcave/commit/e23e31bb3176765abe25f97c34ec46f561e808ac))
+* digest sonarr row passes --blob-table EpisodeFiles ([#117](https://github.com/WhispersOfJ/thebearcave/issues/117)) ([e8b20ca](https://github.com/WhispersOfJ/thebearcave/commit/e8b20cac793d3db98ccda7bfc7a13f9ed510505c))
+* JSON slim violates History.Data NOT NULL; count '' payloads as slimmed ([#122](https://github.com/WhispersOfJ/thebearcave/issues/122)) ([70ad4a2](https://github.com/WhispersOfJ/thebearcave/commit/70ad4a2ade6cbea91cb1ba291e241ea514ee9bb6))
+
 ## [1.25.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.24.0...v1.25.0) (2026-09-02)
 
 
