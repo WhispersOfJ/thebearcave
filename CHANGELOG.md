@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.25.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.24.0...v1.25.0) (2026-09-02)
+
+
+### Features
+
+* add idempotent nightly stack-disk-reclaim cron installer ([#108](https://github.com/WhispersOfJ/thebearcave/issues/108)) ([47f3fd2](https://github.com/WhispersOfJ/thebearcave/commit/47f3fd21d03343068dbde36d7c28e38adaf8ea12))
+
+
+### Bug Fixes
+
+* installer retarget via --repo, entry detection, and exit-safe cleanup ([#111](https://github.com/WhispersOfJ/thebearcave/issues/111)) ([e0022c7](https://github.com/WhispersOfJ/thebearcave/commit/e0022c7d35151f34088095231f257260c0bec0b6))
+
 ## [1.24.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.23.0...v1.24.0) (2026-09-02)
 
 
