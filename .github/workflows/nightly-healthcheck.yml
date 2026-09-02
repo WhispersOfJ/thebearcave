@@ -24,7 +24,12 @@ jobs:
           set -euo pipefail
           while IFS= read -r path; do
             case "$path" in
-              ./media/*|./data/*|./logs/*) continue ;;
+              # media/data/logs are content mounts; config/* is gitignored
+              # host state (config/ca CA bundle, app config dirs); ./usenet
+              # is the download mount — none exist in the CI checkout and
+              # must not fail the gate (usenet sorts after config/ca, so it
+              # was masked by the ca failure until now).
+              ./media/*|./data/*|./logs/*|./config/*|./usenet) continue ;;
             esac
             test -e "$path" || { echo "MISSING: $path"; exit 1; }
           done < <(grep -oP '\./[^\s:]+' docker-compose.yml | sort -u)
