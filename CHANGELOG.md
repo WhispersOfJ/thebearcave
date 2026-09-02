@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.27.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.26.0...v1.27.0) (2026-09-02)
+
+
+### Features
+
+* drift reports name the recreate and how stale the pins are ([#126](https://github.com/WhispersOfJ/thebearcave/issues/126)) ([6e5fe99](https://github.com/WhispersOfJ/thebearcave/commit/6e5fe994d5fed8d2537d6ca6f74b21e1a8d9f601))
+
+
+### Bug Fixes
+
+* nightly compose-path gate skips gitignored host mounts ([#129](https://github.com/WhispersOfJ/thebearcave/issues/129)) ([86183aa](https://github.com/WhispersOfJ/thebearcave/commit/86183aafed8a7187a72029fbae8d7fc44c9c9632))
+
 ## [1.26.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.25.0...v1.26.0) (2026-09-02)
 
 
