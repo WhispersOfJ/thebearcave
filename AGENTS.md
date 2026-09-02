@@ -219,7 +219,7 @@ Run `./scripts/setup.sh` to generate secrets.
 
 8. **Radarr orphaned quality-profile references** — A movie row pointing at a deleted quality profile makes `/api/v3/movie` return 500 for the whole collection. After deleting profiles in Radarr, verify every movie still resolves (2026-08-30 incident: movie 60308 → profile 17).
 
-9. **SQLite DB bloat from MediaInfo blobs** — Radarr stores 10–300KB MediaInfo blobs per history row; a long-lived instance grows a 1GB `radarr.db` plus a 184MB `logs.db`, pushing the process into OOM at a 1g cap. Prune blobs/logs periodically or raise the cap (now 1536m). The gate only *detects* bloat; remediate with `stack-radarr-prune` (stops radarr, backs up, prunes MediaInfo + old history, vacuums, verifies, resumes).
+9. **SQLite DB bloat from MediaInfo blobs** — Radarr stores 10–300KB MediaInfo blobs per history row; a long-lived instance grows a 1GB `radarr.db` plus a 184MB `logs.db`, pushing the process into OOM at a 1g cap. Sonarr has the same class (2026-09-02: a 3.2 GiB `sonarr.db`, ~2.0 GiB in `EpisodeFiles.MediaInfo`). Prune blobs/logs periodically or raise the cap (now 1536m). The gate only *detects* bloat; remediate with `stack-radarr-prune` (stops radarr, backs up, prunes MediaInfo + old history, vacuums, verifies, resumes) or its Sonarr analogue `stack-sonarr-prune`; both re-verify with the shared `check_radarr_db_size.py` gate (`--blob-table MovieFiles`/`EpisodeFiles`).
 
 10. **ImageMaid path validation is behavioral** — Its `/plex` mount must target the Plex application-support subdirectory `config/plex/Plex Media Server`, not the parent `config/plex`; the upstream process can exit successfully while reporting a missing PhotoTranscoder directory and reclaiming zero bytes.
 

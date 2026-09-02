@@ -55,7 +55,7 @@ SPOT = {
     "stack-plex-butler-all":            (True, []),
 }
 
-EXPECTED_COUNT = 96
+EXPECTED_COUNT = 97
 EXPECTED_PLACEHOLDER_COUNT = 9
 
 
