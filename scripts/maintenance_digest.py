@@ -32,6 +32,12 @@ Checks (one line each in the digest):
     bounded-maintenance cron fires then), and its most recent run must have
     exited 0 — so a prune that ran but failed its own verification ("CHECK
     FAILED" / rc 1) is still flagged, not just a missing run.
+  * config drift  - delegated to scripts/check_config_drift.py (TODO.md
+    #3): running container images vs compose pins. rc 0 clean; rc 1 drift
+    → FAIL (recreate the named containers); rc 2 cannot assess
+    (docker/compose unavailable) → soft WARN. A container recreated by
+    hand, or a pin moved without `docker compose up`, shows up here the
+    morning after.
 
 Exit codes:
   0  every check passed (or soft-warned)
@@ -297,6 +303,26 @@ def check_nzbdav_queue(repo_root: Path) -> Finding:
     return Finding("nzbdav queue", level, msg)
 
 
+def check_config_drift(repo_root: Path) -> Finding:
+    """Running-container images vs compose pins via
+    scripts/check_config_drift.py (exit 0/1/2).
+
+    rc 1 = drift (the checker names the drifted services; the digest log
+    preserves them); rc 2 = cannot assess (docker/compose unavailable) —
+    soft WARN, mirroring the audit/DB/queue rc-2 semantics. Runs with no
+    args from repo_root, the *operational* checkout.
+    """
+    rc, out = run_script("check_config_drift.py", [], repo_root)
+    tail = out.splitlines()[-1][:90] if out else "(no output)"
+    if rc == 0:
+        level, msg = "ok", tail
+    elif rc == 2:
+        level, msg = "warn", tail
+    else:
+        level, msg = "fail", tail
+    return Finding("config drift", level, msg)
+
+
 def check_audit_residue(repo_root: Path) -> Finding:
     """Retired-service/path residue via scripts/audit_residue.py (exit 0/1/2).
 
@@ -350,6 +376,7 @@ def main() -> int:
     findings += check_db_gates(repo_root)
     findings.append(check_nzbdav_queue(repo_root))
     findings.append(check_audit_residue(repo_root))
+    findings.append(check_config_drift(repo_root))
 
     print(f"Maintenance digest — {_dt.datetime.now():%Y-%m-%d %H:%M}")
     for f in findings:

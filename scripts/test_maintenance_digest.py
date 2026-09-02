@@ -261,6 +261,34 @@ class TestDelegatedChecks(unittest.TestCase):
         self.assertTrue(all(s == "audit_residue.py" and a == [] for s, a in seen),
                         "residue audit must run full host mode with no args")
 
+    def test_config_drift_classification(self):
+        # rc 0 -> ok (pins satisfied), rc 1 -> fail (drift found),
+        # rc 2 -> warn (cannot assess — docker/compose unavailable).
+        outcomes = [
+            (0, "OK: 8 running container(s) match their compose pins."),
+            (1, "CHECK FAILED: 2 running container(s) drifted from their "
+                "compose pin:"),
+            (2, "CHECK SKIPPED: cannot assess container drift:"),
+        ]
+        wants = ["ok", "fail", "warn"]
+        seen = []
+
+        def fake(script, args, repo_root, timeout=120):
+            seen.append((script, args))
+            return outcomes[len(seen) - 1]
+
+        orig = md.run_script
+        md.run_script = fake
+        try:
+            for i in range(len(outcomes)):
+                f = md.check_config_drift(Path("/repo"))
+                self.assertEqual(f.level, wants[i], f"outcome {i}")
+        finally:
+            md.run_script = orig
+        self.assertTrue(all(s == "check_config_drift.py" and a == []
+                            for s, a in seen),
+                        "config drift must run with no args")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

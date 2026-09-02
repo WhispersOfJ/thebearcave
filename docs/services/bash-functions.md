@@ -156,6 +156,7 @@ Maintenance digest — 2026-09-03 05:10
   OK    nzbdav queue   PASS nzbdav queue: queue is empty (0 item(s))
   OK    residue audit  AUDIT OK: no retired-service or dead-path residue found
   OK    sonarr prune   run 2026-09-01 ok (monthly 03:30 cron)
+  OK    config drift   OK: 8 running container(s) match their compose pins.
 DIGEST OK: nightly maintenance verified
 ```
 
@@ -170,7 +171,10 @@ TODO.md #2) — a residue finding fails the digest so removal residue shows
 up every morning instead of silently creeping back — and the monthly
 sonarr prune log (`~/.sonarr-prune.log`: fresh vs the last 1st-of-month
 03:30 boundary **and** its last recorded run must have exited 0, so a
-prune that ran but failed its own verification is flagged). Backed by
+prune that ran but failed its own verification is flagged) — and the
+config-drift gate (`stack-config-drift`, TODO.md #3): running container
+images vs compose pins, rc 2 (docker/compose unavailable) read as a soft
+WARN. Backed by
 `scripts/maintenance_digest.py`; `--repo` points DB resolution at the
 operational checkout. Suggested schedule: 05:10 daily user timer (after the
 04:00 reclaim cron).
