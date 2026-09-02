@@ -74,6 +74,7 @@ fi
 if command -v docker >/dev/null 2>&1; then
   check "compose config" docker compose config --quiet
   check "mount drift" python3 scripts/check_mount_drift.py
+  check "config drift" python3 scripts/check_config_drift.py
 else
   warn_skip "compose config" "docker"
   warn_skip "mount drift" "docker"

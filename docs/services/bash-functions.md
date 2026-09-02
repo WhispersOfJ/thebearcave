@@ -202,3 +202,20 @@ mode (`--repo-only`) is what preflight and CI run — the full command's host
 findings are a triage list, not a gate. Backed by
 `scripts/audit_residue.py`; host surfaces degrade to WARN when unavailable
 (e.g. a CI runner with no crontab/user units).
+
+### `stack-config-drift` — running images vs compose pins
+
+TODO.md project #3. Surfaces containers whose *running* image differs from
+the compose pin — both found manually on 2026-09-02: unpackerr running
+0.15.2 while compose pins v0.16.1, and plex on an older digest than the
+`@sha256` pin. `docker compose config --format json` is the source of truth
+for the pins; `docker inspect`'s `Config.Image` says what each running
+container was created from (`docker ps` truncates digest refs to short IDs,
+so it is unusable for comparison). Containers are matched to services by
+their `com.docker.compose.service` container label, so the check works from
+any checkout — it never depends on compose project-name derivation.
+Digest pins must be satisfied exactly (a mutable-tag ref does not satisfy
+a `@sha256` pin); tag pins are satisfied by any running ref with the same
+name+tag. Backed by `scripts/check_config_drift.py`; read-only and safe to
+run any time. Exit 0 = every running service matches its pin; 1 = drift
+(or docker unavailable).

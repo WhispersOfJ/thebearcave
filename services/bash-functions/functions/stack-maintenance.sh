@@ -64,3 +64,32 @@ stack-audit-residue() {
 
     python3 "$repo/scripts/audit_residue.py"
 }
+
+# stack-config-drift — running-container images vs compose pins
+# Surfaces containers whose running image differs from the compose pin
+# (unpackerr 0.15.2 running vs v0.16.1 pinned; plex on an older digest
+# than the @sha256 pin — both found manually 2026-09-02). Backed by
+# scripts/check_config_drift.py; `docker compose config` is the pin source
+# of truth, `docker inspect` the running state. Read-only — safe to run
+# any time. Exit 0 = every running service matches its pin; 1 = drift.
+stack-config-drift() {
+    if [ "$#" -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+        echo "Usage: stack-config-drift" >&2
+        echo "Report containers whose running image differs from their compose pin." >&2
+        return 0
+    fi
+    if [ "$#" -ne 0 ]; then
+        echo "Usage: stack-config-drift (no arguments)" >&2
+        return 1
+    fi
+
+    local repo="${BEARCAVE_REPO_DIR:-}"
+    if [ -z "$repo" ]; then
+        local self="${BASH_SOURCE[0]}"
+        local real
+        real="$(readlink -f "$self" 2>/dev/null || echo "$self")"
+        repo="$(dirname "$(dirname "$(dirname "$(dirname "$real")")")")"
+    fi
+
+    python3 "$repo/scripts/check_config_drift.py"
+}
