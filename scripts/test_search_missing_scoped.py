@@ -101,11 +101,15 @@ def main():
     queue_records = []
     history_records = []
     queue_paths = []
+    command_paths = []
+    history_paths = []
     parse_map = {}
     posted = []
     post_n = {"n": 0}
+    command_polls = {}
     sim = {"append_queue": True, "append_history": True,
-           "new_series_id": 1, "history_fails": False}
+           "new_series_id": 1, "history_fails": False,
+           "command_fails": False, "bulk_history": 0}
 
     def stub(base_url, api_key, path, method="GET", body=None, timeout=None):
         if path.startswith("/wanted/missing"):
@@ -115,16 +119,35 @@ def main():
             return [r for r in missing_records if r["seriesId"] == sid]
         if path.startswith("/queue"):
             queue_paths.append(path)
-            return {"totalRecords": len(queue_records), "records": queue_records}
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
+            page = int(query.get("page", [1])[0])
+            size = int(query.get("pageSize", [100])[0])
+            records = queue_records[(page - 1) * size:page * size]
+            return {"totalRecords": len(queue_records), "records": records}
         if path.startswith("/history"):
+            history_paths.append(path)
             if sim["history_fails"]:
                 raise RuntimeError("history unavailable")
-            return {"totalRecords": len(history_records),
-                    "records": sorted(history_records,
-                                       key=lambda r: r["id"], reverse=True)}
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
+            page = int(query.get("page", [1])[0])
+            size = int(query.get("pageSize", [100])[0])
+            records = sorted(history_records,
+                             key=lambda r: r["id"], reverse=True)
+            records = records[(page - 1) * size:page * size]
+            return {"totalRecords": len(history_records), "records": records}
         if path.startswith("/parse"):
             title = urllib.parse.unquote(path.split("title=", 1)[1])
             return parse_map.get(title, {"series": None, "episodes": []})
+        if path.startswith("/command/") and method == "GET":
+            command_paths.append(path)
+            command_id = path.rsplit("/", 1)[1]
+            polls = command_polls.setdefault(command_id, 0)
+            command_polls[command_id] += 1
+            return {"id": int(command_id),
+                    "status": "completed" if sim["command_fails"] else
+                    ("started" if polls == 0 else "completed"),
+                    "result": "failed" if sim["command_fails"] else
+                    ("unknown" if polls == 0 else "successful")}
         if path.startswith("/command") and method == "POST":
             posted.append(body)
             # Simulate the grab appearing after each search: in the queue
@@ -137,16 +160,20 @@ def main():
                                       "seriesId": sim["new_series_id"],
                                       "title": "Show.S01E01.WEB"})
             if sim["append_history"]:
-                history_records.append({"id": 10000 + post_n["n"],
-                                        "eventType": 1,
-                                        "seriesId": sim["new_series_id"],
-                                        "episodeId": 101,
-                                        "downloadId": f"dl-new-{post_n['n']}",
-                                        "sourceTitle": "Show.S01E01.WEB"})
-            return {"id": 1}
+                for extra in range(max(1, sim["bulk_history"])):
+                    history_records.append({"id": 10000 + post_n["n"] * 1000 + extra,
+                                            "eventType": 1,
+                                            "seriesId": sim["new_series_id"],
+                                            "episodeId": 101,
+                                            "downloadId": f"dl-new-{post_n['n']}-{extra}",
+                                            "sourceTitle": "Show.S01E01.WEB"})
+            command_polls["1"] = 0
+            return {"id": 1, "status": "queued"}
         raise AssertionError(f"unexpected path: {path}")
 
     orig_request = mod._request
+    orig_sleep = mod.time.sleep
+    mod.time.sleep = lambda _seconds: None
     mod._request = stub
     try:
         # Dry-run: nothing posted, verify pre-flight still runs read-only.
@@ -173,6 +200,23 @@ def main():
               code == 0 and "complete" in summary)
         check("verify pass posts the episode search command",
               {"name": "EpisodeSearch", "episodeIds": [1101]} in posted)
+        check("apply waits for the asynchronous command to finish",
+              "/command/1" in command_paths)
+
+        # A valid parse for a different series than this batch is still
+        # unsafe and must abort.
+        sim["new_series_id"] = 99
+        parse_map = {"Show.S01E01.WEB": {"series": {"id": 99, "title": "Other Show"},
+                                         "episodes": [{"id": 101}]}}
+        posted.clear()
+        queue_records = []
+        history_records = []
+        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
+                                all_series=False, batch_size=20, gap=0,
+                                checkpoint=False, verify=True, apply=True)
+        check("verify rejects a valid parse outside the searched series",
+              code == 2 and "verify-abort" in summary)
+        sim["new_series_id"] = 1
 
         # Verify aborts on NO_MATCH (the ARK-into-TPB-Animated class).
         parse_map = {}
@@ -292,13 +336,81 @@ def main():
         check("--yes runs every batch in one pass",
               code == 0 and "complete" in summary and len(posted) == 2)
 
-        # fetch_missing honors the --series filter.
+        # A failed asynchronous search may have created partial grabs; verify
+        # still runs and reports a wrong-show result before the command error.
+        sim["command_fails"] = True
+        sim["append_queue"] = True
+        parse_map = {}
+        posted.clear()
+        queue_records = []
+        history_records = []
+        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
+                                all_series=False, batch_size=20, gap=0,
+                                checkpoint=False, verify=True, apply=True)
+        check("failed async search still verifies partial grabs", code == 2
+              and "verify-abort" in summary)
+
+        # Without verification, the same terminal command failure is returned
+        # directly and no checkpoint is reported.
+        sim["append_queue"] = False
+        sim["append_history"] = False
+        posted.clear()
+        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
+                                all_series=False, batch_size=20, gap=0,
+                                checkpoint=False, verify=False, apply=True)
+        check("failed async search stops without verification", code == 1
+              and "did not complete" in summary)
+        sim["append_queue"] = True
+        sim["append_history"] = True
+        sim["command_fails"] = False
+
+        # More than one page of post-watermark grabs is fully inspected.
+        command_paths.clear()
+        history_paths.clear()
+        sim["bulk_history"] = 101
+        long_title = "Show." + ("VeryLong.Release.Name." * 12) + "S01E01.WEB"
+        parse_map[long_title] = {"series": {"id": 1, "title": "Show"},
+                                 "episodes": [{"id": 101}]}
+        queue_records = [{"id": n, "downloadId": f"dl-old-{n}",
+                          "seriesId": 1, "title": "Old.Show.S01E01"}
+                         for n in range(1, 101)]
+        queue_records.append({"id": 101, "downloadId": "dl-long",
+                              "seriesId": 1, "title": long_title})
+        check("paged queue verification keeps the full title",
+              mod.verify_new_items("http://x/api/v3", "k",
+                                   {f"dl-old-{n}" for n in range(1, 101)},
+                                   {1}) == (True, []))
+        history_records = [{"id": n, "date": "2026-09-01T00:00:00Z",
+                            "eventType": "grabbed", "seriesId": 1,
+                            "sourceTitle": "Old.Show.S01E01"}
+                           for n in range(100, 0, -1)]
+        parse_map["Old.Show.S01E01"] = {"series": {"id": 1, "title": "Show"},
+                                         "episodes": [{"id": 101}]}
+        watermark = mod.fetch_grab_watermark("http://x/api/v3", "k")
+        history_records.extend({"id": 1000 + n, "date": "2026-09-02T00:00:00Z",
+                                "eventType": "grabbed", "seriesId": 1,
+                                "sourceTitle": "Old.Show.S01E01"}
+                               for n in range(101))
+        available, offenders, count = mod.new_grab_offenders(
+            "http://x/api/v3", "k", watermark, {1})
+        check("history verification paginates all new grabs",
+              available and not offenders and count == 101
+              and any("page=2" in p for p in history_paths))
+        sim["bulk_history"] = 0
+
+        # fetch_missing honors the --series filter, and invalid run bounds
+        # fail before any API request or search command.
         missing_records = [ep(1, 1, 1, last=None), ep(2, 1, 1, last=None)]
         got = mod.fetch_missing("http://x/api/v3", "k", series_ids=[1])
         check("fetch_missing filters to the requested series",
               [g["seriesId"] for g in got] == [1])
+        check("zero batch size is rejected", mod.run(
+            "http://x/api/v3", "k", [1], False, 0, 0, False, False, False)[0] == 1)
+        check("negative gap is rejected", mod.run(
+            "http://x/api/v3", "k", [1], False, 1, -1, False, False, False)[0] == 1)
     finally:
         mod._request = orig_request
+        mod.time.sleep = orig_sleep
 
     if failures:
         print(f"\n{failures} assertion(s) failed")

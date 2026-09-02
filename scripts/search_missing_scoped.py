@@ -48,6 +48,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -56,6 +57,32 @@ DEFAULT_TIMEOUT = 60
 DEFAULT_BATCH = 20
 DEFAULT_GAP = 60
 MISSING_PAGE_SIZE = 200
+QUEUE_PAGE_SIZE = 100
+HISTORY_PAGE_SIZE = 100
+COMMAND_POLL_INTERVAL = 1
+COMMAND_WAIT_TIMEOUT = 300
+
+
+def positive_int(value):
+    """Argparse type for values that must be greater than zero."""
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be greater than zero")
+    return parsed
+
+
+def nonnegative_int(value):
+    """Argparse type for values that may be zero but not negative."""
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must not be negative")
+    return parsed
 
 
 def _request(base_url, api_key, path, method="GET", body=None, timeout=DEFAULT_TIMEOUT):
@@ -142,6 +169,8 @@ def split_batches(groups, batch_size):
     A single season group is never split (a SeasonSearch covers the whole
     season at once), so an oversized group forms a batch of its own.
     """
+    if batch_size < 1:
+        raise ValueError("batch_size must be greater than zero")
     batches, cur, n = [], [], 0
     for g in groups:
         if cur and n + len(g["episodes"]) > batch_size:
@@ -169,20 +198,61 @@ def search_commands_for(batch):
     return cmds
 
 
+def _fetch_paged_records(base_url, api_key, endpoint, page_size, timeout):
+    """Read all pages from a Sonarr paginated endpoint."""
+    records = []
+    page = 1
+    while True:
+        separator = "&" if "?" in endpoint else "?"
+        d = _request(base_url, api_key,
+                     f"{endpoint}{separator}page={page}&pageSize={page_size}",
+                     timeout=timeout)
+        if not isinstance(d, dict):
+            raise RuntimeError(f"{endpoint} returned an unexpected shape")
+        page_records = d.get("records") or []
+        records.extend(page_records)
+        total = d.get("totalRecords")
+        if not page_records or (total is not None and len(records) >= total):
+            return records
+        page += 1
+
+
+def fetch_queue_records(base_url, api_key, timeout=DEFAULT_TIMEOUT):
+    """Read the complete queue, including unknown-series items."""
+    return _fetch_paged_records(
+        base_url, api_key,
+        "/queue?includeUnknownSeriesItems=true",
+        QUEUE_PAGE_SIZE, timeout)
+
+
 def fetch_queue_ids(base_url, api_key, timeout=DEFAULT_TIMEOUT):
-    """Set of downloadIds currently in the queue (verify watermark).
-
-    includeUnknownSeriesItems=true so unknown-series items (which the
-    default queue view hides) are not a second blind spot.
-    """
-    d = _request(base_url, api_key,
-                 "/queue?page=1&pageSize=200&includeUnknownSeriesItems=true",
-                 timeout=timeout)
-    return {r.get("downloadId") for r in (d.get("records") or [])
-            if r.get("downloadId")}
+    """Set of downloadIds currently in the complete queue."""
+    return {r.get("downloadId") for r in fetch_queue_records(
+        base_url, api_key, timeout) if r.get("downloadId")}
 
 
-def verify_new_items(base_url, api_key, before_ids, timeout=DEFAULT_TIMEOUT):
+def _parse_and_classify(base_url, api_key, title, series_id,
+                        expected_series_ids, download_id, timeout):
+    """Return an offender when a title cannot prove a requested-series match."""
+    try:
+        parsed = _request(
+            base_url, api_key,
+            f"/parse?title={urllib.parse.quote(title, safe='')}", timeout=timeout)
+    except Exception as exc:  # conservative: cannot verify => suspect
+        return {"downloadId": download_id, "title": title,
+                "seriesId": series_id, "parsed": f"parse error: {exc}"}
+    pseries = parsed.get("series") or {}
+    if (series_id not in expected_series_ids
+            or pseries.get("id") != series_id
+            or not (parsed.get("episodes") or [])):
+        return {"downloadId": download_id, "title": title,
+                "seriesId": series_id,
+                "parsed": pseries.get("title") or "NO_MATCH"}
+    return None
+
+
+def verify_new_items(base_url, api_key, before_ids, expected_series_ids,
+                     timeout=DEFAULT_TIMEOUT):
     """Re-parse every queue item that appeared since before_ids.
 
     Returns (ok, offenders). ok is False when any new item's /parse
@@ -192,29 +262,16 @@ def verify_new_items(base_url, api_key, before_ids, timeout=DEFAULT_TIMEOUT):
     items (seriesId is None) can never be verified and are always
     suspects. Offenders are dicts {downloadId, title, seriesId, parsed}.
     """
-    d = _request(base_url, api_key,
-                 "/queue?page=1&pageSize=200&includeUnknownSeriesItems=true",
-                 timeout=timeout)
     offenders = []
-    for r in d.get("records") or []:
+    for r in fetch_queue_records(base_url, api_key, timeout):
         dl = r.get("downloadId")
         if not dl or dl in before_ids:
             continue
-        sid = r.get("seriesId")
-        title = str(r.get("title", "?"))[:90]
-        try:
-            parsed = _request(
-                base_url, api_key,
-                f"/parse?title={urllib.parse.quote(title)}", timeout=timeout)
-        except Exception as exc:  # conservative: cannot verify => suspect
-            offenders.append({"downloadId": dl, "title": title,
-                              "seriesId": sid, "parsed": f"parse error: {exc}"})
-            continue
-        pseries = parsed.get("series") or {}
-        if pseries.get("id") != sid or not (parsed.get("episodes") or []):
-            offenders.append({"downloadId": dl, "title": title,
-                              "seriesId": sid,
-                              "parsed": pseries.get("title") or "NO_MATCH"})
+        offender = _parse_and_classify(
+            base_url, api_key, str(r.get("title", "?")), r.get("seriesId"),
+            expected_series_ids, dl, timeout)
+        if offender:
+            offenders.append(offender)
     return (not offenders), offenders
 
 
@@ -223,8 +280,42 @@ def _grab_key(record):
     return (str(record.get("date") or ""), int(record.get("id") or 0))
 
 
+def _is_grabbed(record):
+    """Accept Sonarr's numeric and string forms of the Grabbed event type."""
+    event_type = record.get("eventType")
+    return event_type == 1 or str(event_type).casefold() == "grabbed"
+
+
+def _fetch_grab_history(base_url, api_key, timeout, stop_at=None,
+                        first_page_only=False):
+    """Read newest grabbed events, stopping once the watermark is reached."""
+    records = []
+    page = 1
+    while True:
+        d = _request(
+            base_url, api_key,
+            "/history?eventType=1&sortKey=date&sortDirection=descending"
+            f"&page={page}&pageSize={HISTORY_PAGE_SIZE}", timeout=timeout)
+        if not isinstance(d, dict):
+            raise RuntimeError("/history returned an unexpected shape")
+        page_records = [r for r in (d.get("records") or [])
+                        if r.get("id") and _is_grabbed(r)]
+        records.extend(page_records)
+        if first_page_only or (
+                stop_at is not None and page_records and all(
+                    _grab_key(r) <= stop_at for r in page_records)):
+            break
+        total = d.get("totalRecords")
+        if not d.get("records") or (
+                total is not None
+                and page * HISTORY_PAGE_SIZE >= total):
+            break
+        page += 1
+    return records
+
+
 def fetch_grab_watermark(base_url, api_key, timeout=DEFAULT_TIMEOUT):
-    """Return the batch-start (max grab date, id) watermark.
+    """Return the batch-start (max grabbed date, id) watermark.
 
     Grabs that fail before they are ever queue-visible (dead NZBs failing
     seconds after grab) never appear in the queue, so a queue diff alone
@@ -234,53 +325,73 @@ def fetch_grab_watermark(base_url, api_key, timeout=DEFAULT_TIMEOUT):
     than treating the entire recent history as new.
     """
     try:
-        d = _request(base_url, api_key,
-                     "/history?page=1&pageSize=100&eventType=1",
-                     timeout=timeout)
+        records = _fetch_grab_history(base_url, api_key, timeout,
+                                       first_page_only=True)
     except Exception:
         return None
-    records = [r for r in (d.get("records") or []) if r.get("id")]
     return max((_grab_key(r) for r in records), default=("", 0))
 
 
-def new_grab_offenders(base_url, api_key, watermark, timeout=DEFAULT_TIMEOUT):
+def new_grab_offenders(base_url, api_key, watermark, expected_series_ids,
+                       timeout=DEFAULT_TIMEOUT):
     """Parse every Grabbed history event newer than the watermark.
 
-    Returns (available, offenders). available=False when the history API
-    could not be read or its batch-start watermark was unavailable (the
+    Returns (available, offenders, count). available=False when the history
+    API could not be read or its batch-start watermark was unavailable (the
     caller falls back to the queue diff alone). Offenders have the same
     dict shape as verify_new_items; any grab whose title parses NO_MATCH,
     to no episodes, or to a different series than the grab's own seriesId
     is listed regardless of whether the download is still in the queue.
     """
     if watermark is None:
-        return False, []
+        return False, [], 0
     try:
-        d = _request(base_url, api_key,
-                     "/history?page=1&pageSize=100&eventType=1",
-                     timeout=timeout)
+        records = _fetch_grab_history(base_url, api_key, timeout, watermark)
     except Exception:
-        return False, []
+        return False, [], 0
     offenders = []
-    for r in d.get("records") or []:
-        if not r.get("id") or _grab_key(r) <= watermark:
-            continue
-        sid = r.get("seriesId")
-        title = str(r.get("sourceTitle") or "?")[:90]
+    new_records = [r for r in records if _grab_key(r) > watermark]
+    for r in new_records:
+        offender = _parse_and_classify(
+            base_url, api_key, str(r.get("sourceTitle") or "?"),
+            r.get("seriesId"), expected_series_ids, r.get("downloadId"), timeout)
+        if offender:
+            offenders.append(offender)
+    return True, offenders, len(new_records)
+
+
+def _command_result(record):
+    """Return True/False for a terminal command, or None while it runs."""
+    status = str(record.get("status") or "").casefold()
+    if status == "failed":
+        return False
+    if status == "completed":
+        return str(record.get("result") or "").casefold() not in (
+            "failed", "cancelled")
+    return None
+
+
+def wait_for_command(base_url, api_key, response, timeout=DEFAULT_TIMEOUT):
+    """Wait for a posted Sonarr command to reach a terminal state."""
+    command_id = response.get("id") if isinstance(response, dict) else None
+    if not command_id:
+        return False
+    result = _command_result(response)
+    if result is not None:
+        return result
+    deadline = time.monotonic() + COMMAND_WAIT_TIMEOUT
+    while time.monotonic() < deadline:
         try:
-            parsed = _request(
-                base_url, api_key,
-                f"/parse?title={urllib.parse.quote(title)}", timeout=timeout)
-        except Exception as exc:  # conservative: cannot verify => suspect
-            offenders.append({"downloadId": r.get("downloadId"), "title": title,
-                              "seriesId": sid, "parsed": f"parse error: {exc}"})
-            continue
-        pseries = parsed.get("series") or {}
-        if pseries.get("id") != sid or not (parsed.get("episodes") or []):
-            offenders.append({"downloadId": r.get("downloadId"), "title": title,
-                              "seriesId": sid,
-                              "parsed": pseries.get("title") or "NO_MATCH"})
-    return True, offenders
+            current = _request(base_url, api_key,
+                               f"/command/{command_id}", timeout=timeout)
+        except Exception:
+            return False
+        result = _command_result(current)
+        if result is not None:
+            return result
+        time.sleep(min(COMMAND_POLL_INTERVAL,
+                       max(0, deadline - time.monotonic())))
+    return False
 
 
 def merge_offenders(*groups):
@@ -303,6 +414,14 @@ def merge_offenders(*groups):
 def run(base_url, api_key, series_ids, all_series, batch_size, gap,
         checkpoint, verify, apply, timeout=DEFAULT_TIMEOUT):
     """Run the scoped sweep; returns (exit_code, summary)."""
+    if batch_size < 1:
+        return 1, "batch must be greater than zero"
+    if gap < 0:
+        return 1, "gap cannot be negative"
+    if timeout < 1:
+        return 1, "timeout must be greater than zero"
+    if not all_series and not series_ids:
+        return 1, "at least one series or --all is required"
     missing = fetch_missing(base_url, api_key,
                             None if all_series else series_ids, timeout)
     if not missing:
@@ -326,12 +445,13 @@ def run(base_url, api_key, series_ids, all_series, batch_size, gap,
             if verify:
                 # Read-only pre-flight: both verify legs run against the
                 # live APIs; nothing was searched so nothing is new.
+                expected_series_ids = {g["seriesId"] for g in batch}
                 watermark = fetch_grab_watermark(base_url, api_key, timeout)
-                hist_ok, hist = new_grab_offenders(base_url, api_key,
-                                                   watermark, timeout)
+                hist_ok, hist, _ = new_grab_offenders(
+                    base_url, api_key, watermark, expected_series_ids, timeout)
                 before = fetch_queue_ids(base_url, api_key, timeout)
                 _, qoff = verify_new_items(base_url, api_key, before,
-                                           timeout)
+                                           expected_series_ids, timeout)
                 if not hist_ok:
                     print("  verify (dry-run): history API unavailable; "
                           "queue diff only")
@@ -341,17 +461,24 @@ def run(base_url, api_key, series_ids, all_series, batch_size, gap,
                       f"{len(offenders)} suspect(s) -> {state}")
             continue
 
-        before = fetch_queue_ids(base_url, api_key, timeout)
+        expected_series_ids = {g["seriesId"] for g in batch}
         watermark = fetch_grab_watermark(base_url, api_key, timeout)
+        before = fetch_queue_ids(base_url, api_key, timeout)
+        command_failed = False
         for c in cmds:
-            _request(base_url, api_key, "/command", "POST", c, timeout)
+            response = _request(base_url, api_key, "/command", "POST", c,
+                                timeout=timeout)
+            if not wait_for_command(base_url, api_key, response, timeout):
+                command_failed = True
+                break
         if gap:
             print(f"  waiting {gap}s before verify/review...")
             time.sleep(gap)
         if verify:
-            hist_ok, hist = new_grab_offenders(base_url, api_key,
-                                               watermark, timeout)
-            _, qoff = verify_new_items(base_url, api_key, before, timeout)
+            hist_ok, hist, hist_count = new_grab_offenders(
+                base_url, api_key, watermark, expected_series_ids, timeout)
+            _, qoff = verify_new_items(base_url, api_key, before,
+                                       expected_series_ids, timeout)
             if not hist_ok:
                 print("  verify: history API unavailable; queue diff only")
             offenders = merge_offenders(hist, qoff)
@@ -362,8 +489,10 @@ def run(base_url, api_key, series_ids, all_series, batch_size, gap,
                           f"parsed {o['parsed']}")
                 return 2, (f"verify-abort: {len(offenders)} suspect grab(s) "
                            "(grabbed or queued); review before continuing")
-            print(f"  verify: {len(hist)} new grab(s), {len(qoff)} new queue "
+            print(f"  verify: {hist_count} new grab(s), {len(qoff)} new queue "
                   "item(s), all parse to their own series")
+        if command_failed:
+            return 1, "search command did not complete before timeout"
         if checkpoint and i < len(batches):
             print("checkpoint: batch {i} done. Review the queue, then "
                   "re-run with the same arguments to resume (groups are "
@@ -376,7 +505,7 @@ def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     scope = ap.add_mutually_exclusive_group(required=True)
-    scope.add_argument("--series", type=int, action="append", metavar="ID",
+    scope.add_argument("--series", type=positive_int, action="append", metavar="ID",
                        help="sonarr series id(s) to search (repeatable)")
     scope.add_argument("--all", action="store_true",
                        help="all monitored series with missing episodes")
@@ -384,9 +513,9 @@ def main():
                     help="API base URL (default: %(default)s)")
     ap.add_argument("--api-key", default="",
                     help="API key (default: $SONARR_API_KEY)")
-    ap.add_argument("--batch", type=int, default=DEFAULT_BATCH,
+    ap.add_argument("--batch", type=positive_int, default=DEFAULT_BATCH,
                     help="max episodes searched per batch (default: %(default)s)")
-    ap.add_argument("--gap", type=int, default=DEFAULT_GAP,
+    ap.add_argument("--gap", type=nonnegative_int, default=DEFAULT_GAP,
                     help="pause seconds between batches (default: %(default)s; 0 disables)")
     ap.add_argument("--yes", action="store_true",
                     help="disable checkpoints; run every batch in one pass")
@@ -396,7 +525,7 @@ def main():
                          "a different series than the one searched")
     ap.add_argument("--apply", action="store_true",
                     help="actually POST search commands; default is a dry run")
-    ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
+    ap.add_argument("--timeout", type=positive_int, default=DEFAULT_TIMEOUT,
                     help="HTTP timeout seconds (default: %(default)s)")
     args = ap.parse_args()
 
@@ -406,9 +535,13 @@ def main():
               file=sys.stderr)
         return 1
 
-    code, summary = run(args.url, api_key, args.series, args.all, args.batch,
-                        args.gap, checkpoint=not args.yes, verify=args.verify,
-                        apply=args.apply, timeout=args.timeout)
+    try:
+        code, summary = run(args.url, api_key, args.series, args.all, args.batch,
+                            args.gap, checkpoint=not args.yes, verify=args.verify,
+                            apply=args.apply, timeout=args.timeout)
+    except (urllib.error.URLError, OSError, RuntimeError, ValueError) as exc:
+        print(f"API/network failure: {exc}", file=sys.stderr)
+        return 1
     print(summary)
     return code
 
