@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.24.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.23.0...v1.24.0) (2026-09-02)
+
+
+### Features
+
+* add guarded radarr.db bloat prune maintenance path ([#103](https://github.com/WhispersOfJ/thebearcave/issues/103)) ([836611b](https://github.com/WhispersOfJ/thebearcave/commit/836611bbb040f965085189cfb593116d919a4c83))
+* add stack-disk-reclaim for nightly Docker disk reclamation ([#106](https://github.com/WhispersOfJ/thebearcave/issues/106)) ([a48d367](https://github.com/WhispersOfJ/thebearcave/commit/a48d367a68ad164a400fda0608dd27136c5a5b7a))
+
 ## [1.23.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.22.0...v1.23.0) (2026-09-01)
 
 
