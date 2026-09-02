@@ -8,6 +8,10 @@ Verifies the pure import-file building logic cannot silently bit-rot:
     seriesId/episodeIds/quality/languages and the queue downloadId
   * a candidate missing series or episodes is an all-or-nothing failure
     (falls back to queue removal instead of a partial import)
+  * the default API base carries the /api/v3 prefix and every request
+    path is joined onto it (regression: the queue endpoint used to be
+    hit at the bare origin, which returns the HTML front page and never
+    parses as JSON — the drain tool could not reach the API at all)
 
 Runs against importable pure-Python logic (no live Sonarr needed), so it
 works on the CI runner. Run by .github/workflows/validate.yml and locally
@@ -76,6 +80,35 @@ def main():
     no_eps = [{"path": "/x/y.mkv", "series": {"id": 3}, "episodes": []}]
     files, err = mod.build_import_files(no_eps, "dl-4")
     check("missing episodes fails the whole import", files == [] and err)
+
+    # --- URL construction regression (missing /api/v3 prefix) ---
+    check("default base carries the /api/v3 prefix",
+          mod.DEFAULT_URL.endswith("/api/v3"))
+
+    # Stub _request and drain() so we can capture the exact queue URL.
+    captured = {}
+
+    def fake_request(base_url, api_key, path, method="GET", body=None,
+                     timeout=None):
+        captured["url"] = f"{base_url}{path}"
+        return {"records": [], "totalRecords": 0}
+
+    orig_request = mod._request
+    orig_remove = mod.remove_item
+    mod._request = fake_request
+    mod.remove_item = lambda *a, **k: None
+    try:
+        code, summary = mod.drain("http://localhost:8989/api/v3", "k",
+                                  5, "completed", apply=False)
+    finally:
+        mod._request = orig_request
+        mod.remove_item = orig_remove
+    check("queue URL targets the /api/v3 base",
+          code == 0 and captured.get("url") ==
+          "http://localhost:8989/api/v3/queue?page=1&pageSize=200"
+          "&status=completed")
+    check("queue URL never targets the bare origin",
+          "8989/queue?" not in captured.get("url", ""))
 
     if failures:
         print(f"\n{failures} assertion(s) failed")
