@@ -23,6 +23,12 @@ Checks (one line each in the digest):
     stack-sonarr-prune remediates).
   * nzbdav queue - delegated to scripts/check_nzbdav_queue.py (recreate
     safety: queue must be empty). API unreachable == soft WARN.
+  * sonarr/radarr import queue - delegated to scripts/check_arr_import_queue.py:
+    counts completed downloads held from import (importBlocked /
+    importPending warnings) — the matched-by-ID class that piled up 230
+    items on 2026-09-02. Over threshold (default 10) == FAIL, prompting a
+    drain (scripts/drain_sonarr_queue.py --app <sonarr|radarr> --apply);
+    app unreachable == soft WARN.
   * residue audit - delegated to scripts/audit_residue.py (TODO.md #2), full
     host mode: repo surfaces + crontab + user units. Clean on a CI runner or
     a fresh checkout; a FAIL means retired-service/dead-path residue slipped
@@ -323,6 +329,31 @@ def check_config_drift(repo_root: Path) -> Finding:
     return Finding("config drift", level, msg)
 
 
+def check_arr_import_queue(repo_root: Path, app: str) -> Finding:
+    """Sonarr/Radarr import queue via scripts/check_arr_import_queue.py.
+
+    Counts completed downloads held from import (importBlocked /
+    importPending warnings) — the class that piled up 230 items on
+    2026-09-02 while nothing watched the *arr queues. rc 1 = stuck
+    count over threshold → FAIL (drain with
+    scripts/drain_sonarr_queue.py --app <sonarr|radarr> --apply); rc 2 =
+    app unreachable/key missing → soft WARN, mirroring the other
+    delegated rc-2 semantics. Runs per app with no args from repo_root
+    (the operational checkout), resolving $SONARR_API_KEY /
+    $RADARR_API_KEY from the timer's loader context.
+    """
+    rc, out = run_script("check_arr_import_queue.py", ["--app", app],
+                         repo_root)
+    tail = out.splitlines()[-1][:90] if out else "(no output)"
+    if rc == 0:
+        level, msg = "ok", tail
+    elif rc == 2:
+        level, msg = "warn", tail
+    else:
+        level, msg = "fail", tail
+    return Finding(f"{app} import queue", level, msg)
+
+
 def check_audit_residue(repo_root: Path) -> Finding:
     """Retired-service/path residue via scripts/audit_residue.py (exit 0/1/2).
 
@@ -375,6 +406,8 @@ def main() -> int:
     findings.append(check_dotfiles(Path(args.dotfiles)))
     findings += check_db_gates(repo_root)
     findings.append(check_nzbdav_queue(repo_root))
+    findings.append(check_arr_import_queue(repo_root, "sonarr"))
+    findings.append(check_arr_import_queue(repo_root, "radarr"))
     findings.append(check_audit_residue(repo_root))
     findings.append(check_config_drift(repo_root))
 
