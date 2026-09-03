@@ -147,7 +147,11 @@ rejected — the guard had been holding both classes in the queue.
 are a shared, community-maintained dataset — there is deliberately no
 per-instance "add an alias" field (upstream devs have declined to add one), so
 a missing alias is fixed by requesting it upstream so every Sonarr install
-benefits. Radarr is similar: movies match against the indexer-reported tmdbid /
+benefits. `scripts/alias_candidates.py` mines recent grab history for exactly
+these candidates: it replays distinct grabbed titles through Sonarr's parse
+API and lists the variant titles whose parse resolves to nothing (rc 1 when
+any are found).
+Radarr is similar: movies match against the indexer-reported tmdbid /
 imdbid plus TMDB alternate titles, with no local alias override. In practice
 for this stack:
 
