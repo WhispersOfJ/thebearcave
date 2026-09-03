@@ -419,8 +419,35 @@ def run_planning_tests():
           len(mod.split_batches(groups, 1)) == 2)
 
 
+def run_fast_planning_tests():
+    """The --all fetch reproduces /wanted/missing semantics exactly."""
+    from datetime import datetime, timezone
+    now = datetime(2026, 9, 3, tzinfo=timezone.utc)
+    base = {
+        "monitored": True, "hasFile": False,
+        "airDateUtc": "2026-09-01T00:00:00Z",
+    }
+    check("aired monitored missing episode is planned",
+          mod._is_planned_missing(dict(base), now))
+    check("episode with a file is not planned",
+          not mod._is_planned_missing(dict(base, hasFile=True), now))
+    check("unmonitored episode is not planned",
+          not mod._is_planned_missing(dict(base, monitored=False), now))
+    check("future episode is not planned (wanted/missing parity)",
+          not mod._is_planned_missing(
+              dict(base, airDateUtc="2026-09-04T00:00:00Z"), now))
+    check("undated episode is not planned (wanted/missing parity)",
+          not mod._is_planned_missing(dict(base, airDateUtc=None), now))
+    check("naive air date compares as UTC",
+          mod._is_planned_missing(dict(base, airDateUtc="2026-09-01T00:00:00"),
+                                  now))
+    check("garbage air date is not planned",
+          not mod._is_planned_missing(dict(base, airDateUtc="not-a-date"), now))
+
+
 def main():
     run_planning_tests()
+    run_fast_planning_tests()
     run_checkpoint_tests()
     run_verifier_tests()
     if failures:
