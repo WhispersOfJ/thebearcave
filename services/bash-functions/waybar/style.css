@@ -1,0 +1,130 @@
+/* Gruvbox Waybar theme: dense, calm, and readable at 200% scale. */
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "JetBrainsMono Nerd Font";
+    font-size: 12px;
+    min-height: 0;
+}
+
+window#waybar {
+    background: #282828;
+    color: #ebdbb2;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+    background: transparent;
+}
+
+.modules-left {
+    margin-left: 0;
+}
+
+.modules-center {
+    min-width: 0;
+}
+
+.modules-right {
+    margin-right: 0;
+}
+
+#workspaces,
+#window,
+#scratchpad,
+#privacy,
+#temperature,
+#network,
+#mpris,
+#pulseaudio,
+#bluetooth,
+#power-profiles-daemon,
+#systemd-failed-units,
+#custom-stack,
+#tray,
+#custom-power,
+#clock {
+    margin: 4px 0;
+    padding: 0 10px;
+}
+
+#workspaces {
+    margin-left: 6px;
+    padding: 0 4px;
+}
+
+#workspaces button {
+    padding: 0 9px;
+    color: #a89984;
+    background: transparent;
+}
+
+#workspaces button:hover {
+    color: #ebdbb2;
+    background: #3c3836;
+}
+
+#workspaces button.focused {
+    color: #282828;
+    background: #458588;
+}
+
+#workspaces button.urgent {
+    color: #ebdbb2;
+    background: #cc241d;
+}
+
+#window {
+    min-width: 160px;
+    color: #a89984;
+}
+
+#privacy,
+#temperature,
+#network,
+#mpris,
+#pulseaudio,
+#pulseaudio\.mic,
+#bluetooth,
+#power-profiles-daemon,
+#systemd-failed-units,
+#custom-power,
+#clock {
+    border-left: 1px solid #504945;
+}
+
+/* stack-tui launcher: one muted tone, state by opacity (open = solid) */
+#custom-stack { color: #a89984; opacity: 0.55; }
+#custom-stack.open { opacity: 1; }
+
+#privacy { color: #fb4934; }
+#temperature { color: #fabd2f; }
+#network { color: #8ec07c; }
+#mpris { color: #fe8019; }
+#pulseaudio,
+#pulseaudio\.mic { color: #d3869b; }
+#bluetooth { color: #83a598; }
+#power-profiles-daemon { color: #b8bb26; }
+#systemd-failed-units { color: #fb4934; }
+#custom-power { color: #fb4934; }
+#clock {
+    margin-right: 6px;
+    color: #ebdbb2;
+}
+
+#tray {
+    padding: 0 6px;
+}
+
+#bluetooth.off { color: #928374; }
+#bluetooth.on { color: #83a598; }
+#bluetooth.connected { color: #8ec07c; }
+#systemd-failed-units.ok { color: #8ec07c; }
+#systemd-failed-units.degraded { color: #fb4934; }
+
+tooltip {
+    background: #3c3836;
+    border: 1px solid #458588;
+    color: #ebdbb2;
+}
