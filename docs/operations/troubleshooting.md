@@ -95,8 +95,14 @@ python3 scripts/drain_sonarr_queue.py                      # sonarr dry-run (def
 python3 scripts/drain_sonarr_queue.py --app radarr         # radarr dry-run
 python3 scripts/drain_sonarr_queue.py --apply --limit 10   # act on sonarr
 python3 scripts/drain_sonarr_queue.py --app radarr --apply --limit 10 # act on radarr
+python3 scripts/drain_sonarr_queue.py --apply --auto-safe  # provable items only
 ```
 
+`--auto-safe` restricts imports to items whose file name parses unambiguously to
+ the queue item's own series/movie (re-checked through the *arr's parse API,
+ since the manual-import preview trusts the grab history — the same claim the
+ auto-import guard refuses for "matched by ID" items). Anything unprovable is
+ left queued for manual review, never removed.
 ### "Matched by ID — automatic import is not possible"
 
 A queue item that reports **"Found matching series via grab history, but release
