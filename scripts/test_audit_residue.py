@@ -60,7 +60,9 @@ def main() -> int:
     expect("registry sync check reports no drift", drift, [])
 
     # --- Token matching ----------------------------------------------
-    expect("retired name flags", mod.TOKEN_RE.search("start bazarr now") is not None, True)
+    expect("retired name flags", mod.TOKEN_RE.search("start lidarr now") is not None, True)
+    # bazarr left the registry on 2026-09-03 (re-adopted); it must never flag.
+    expect("re-adopted name never flags", mod.TOKEN_RE.search("start bazarr now"), None)
     expect("active name never flags", mod.TOKEN_RE.search("radarr import") is not None, False)
     expect("no partial-word match",
            mod.TOKEN_RE.search("the prometheusish era") is not None, False)
@@ -75,7 +77,7 @@ def main() -> int:
            "grafana" in hits[0].message, True)
 
     marker = mod.scan_lines("functions",
-                            '# stack-loop-ratings uses OMDB like bazarr audit-residue-ignore\n',
+                            '# stack-loop-ratings uses OMDB like lidarr audit-residue-ignore\n',
                             path)
     expect("audit-residue-ignore line skipped", marker, [])
 
@@ -92,7 +94,8 @@ def main() -> int:
     expect("DISCORD_ prefix is active", mod.env_var_is_retired("DISCORD_WEBHOOK_URL"), False)
 
     # --- Docs filenames ------------------------------------------------
-    expect("retired-named page flags", mod.doc_name_is_retired("bazarr.md"), True)
+    expect("retired-named page flags", mod.doc_name_is_retired("lidarr.md"), True)
+    expect("re-adopted service page does not flag", mod.doc_name_is_retired("bazarr.md"), False)
     expect("active service page does not flag", mod.doc_name_is_retired("radarr.md"), False)
 
     # --- Crontab -------------------------------------------------------

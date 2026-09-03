@@ -88,15 +88,14 @@ image-GC or a manual change. Remediated with `docker compose up -d
 and the full preflight sweep went green afterwards. The recreate-reminder is
 the recurrence guard for the dependabot-weekly cycle.
 
-**Remaining backlog preview (#4–#8 below):** #4 Bazarr re-adoption (the one
-that needs a deliberate scoping decision — it raises the service count above
-8 and total mem caps ≈12.1g/22g), #5 radarr DB growth-trend predictor (turns
-the prune incident into a calendar entry), #6 thin "what's watchable tonight"
-view, #7 request → arrival Discord notifier, #8 activity feed via the *arr
-webhook events. All stay host-runnable / API-backed, no new always-on
-containers unless #4's scoping call approves one.
+**Remaining backlog preview (#4–#8 below):** #4 Bazarr re-adoption (**done
+2026-09-03** — see its closeout below), #5 radarr DB growth-trend predictor
+(turns the prune incident into a calendar entry), #6 thin "what's watchable
+tonight" view, #7 request → arrival Discord notifier, #8 activity feed via the
+*arr webhook events. All stay host-runnable / API-backed, no new always-on
+containers unless the entry explicitly approves one (#4 was that approval).
 
-## 4. Bazarr re-adoption (fresh implementation)
+## 4. Bazarr re-adoption (fresh implementation) — ✅ DONE 2026-09-03
 
 Subtitle capability, retired 2026-08-30 for OOM crash-looping at 128m — not
 for being useless. Re-adopt per `docs/services/lifecycle.md` convention: fresh
@@ -106,6 +105,19 @@ tracked implementation (never a copy from `archive/`), real memory cap
 **Compatibility research (2026-09-02):** retired by decision, no watcher;
 re-adoption would raise the service count above 8 and total mem caps
 (≈12.1g/22g today) — deliberate scoping decision needed before starting.
+
+**Closeout (2026-09-03):** shipped as the stack's 9th always-on service.
+`ghcr.io/hotio/bazarr:release-1.6.0` at **768m / 1 CPU** (174 MiB steady-state
+observed on this host; 4.4× the failed cap), healthcheck on unauthenticated
+`/ping`, trivy baseline 0 CRITICAL/HIGH (`--ignore-unfixed`). Mounts mirror
+Sonarr/Radarr exactly and are read-only (`:rslave`) over the FUSE mount and
+media trees; `depends_on` covers sonarr/radarr only, so mount-owner restarts
+and NzbDAV recreations never touch it. Wired end to end: audit-residue
+registry de-retired (with the registry↔lifecycle cross-check enforcing both
+sides), health runner, trivy baseline, README/AGENTS/registry/docs to 9
+services, lifecycle re-adoption record, API.md section. One-time step that
+needs the UI: connect Sonarr/Radarr in Bazarr's settings (no env-var surface
+upstream).
 
 ## 5. Radarr DB growth-trend predictor
 

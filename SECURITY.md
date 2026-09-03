@@ -27,7 +27,7 @@ Include, when known:
 
 ## Scope
 
-The active stack is the 8 always-on Compose services plus the manual ImageMaid
+The active stack is the 9 always-on Compose services plus the manual ImageMaid
 profile described in `AGENTS.md` and `docs/services/`. Historical records and
 retired-service files under `archive/` and `docs/services/lifecycle.md` are
 reference material, not runtime configuration.
