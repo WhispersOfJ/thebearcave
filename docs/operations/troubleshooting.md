@@ -103,6 +103,75 @@ python3 scripts/drain_sonarr_queue.py --apply --auto-safe  # provable items only
  since the manual-import preview trusts the grab history — the same claim the
  auto-import guard refuses for "matched by ID" items). Anything unprovable is
  left queued for manual review, never removed.
+### "Matched by ID — automatic import is not possible"
+
+A queue item that reports **"Found matching series via grab history, but release
+was matched to series by ID. Automatic import is not possible"** (Sonarr) or
+**"matched to movie by ID — Manual Import required"** (Radarr) is *not* an
+NzbDAV handoff failure. It is an *arr-side import guard firing on purpose.
+
+**What the guard does.** When the *arr searches an indexer, the indexer can
+report that a release carries the TVDb/IMDb (or TMDB) ID for the series/movie
+you wanted. Sonarr/Radarr grabs on that ID claim, but at import time it parses
+the downloaded file's own title — and if that title does not match the
+series/movie the ID points to, the *arr refuses to auto-import
+("matched by ID … automatic import is not possible"; upstream notes this guard
+landed for Sonarr in v3.0.7, commit `2a45b61` / issue
+[Sonarr/Sonarr#4935](https://github.com/Sonarr/Sonarr/issues/4935)). The
+importer cannot confirm the file's contents belong to the monitored series, so
+it demands manual review. This is deliberate anti-pollution: it is exactly what
+keeps wrong-show content out of the library.
+
+**Why the NzbDAV handoff is not the cause.** The SABnzbd protocol carries no
+per-episode/file metadata — an add is only `nzbname` + `category` + `priority`,
+and NzbDAV's schema stores just `Category` + `JobName`, exactly like real
+SABnzbd. Correlation between the two systems is by **download ID GUID**, and it
+works: the `DownloadId` recorded in each *arr's `DownloadHistory` *is* NzbDAV's
+own item ID (`NzbNames.Id` — verified case-insensitively against the live DBs on
+both apps). Normal title-matched grabs import end to end through this path with
+no manual help; only the ID-matched class trips the guard, and it would trip
+identically against real SABnzbd.
+
+**Why ID-matching happens.** Releases end up ID-matched when the indexer's
+ID claim is the only link to the monitored series — most often after a bulk
+`UserInvokedSearch` "search missing" sweep, which queries indexers by ID
+(`tvdbid=`/`tmdbid=`) across many series at once. Real examples from the
+2026-09-01 ~230-item pile-up: `ARK: The Animated Series` grabbed into *Trailer
+Park Boys: The Animated Series*, `The.Ticket` into *The Tick*, year-suffixed
+`Trailer.Park.Boys.2001`, and franchise variants like `Too.Hot.to.Handle.Italy`.
+Run through the manual-import drain, ~220 of that sweep's items resolved to
+correct episodes and imported, while 19 were wrong-show downloads and were
+rejected — the guard had been holding both classes in the queue.
+
+**Why the title can't always be fixed with an alias.** Sonarr's alternate titles
+are a shared, community-maintained dataset — there is deliberately no
+per-instance "add an alias" field (upstream devs have declined to add one), so
+a missing alias is fixed by requesting it upstream so every Sonarr install
+benefits. Radarr is similar: movies match against the indexer-reported tmdbid /
+imdbid plus TMDB alternate titles, with no local alias override. In practice
+for this stack:
+
+1. **Verify which class the item is.** If the file is genuinely a *different*
+   show/movie than the monitored one (ARK inside Trailer Park Boys), it is a bad
+   indexer match — remove/blocklist it, and optionally report the mislabel to
+   the indexer. If it is the *right* content under a title the *arr won't
+   title-match (year suffix, alternate spelling), the durable fix is requesting
+   an alias upstream (see the Sonarr FAQ's "Why can't Sonarr import episode
+   files for series X" entry for the request path).
+2. **Prefer episodic/season-scoped searches** over whole-series "search missing"
+   sweeps; mass sweeps are what give indexers the opening to return wrong-show
+   releases. Title-matched RSS grabs are the healthy steady state and need no
+   alias at all.
+3. **Drain the residue** with `drain_sonarr_queue.py` above — its manual-import
+   preview parses each real file, so correct episodes import and wrong-show files
+   are rejected, mirroring what the guard protects. Running the drain in its
+   default dry-run is also a cheap way to *detect* the class: it lists every
+   completed-and-stuck item with its resolution state.
+
+Catch the class early by watching the *arr queue directly (the drain dry-run,
+or the UI Activity → Queue view) — a pile-up grows silently until something
+looks at it.
+
 ### Bulk "Search Missing" sweeps grab wrong shows — search scoped instead
 
 A whole-series or whole-library "Search Missing" blast sends every missing
