@@ -122,6 +122,11 @@ audiobookshelf, komga, adguard, crowdsec, vaultwarden, watchstate.
 32400 Plex (host network)
 ```
 
+**API surfaces** — the full map of every API surface on the stack (base URLs,
+auth conventions, the endpoints each script/function exercises, and canonical
+upstream docs) lives in [docs/API.md](docs/API.md). Update it when a script
+starts calling a new endpoint.
+
 ---
 
 ## Technologies
