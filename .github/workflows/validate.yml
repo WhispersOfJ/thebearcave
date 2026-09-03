@@ -61,6 +61,7 @@ jobs:
           python3 scripts/check_nzbdav_queue.py --offline
           python3 scripts/check_bind_mount_staleness.py --offline
           python3 scripts/test_drain_sonarr_queue.py
+          python3 scripts/test_search_missing_scoped.py
 
       - name: Check Compose environment coverage
         run: |
