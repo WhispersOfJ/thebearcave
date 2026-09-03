@@ -40,6 +40,11 @@ log_warning() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error()   { echo -e "${RED}[FAIL]${NC} $1"; }
 
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+# Pin the repo root for the loader: bearcave-bash.sh honors a pre-set
+# BEARCAVE_REPO_DIR, and an ambient value (e.g. an interactive shell's
+# export pointing at the main checkout) would silently source the wrong
+# functions/ tree when this suite runs from a worktree.
+export BEARCAVE_REPO_DIR="$REPO_DIR"
 BASH_DIR="$REPO_DIR/services/bash-functions"
 FUNC_DIR="$BASH_DIR/functions"
 COMP_FILE="$BASH_DIR/completions/stack-completions.sh"
@@ -288,6 +293,134 @@ else
     printf '%s\n' "$radarr_out" | tail -8 | sed 's/^/         /'
 fi
 
+# --- Unit: stack-requests Seerr renderer (offline) ---
+# Feed mock count + request JSON through the real function with the curl
+# wrapper mocked; assert the verdict ladder against Seerr's real enums
+# (server/constants/media.ts: request 1 PENDING, 2 APPROVED, 3 DECLINED,
+# 4 FAILED, 5 COMPLETED; media 1 UNKNOWN .. 5 AVAILABLE): only the open
+# pipeline (pending/approved) renders, an approved request whose media is
+# already available shows as available-now, and declined/failed/completed
+# requests never appear.
+log_info "unit: stack-requests Seerr renderer (mock requests)..."
+seerr_counts_mock="$(mktemp)"
+seerr_list_mock="$(mktemp)"
+printf '%s' '{"total":10,"movie":6,"tv":4,"pending":0,"approved":2,"declined":1,"failed":0,"processing":1,"available":0,"completed":6}' > "$seerr_counts_mock"
+printf '%s' '{"pageInfo":{"pages":1,"pageSize":10,"results":6,"page":1},"results":['\
+'{"id":1,"status":2,"type":"movie","media":{"title":null,"tmdbId":41264,"status":3},"requestedBy":{"plexUsername":"RequesterA"}},'\
+'{"id":2,"status":2,"type":"movie","media":{"title":"Watchable Now","tmdbId":77,"status":5},"requestedBy":{"plexUsername":"RequesterD"}},'\
+'{"id":3,"status":1,"type":"tv","media":{"title":null,"tvdbId":55,"status":2},"requestedBy":{"plexUsername":"RequesterF"}},'\
+'{"id":4,"status":5,"type":"movie","media":{"title":"Closed And Available","tmdbId":99,"status":5},"requestedBy":{"plexUsername":"RequesterB"}},'\
+'{"id":5,"status":3,"type":"movie","media":{"title":"Declined Flick","tmdbId":123,"status":3},"requestedBy":{"plexUsername":"RequesterE"}},'\
+'{"id":6,"status":4,"type":"tv","media":{"title":"Failed Show","tmdbId":456,"status":3},"requestedBy":{"plexUsername":"RequesterG"}}]}' > "$seerr_list_mock"
+seerr_out="$(SEERR_API_KEY='mock-key' STACK_COLOR=false bash -c '
+    COUNTS="$2" LIST="$3"
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    # Both endpoints go through __seerr_api ($1=METHOD, $2=path): serve the
+    # count payload for the count call, the list payload for the list call.
+    __seerr_api() {
+        case "$2" in
+            *"request/count"*) cat "$COUNTS" ;;
+            *) cat "$LIST" ;;
+        esac
+    }
+    "$4" 10
+' _ "$BASH_DIR/bearcave-bash.sh" "$seerr_counts_mock" "$seerr_list_mock" stack-requests 2>&1)" && rc=0 || rc=$?
+rm -f "$seerr_counts_mock" "$seerr_list_mock"
+if [ "$rc" -eq 0 ] \
+    && printf '%s' "$seerr_out" | grep -q 'total=10 pending=0 approved=2 declined=1 failed=0' \
+    && printf '%s' "$seerr_out" | grep -q '\[movie\] tmdb:41264 - by RequesterA (processing)' \
+    && printf '%s' "$seerr_out" | grep -q '\[tv\] tvdb:55 - by RequesterF (pending)' \
+    && printf '%s' "$seerr_out" | grep -q 'Watchable Now - by RequesterD (available now)' \
+    && ! printf '%s' "$seerr_out" | grep -q 'Closed And Available' \
+    && ! printf '%s' "$seerr_out" | grep -q 'Declined Flick' \
+    && ! printf '%s' "$seerr_out" | grep -q 'Failed Show' \
+    && ! printf '%s' "$seerr_out" | grep -q 'RequesterB'; then
+    passed=$((passed + 1))
+    log_success "unit: requests renderer surfaces open + available-now, hides closed"
+else
+    failed=$((failed + 1))
+    log_error "unit: requests renderer output unexpected (rc=$rc):"
+    printf '%s\n' "$seerr_out" | tail -10 | sed 's/^/         /'
+fi
+
+# --- Unit: stack-unwatched Plex renderer (offline) ---
+# Feed mock section + item JSON through the real function with the curl
+# wrapper mocked on the request URL; assert: movie libraries render their
+# 30-day-fresh unwatched items with ages, non-media libraries (artist) are
+# skipped entirely, and items older than the 30-day window appear only in
+# the counts — never as rows.
+log_info "unit: stack-unwatched Plex renderer (mock sections)..."
+plex_sections_mock="$(mktemp)"
+plex_items_mock="$(mktemp)"
+printf '%s' '{"MediaContainer":{"Directory":['\
+'{"key":"1","title":"Movies","type":"movie"},'\
+'{"key":"3","title":"Music","type":"artist"}]}}' > "$plex_sections_mock"
+printf '{"MediaContainer":{"Metadata":[{"title":"Fresh Flick","year":2026,"addedAt":%s},{"title":"Old Flick","year":1985,"addedAt":%s}]}}' \
+    "$(date -d '-2 days' +%s)" "$(date -d '-40 days' +%s)" > "$plex_items_mock"
+plex_out="$(PLEX_TOKEN='mock-token' STACK_COLOR=false bash -c '
+    SECTIONS="$2" ITEMS="$3"
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    __stack_curl() {
+        local url="${*: -1}"
+        case "$url" in
+            *"/library/sections?"*) cat "$SECTIONS" ;;
+            *"/library/sections/"*"/unwatched?"*) cat "$ITEMS" ;;
+        esac
+    }
+    "$4" 5
+' _ "$BASH_DIR/bearcave-bash.sh" "$plex_sections_mock" "$plex_items_mock" stack-unwatched 2>&1)" && rc=0 || rc=$?
+rm -f "$plex_sections_mock" "$plex_items_mock"
+if [ "$rc" -eq 0 ] \
+    && printf '%s' "$plex_out" | grep -q '\[Movies\]' \
+    && printf '%s' "$plex_out" | grep -q 'Fresh Flick (2026) - added 2d ago' \
+    && printf '%s' "$plex_out" | grep -q '(1 of 2 unwatched added within the last 30 days)' \
+    && ! printf '%s' "$plex_out" | grep -q '\[Music\]' \
+    && ! printf '%s' "$plex_out" | grep -q 'Old Flick'; then
+    passed=$((passed + 1))
+    log_success "unit: unwatched renderer lists 30-day-fresh, skips non-media libraries"
+else
+    failed=$((failed + 1))
+    log_error "unit: unwatched renderer output unexpected (rc=$rc):"
+    printf '%s\n' "$plex_out" | tail -10 | sed 's/^/         /'
+fi
+
+# --- Unit: stack-arrival-notify --help prints usage (offline) ---
+# The wrapper is thin (python core carries the logic, unit-tested in
+# scripts/test_arrival_notifier.py) — pin its interface: --help must print
+# usage and exit 0 without touching the network or the stack.
+log_info "unit: stack-arrival-notify --help prints usage..."
+arr_help_out="$(bash -c '
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    "$2" --help
+' _ "$BASH_DIR/bearcave-bash.sh" stack-arrival-notify 2>&1)" && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$arr_help_out" | grep -q 'Usage: stack-arrival-notify'; then
+    passed=$((passed + 1))
+    log_success "unit: arrival-notify --help prints usage (exit 0)"
+else
+    failed=$((failed + 1))
+    log_error "unit: arrival-notify --help unexpected (rc=$rc): [$arr_help_out]"
+fi
+
+# --- Unit: stack-activity-feed refuses >1 arg (offline) ---
+# stack-activity-feed takes at most one positional arg (the print limit);
+# extra args must be refused with usage on stderr and exit 1.
+log_info "unit: stack-activity-feed refuses extra args..."
+feed_usage_out="$(bash -c '
+    # shellcheck disable=SC1091
+    source "$1" >/dev/null 2>&1
+    "$2" 5 bogus
+' _ "$BASH_DIR/bearcave-bash.sh" stack-activity-feed 2>&1)" && rc=0 || rc=$?
+if [ "$rc" -eq 1 ] && printf '%s' "$feed_usage_out" | grep -q 'Usage: stack-activity-feed'; then
+    passed=$((passed + 1))
+    log_success "unit: activity-feed refuses >1 arg with usage (exit 1)"
+else
+    failed=$((failed + 1))
+    log_error "unit: activity-feed usage unexpected (rc=$rc): [$feed_usage_out]"
+fi
+
 # --- Unit: __stack_containers docker timeout (offline) ---
 # A wedged Docker daemon must not hang completion: stub a slow `docker`
 # binary earlier in PATH and assert __stack_containers returns within the
@@ -528,6 +661,12 @@ else
     run_live stack-loop-candidates sonarr
     run_live stack-arr-queue-errors sonarr
     run_live stack-arr-missing-aired sonarr 5
+    run_live stack-watchable
+    run_live stack-unwatched 5
+    run_live stack-recent 3
+    run_live stack-requests 5
+    run_live stack-activity-feed 3
+    run_live stack-arrival-notify --dry-run
 fi
 
 # --- Summary ---

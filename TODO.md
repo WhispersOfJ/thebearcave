@@ -88,12 +88,12 @@ image-GC or a manual change. Remediated with `docker compose up -d
 and the full preflight sweep went green afterwards. The recreate-reminder is
 the recurrence guard for the dependabot-weekly cycle.
 
-**Remaining backlog preview (#4–#8 below):** #4 Bazarr re-adoption (**done
-2026-09-03** — see its closeout below), #5 radarr DB growth-trend predictor
-(turns the prune incident into a calendar entry), #6 thin "what's watchable
-tonight" view, #7 request → arrival Discord notifier, #8 activity feed via the
-*arr webhook events. All stay host-runnable / API-backed, no new always-on
-containers unless the entry explicitly approves one (#4 was that approval).
+**Remaining backlog preview (#4–#8 below):** all five shipped on
+2026-09-03 — #4 Bazarr re-adoption, #5 radarr DB growth-trend predictor, #6
+"what's watchable tonight" view, #7 request → arrival Discord notifier, and
+#8 media activity feed. All stayed host-runnable / API-backed, no new
+always-on containers (#4 was the only service-count change, and the only
+entry that approved one).
 
 ## 4. Bazarr re-adoption (fresh implementation) — ✅ DONE 2026-09-03
 
@@ -140,7 +140,7 @@ semantics (rc 1 = crossing inside the 30-day horizon → schedule the prune;
 rc 2 = fresh history, soft WARN), and each nightly run appends the sample
 that sharpens tomorrow's forecast. Covers radarr, sonarr, and bazarr.
 
-## 6. "What's watchable tonight" — thin read-only view
+## 6. "What's watchable tonight" — thin read-only view — ✅ DONE 2026-09-03
 
 Plex unwatched + Radarr/Sonarr recently-added + Seerr request state, rendered
 via the existing host-published APIs (no container — a "dashboard that isn't
@@ -151,7 +151,21 @@ a dashboard").
 API-only shape that avoids their failure mode. Reuse the `stack-*` bash
 function API surface (`__arr_api` / `__plex_api` / `__seerr_api` helpers).
 
-## 7. Request → arrival notifier
+**Closeout (2026-09-03):** `stack-watchable` (one screen) + `stack-requests`
+`[take]` + `stack-unwatched` `[limit]` + `stack-recent` `[limit]` in
+`services/bash-functions/functions/stack-watchable.sh` — read-only, every
+section degrades to its own error line (a wedged service dims one section,
+never the view). Seerr status ladder corrected to the real enums
+(`seerr-team/seerr` `server/constants/media.ts`: request PENDING=1 /
+APPROVED=2 / DECLINED=3 / FAILED=4 / COMPLETED=5; media UNKNOWN=1 ..
+AVAILABLE=5) — the draft renderer had status 3 as "processing", which is
+actually DECLINED; only PENDING/APPROVED render, an approved request whose
+media is already AVAILABLE renders as "available now". `SEERR_API_KEY`
+templated into `.env.template` (generated in Seerr Settings → API keys;
+not auto-provisioned). Wired into the bash smoke suite (unit tests with
+mocked Seerr/Plex payloads + live tier) and completions.
+
+## 7. Request → arrival notifier — ✅ DONE 2026-09-03
 
 Seerr request approved → Radarr/Sonarr grab → download complete → Plex scan →
 one Discord ping. The minimal useful slice of retired watchstate.
@@ -161,13 +175,43 @@ decision. Seerr + Unpackerr were *retained* in the slim-down precisely for
 request handling/extraction — this wires their outcomes into a single
 notification chain. Webhook env pattern precedent: `DISCORD_WEBHOOK_URL`.
 
-## 8. Media-stack activity feed (thin)
+**Closeout (2026-09-03):** `scripts/arrival_notifier.py` (+ regression
+test) + `stack-arrival-notify [--dry-run|--no-refresh|--json]` wrapper.
+Poller, not listener (the repo's operational surface is timer-driven; a
+webhook listener would add an always-on host process, an open port, and
+*arr/Seerr webhook config with missed events when down — the poller never
+loses or duplicates a ping). Detection is *arr-history-first, Seerr-verdict-
+second*: open requests (PENDING/APPROVED) plus unnotified COMPLETED resolve
+to *arr items (tmdbId→Radarr, tvdbId→Sonarr) and ask the History API for an
+import newer than the request; APPROVED/COMPLETED with media AVAILABLE is
+the fallback (covers already-available requests); DECLINED/FAILED drop from
+the watch set without a ping. On arrival: refresh the matching Plex section,
+then one Discord POST; delivery failure is NOT recorded so the next run
+retries; `DISCORD_WEBHOOK_URL` unset → feature disabled (exit 0, pending
+arrivals deliver once the webhook exists). State in `.cache/arrivals/
+state.json`. Install: 15-minute user timer (unit files in the docstring).
+
+## 8. Media-stack activity feed (thin) — ✅ DONE 2026-09-03
 
 RSS/JSON of imports, upgrades, deletions via the *arr apps' existing webhook
 events — a small listener, no container.
 
 **Compatibility research (2026-09-02):** NOT built. Radar/Sonarr webhook events
 are already configured endpoints; nothing consumes them today.
+
+**Closeout (2026-09-03):** `scripts/activity_feed.py` (+ regression test,
+including an end-to-end `run()` against a canned local HTTP server) +
+`stack-activity-feed [limit]` wrapper. Polls the *arr History API with a
+per-app cursor (`.cache/activity/state.json`) and records the same event
+data their webhook payloads carry — `downloadFolderImported` /
+`seriesFolderImported` → import, `movieFileDeleted` / `episodeFileDeleted`
+→ delete, a second import for an item still on record → upgrade, everything
+else skipped. Appends `.cache/activity/feed.jsonl` and re-renders
+`feed.json` + `feed.xml` (RSS 2.0). Poller chosen over an always-on
+listener for the same reasons as #7 (no open port, no webhook config, no
+missed events when down; a first run backfills 24h instead of the app's
+whole history). Install: 15-minute user timer; subscribe by serving
+`.cache/activity/` or syncing `feed.xml` to a reader-accessible location.
 
 ---
 

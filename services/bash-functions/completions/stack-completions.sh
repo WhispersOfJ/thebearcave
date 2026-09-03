@@ -21,6 +21,10 @@ __stack_complete() {
     BUTLER_TASKS=$(printf '%b' "$BUTLER_TASKS" | tr '\n' ' ')
 
     case "$cmd" in
+        stack-activity-feed)
+            if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "<limit>" -- "$cur")); return 0; fi
+            return 0;
+            ;;
         stack-arr)
             if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "$ARR_APPS" -- "$cur")); return 0; fi
             if [ $pos -eq 2 ]; then COMPREPLY=($(compgen -W "rss-sync search-missing unstick unstick-importing" -- "$cur")); return 0; fi
@@ -73,6 +77,10 @@ __stack_complete() {
         stack-arr-toggle-search)
             if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "radarr sonarr all" -- "$cur")); return 0; fi
             if [ $pos -eq 2 ]; then COMPREPLY=($(compgen -W "on off" -- "$cur")); return 0; fi
+            return 0;
+            ;;
+        stack-arrival-notify)
+            COMPREPLY=($(compgen -W " --dry-run --no-refresh --json" -- "$cur")); return 0;
             return 0;
             ;;
         stack-audit-residue)
@@ -251,6 +259,14 @@ __stack_complete() {
             ;;
         stack-rating-mdblist)
             ;;
+        stack-recent)
+            if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "<limit>" -- "$cur")); return 0; fi
+            return 0;
+            ;;
+        stack-requests)
+            if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "<take>" -- "$cur")); return 0; fi
+            return 0;
+            ;;
         stack-resource-check)
             ;;
         stack-restart-all)
@@ -273,14 +289,20 @@ __stack_complete() {
             ;;
         stack-top)
             ;;
+        stack-unwatched)
+            if [ $pos -eq 1 ]; then COMPREPLY=($(compgen -W "<limit>" -- "$cur")); return 0; fi
+            return 0;
+            ;;
         stack-version)
+            ;;
+        stack-watchable)
             ;;
         stack-worktree)
             ;;
     esac
 
     # Unknown command (no directive branch matched) — offer command names.
-    COMPREPLY=($(compgen -W "stack-arr stack-arr-backlog stack-arr-blocklist stack-arr-clear-blocklist stack-arr-import stack-arr-import-all stack-arr-import-candidates stack-arr-import-starvation stack-arr-logs stack-arr-missing-aired stack-arr-queue-errors stack-arr-recently-added stack-arr-toggle-search stack-audit-residue stack-backlog-status stack-claude-full-backup stack-command-queue-summary stack-config-drift stack-container stack-cutoff-unmet stack-disk-config-sizes stack-disk-reclaim stack-docker-disk-usage stack-help stack-image-check stack-import-lists stack-letterboxd-history stack-letterboxd-import stack-letterboxd-track stack-letterboxd-tracked stack-letterboxd-untrack stack-log-levels stack-loop-candidates stack-loop-exclude stack-loop-unmonitor stack-maintenance-digest stack-mdblist-history stack-mdblist-import stack-mdblist-track stack-mdblist-tracked stack-mdblist-untrack stack-mount-health stack-notify-test stack-nzbdav-dedup-check stack-nzbdav-delete-failures stack-nzbdav-history stack-nzbdav-queue stack-nzbdav-stats stack-oom-check stack-perms-check stack-plex stack-plex-analyze stack-plex-automatic-updates stack-plex-backup-database stack-plex-butler stack-plex-butler-all stack-plex-clean-cache-files stack-plex-clean-log-files stack-plex-deep-media-analysis stack-plex-duplicates stack-plex-empty-trash stack-plex-garbage-collect-blobs stack-plex-garbage-collect-media stack-plex-generate-ad-markers stack-plex-generate-chapter-thumbs stack-plex-generate-credits-markers stack-plex-generate-intro-markers stack-plex-generate-media-index stack-plex-generate-voice-activity stack-plex-image-clean stack-plex-libraries stack-plex-loudness-analysis stack-plex-markers stack-plex-music-analysis stack-plex-process-assets stack-plex-recently-added stack-plex-refresh-epg stack-plex-refresh-libraries stack-plex-refresh-local-media stack-plex-sessions stack-plex-updates stack-plex-upgrade-media-analysis stack-prowlarr-indexers stack-queue-autofix stack-queue-status stack-radarr-health stack-radarr-prune stack-rating-imdb stack-rating-mdblist stack-resource-check stack-restart-all stack-seerr-requests stack-sonarr-fix-episode-monitoring stack-sonarr-prune stack-status stack-tmdb-missing stack-top stack-version stack-worktree" -- "$cur"))
+    COMPREPLY=($(compgen -W "stack-activity-feed stack-arr stack-arr-backlog stack-arr-blocklist stack-arr-clear-blocklist stack-arr-import stack-arr-import-all stack-arr-import-candidates stack-arr-import-starvation stack-arr-logs stack-arr-missing-aired stack-arr-queue-errors stack-arr-recently-added stack-arr-toggle-search stack-arrival-notify stack-audit-residue stack-backlog-status stack-claude-full-backup stack-command-queue-summary stack-config-drift stack-container stack-cutoff-unmet stack-disk-config-sizes stack-disk-reclaim stack-docker-disk-usage stack-help stack-image-check stack-import-lists stack-letterboxd-history stack-letterboxd-import stack-letterboxd-track stack-letterboxd-tracked stack-letterboxd-untrack stack-log-levels stack-loop-candidates stack-loop-exclude stack-loop-unmonitor stack-maintenance-digest stack-mdblist-history stack-mdblist-import stack-mdblist-track stack-mdblist-tracked stack-mdblist-untrack stack-mount-health stack-notify-test stack-nzbdav-dedup-check stack-nzbdav-delete-failures stack-nzbdav-history stack-nzbdav-queue stack-nzbdav-stats stack-oom-check stack-perms-check stack-plex stack-plex-analyze stack-plex-automatic-updates stack-plex-backup-database stack-plex-butler stack-plex-butler-all stack-plex-clean-cache-files stack-plex-clean-log-files stack-plex-deep-media-analysis stack-plex-duplicates stack-plex-empty-trash stack-plex-garbage-collect-blobs stack-plex-garbage-collect-media stack-plex-generate-ad-markers stack-plex-generate-chapter-thumbs stack-plex-generate-credits-markers stack-plex-generate-intro-markers stack-plex-generate-media-index stack-plex-generate-voice-activity stack-plex-image-clean stack-plex-libraries stack-plex-loudness-analysis stack-plex-markers stack-plex-music-analysis stack-plex-process-assets stack-plex-recently-added stack-plex-refresh-epg stack-plex-refresh-libraries stack-plex-refresh-local-media stack-plex-sessions stack-plex-updates stack-plex-upgrade-media-analysis stack-prowlarr-indexers stack-queue-autofix stack-queue-status stack-radarr-health stack-radarr-prune stack-rating-imdb stack-rating-mdblist stack-recent stack-requests stack-resource-check stack-restart-all stack-seerr-requests stack-sonarr-fix-episode-monitoring stack-sonarr-prune stack-status stack-tmdb-missing stack-top stack-unwatched stack-version stack-watchable stack-worktree" -- "$cur"))
 }
 
-complete -F __stack_complete -o bashdefault -o default -o nospace stack-arr stack-arr-backlog stack-arr-blocklist stack-arr-clear-blocklist stack-arr-import stack-arr-import-all stack-arr-import-candidates stack-arr-import-starvation stack-arr-logs stack-arr-missing-aired stack-arr-queue-errors stack-arr-recently-added stack-arr-toggle-search stack-audit-residue stack-backlog-status stack-claude-full-backup stack-command-queue-summary stack-config-drift stack-container stack-cutoff-unmet stack-disk-config-sizes stack-disk-reclaim stack-docker-disk-usage stack-help stack-image-check stack-import-lists stack-letterboxd-history stack-letterboxd-import stack-letterboxd-track stack-letterboxd-tracked stack-letterboxd-untrack stack-log-levels stack-loop-candidates stack-loop-exclude stack-loop-unmonitor stack-maintenance-digest stack-mdblist-history stack-mdblist-import stack-mdblist-track stack-mdblist-tracked stack-mdblist-untrack stack-mount-health stack-notify-test stack-nzbdav-dedup-check stack-nzbdav-delete-failures stack-nzbdav-history stack-nzbdav-queue stack-nzbdav-stats stack-oom-check stack-perms-check stack-plex stack-plex-analyze stack-plex-automatic-updates stack-plex-backup-database stack-plex-butler stack-plex-butler-all stack-plex-clean-cache-files stack-plex-clean-log-files stack-plex-deep-media-analysis stack-plex-duplicates stack-plex-empty-trash stack-plex-garbage-collect-blobs stack-plex-garbage-collect-media stack-plex-generate-ad-markers stack-plex-generate-chapter-thumbs stack-plex-generate-credits-markers stack-plex-generate-intro-markers stack-plex-generate-media-index stack-plex-generate-voice-activity stack-plex-image-clean stack-plex-libraries stack-plex-loudness-analysis stack-plex-markers stack-plex-music-analysis stack-plex-process-assets stack-plex-recently-added stack-plex-refresh-epg stack-plex-refresh-libraries stack-plex-refresh-local-media stack-plex-sessions stack-plex-updates stack-plex-upgrade-media-analysis stack-prowlarr-indexers stack-queue-autofix stack-queue-status stack-radarr-health stack-radarr-prune stack-rating-imdb stack-rating-mdblist stack-resource-check stack-restart-all stack-seerr-requests stack-sonarr-fix-episode-monitoring stack-sonarr-prune stack-status stack-tmdb-missing stack-top stack-version stack-worktree
+complete -F __stack_complete -o bashdefault -o default -o nospace stack-activity-feed stack-arr stack-arr-backlog stack-arr-blocklist stack-arr-clear-blocklist stack-arr-import stack-arr-import-all stack-arr-import-candidates stack-arr-import-starvation stack-arr-logs stack-arr-missing-aired stack-arr-queue-errors stack-arr-recently-added stack-arr-toggle-search stack-arrival-notify stack-audit-residue stack-backlog-status stack-claude-full-backup stack-command-queue-summary stack-config-drift stack-container stack-cutoff-unmet stack-disk-config-sizes stack-disk-reclaim stack-docker-disk-usage stack-help stack-image-check stack-import-lists stack-letterboxd-history stack-letterboxd-import stack-letterboxd-track stack-letterboxd-tracked stack-letterboxd-untrack stack-log-levels stack-loop-candidates stack-loop-exclude stack-loop-unmonitor stack-maintenance-digest stack-mdblist-history stack-mdblist-import stack-mdblist-track stack-mdblist-tracked stack-mdblist-untrack stack-mount-health stack-notify-test stack-nzbdav-dedup-check stack-nzbdav-delete-failures stack-nzbdav-history stack-nzbdav-queue stack-nzbdav-stats stack-oom-check stack-perms-check stack-plex stack-plex-analyze stack-plex-automatic-updates stack-plex-backup-database stack-plex-butler stack-plex-butler-all stack-plex-clean-cache-files stack-plex-clean-log-files stack-plex-deep-media-analysis stack-plex-duplicates stack-plex-empty-trash stack-plex-garbage-collect-blobs stack-plex-garbage-collect-media stack-plex-generate-ad-markers stack-plex-generate-chapter-thumbs stack-plex-generate-credits-markers stack-plex-generate-intro-markers stack-plex-generate-media-index stack-plex-generate-voice-activity stack-plex-image-clean stack-plex-libraries stack-plex-loudness-analysis stack-plex-markers stack-plex-music-analysis stack-plex-process-assets stack-plex-recently-added stack-plex-refresh-epg stack-plex-refresh-libraries stack-plex-refresh-local-media stack-plex-sessions stack-plex-updates stack-plex-upgrade-media-analysis stack-prowlarr-indexers stack-queue-autofix stack-queue-status stack-radarr-health stack-radarr-prune stack-rating-imdb stack-rating-mdblist stack-recent stack-requests stack-resource-check stack-restart-all stack-seerr-requests stack-sonarr-fix-episode-monitoring stack-sonarr-prune stack-status stack-tmdb-missing stack-top stack-unwatched stack-version stack-watchable stack-worktree

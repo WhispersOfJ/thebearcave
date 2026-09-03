@@ -22,6 +22,8 @@ services/bash-functions/
 │   ├── stack-loop-ratings.sh    # loop candidates, exclude, unmonitor, rating lookups
 │   ├── stack-maintenance.sh     # maintenance digest (reclaim log, timers, DBs)
 │   ├── stack-misc.sh           # seerr, notify, backup, worktree, host checks
+│   ├── stack-arrivals.sh       # arrival notifier + activity feed (TODO #7/#8)
+│   ├── stack-watchable.sh      # what's watchable tonight (TODO #6)
 │   ├── stack-nzbdav.sh         # nzbdav queue, history, stats, mount-health
 │   ├── stack-plex-core.sh      # sessions, scan, butler, trash, analyze
 │   ├── stack-plex-extra.sh     # duplicates, gc, updates, image-clean
@@ -237,3 +239,75 @@ re-pins the docker images weekly and merging never recreates containers, so
 that date is how stale the mismatch is. The 2026-08-31 dependabot bumps
 (unpackerr 0.15.2→v0.16.1, plex digest) were found drifting on 2026-09-02
 exactly this way.
+
+### `stack-watchable` — what's watchable tonight (TODO.md #6)
+
+One screen over the host-published APIs — the thin, read-only "dashboard
+that isn't a dashboard" (the shape that replaces the retired
+`arr-dashboard`/`landing-page` containers):
+
+- `stack-requests [take]` — Seerr request state: count line plus every
+  open request (PENDING/APPROVED — Seerr's real status ladder, verified
+  against `seerr-team/seerr` `server/constants/media.ts`), with the media
+  state label and an `(available now)` marker when the media is already on
+  Plex. Declined/failed/completed requests never render.
+- `stack-unwatched [limit]` — unwatched Plex items added within the last
+  30 days, newest first, per movie/show library.
+- `stack-recent [limit]` — recently added movies (Radarr) and series
+  (Sonarr).
+- `stack-watchable` — all three, one screen.
+
+Every section degrades to a per-source error line when its service is
+unreachable — a wedged service dims one section, never the whole view.
+`stack-requests` needs `SEERR_API_KEY` (see `.env.template`); the other
+views need their app keys as usual.
+
+### `stack-arrival-notify` — request → arrival ping (TODO.md #7)
+
+The minimal useful slice of retired watchstate: watch open Seerr requests
+and send **one Discord ping** when the requested item actually lands — the
+*arr app's History API confirms the import, the notifier refreshes the
+matching Plex section, then one webhook POST. Backed by
+`scripts/arrival_notifier.py`; cursor-style state under
+`.cache/arrivals/state.json` means a missed run or a down service never
+loses or duplicates a ping.
+
+```bash
+stack-arrival-notify                  # poll + deliver
+stack-arrival-notify --dry-run        # preview without sending/refreshing
+stack-arrival-notify --no-refresh     # skip the Plex refresh on arrival
+```
+
+`DISCORD_WEBHOOK_URL` unset → feature disabled (exit 0, nothing marked
+notified, so setting the webhook later delivers pending arrivals). Install
+as a user timer every 15 minutes — the exact unit files are in the
+script's docstring:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now stack-arrival-notify.timer
+```
+
+### `stack-activity-feed` — imports/upgrades/deletions feed (TODO.md #8)
+
+A thin RSS/JSON feed of what the *arr apps actually did, recorded through
+their History API (the same event data their webhook events carry) — no
+container, no listener, no open port. Backed by `scripts/activity_feed.py`,
+which appends to `.cache/activity/feed.jsonl` and re-renders:
+
+- `.cache/activity/feed.json` — latest 50 entries, newest first
+- `.cache/activity/feed.xml` — the same as RSS 2.0
+
+```bash
+stack-activity-feed 20        # poll, re-render, and print the latest 20
+python3 scripts/activity_feed.py   # poll + re-render only (timer job)
+```
+
+Imports, upgrades (a second import for an item that already has one on
+record), and deletions (`movieFileDeleted`/`episodeFileDeleted`) are
+tracked; grabs/renames/failures are skipped. The cursor in
+`.cache/activity/state.json` never moves past records it has seen, so a
+down app or missed run catches up on the next run. Install as a user timer
+every 15 minutes (unit files in the script's docstring); to subscribe from
+another machine, serve the directory (`python3 -m http.server` in
+`.cache/activity/`) or sync `feed.xml` wherever an RSS reader can reach it.

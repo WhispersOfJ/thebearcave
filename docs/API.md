@@ -26,13 +26,13 @@ those docs to the APIs behind them.
 | Service | Base | Auth (`.env`) | Family | Consumed by |
 |---|---|---|---|---|
 | Prowlarr | `http://HOST_IP:9696` · `/api/v1` | `PROWLARR_API_KEY` | \*arr (v1) | InfiniDysk indexer sync |
-| Radarr | `http://HOST_IP:7878` · `/api/v3` | `RADARR_API_KEY` | \*arr (v3) | `drain_sonarr_queue.py --app radarr`, Unpackerr |
-| Sonarr | `http://HOST_IP:8989` · `/api/v3` | `SONARR_API_KEY` | \*arr (v3) | `search_missing_scoped*.py`, `drain_sonarr_queue.py`, Unpackerr |
+| Radarr | `http://HOST_IP:7878` · `/api/v3` | `RADARR_API_KEY` | \*arr (v3) | `drain_sonarr_queue.py --app radarr`, `arrival_notifier.py`, `activity_feed.py`, Unpackerr |
+| Sonarr | `http://HOST_IP:8989` · `/api/v3` | `SONARR_API_KEY` | \*arr (v3) | `search_missing_scoped*.py`, `drain_sonarr_queue.py`, `arrival_notifier.py`, `activity_feed.py`, Unpackerr |
 | Bazarr | `http://HOST_IP:6767` · `/api` | key in `config/bazarr/` | Bazarr (Flask/wtforms) | healthcheck only |
 | InfiniDysk (nzbdav) | `http://HOST_IP:3000` · `/api` | `FRONTEND_BACKEND_API_KEY` | SABnzbd-compatible + WebDAV | Radarr/Sonarr (download client), rclone, checks |
 | nzbdav_rclone | internal `http://nzbdav_rclone:5572` · `/` | `NZBDAV_RCLONE_RC_PASS` | rclone RC | InfiniDysk (NZBDAV_CONFIG__RCLONE__HOST) |
-| Plex | `http://HOST_IP:32400` | `PLEX_TOKEN` | Plex Media Server | `stack-plex-*` bash functions |
-| Seerr | `http://HOST_IP:5055` · `/api/v1` | session / key in `config/seerr/` | Seerr (Overseerr-lineage) | web UI; healthcheck |
+| Plex | `http://HOST_IP:32400` | `PLEX_TOKEN` | Plex Media Server | `stack-plex-*` bash functions, `arrival_notifier.py` |
+| Seerr | `http://HOST_IP:5055` · `/api/v1` | session / key in `config/seerr/` | Seerr (Overseerr-lineage) | `stack-watchable`, `stack-requests`, `arrival_notifier.py`; healthcheck |
 | Unpackerr | none published | — | — | calls Radarr/Sonarr APIs itself |
 | ImageMaid | none (manual profile) | — | — | direct file access to Plex config |
 
@@ -69,6 +69,11 @@ HTTP.
     `GET /parse?title=…` (`--auto-safe` provable-import check).
   - `scripts/check_arr_import_queue.py --app radarr`: `GET /queue?page=1&pageSize=200`
     (pile-up gate, shared with Sonarr).
+  - `scripts/arrival_notifier.py` (TODO.md #7): `GET /movie?tmdbId={id}`
+    (request→item resolution) and `GET /history?movieId={id}&eventType=downloadFolderImported&pageSize=1`
+    (arrival ground truth).
+  - `scripts/activity_feed.py` (TODO.md #8): `GET /history?page=&pageSize=100&sortKey=date&sortDirection=desc&includeMovie=true`
+    (import/upgrade/delete feed; cursor-filtered by history id).
   - `scripts/check_radarr_profiles.py`, `scripts/check_radarr_db_size.py`,
     `scripts/prune_radarr_db.py`: direct SQLite reads/writes of
     `config/radarr/radarr.db` — **not** HTTP.
@@ -99,6 +104,11 @@ HTTP.
   - `scripts/check_arr_import_queue.py` (import-queue pile-up gate for the
     maintenance digest): `GET /queue?page=1&pageSize=200` against Sonarr and
     Radarr alike (`--app sonarr|radarr`).
+  - `scripts/arrival_notifier.py` (TODO.md #7): `GET /series?tvdbId={id}`
+    (request→item resolution) and `GET /history?seriesId={id}&eventType=downloadFolderImported&pageSize=1`
+    (arrival ground truth).
+  - `scripts/activity_feed.py` (TODO.md #8): `GET /history?page=&pageSize=100&sortKey=date&sortDirection=desc&includeSeries=true&includeEpisode=true`
+    (import/upgrade/delete feed; cursor-filtered by history id).
   - `scripts/check_radarr_db_size.py` (shared gate, `--blob-table EpisodeFiles`),
     `scripts/prune_sonarr_db.py`: direct SQLite on `config/sonarr/sonarr.db` —
     **not** HTTP.
@@ -185,6 +195,11 @@ library.
   - `GET /status/sessions` — active sessions.
   - `GET /library/recentlyAdded` — recently added.
 - Sections are `Movies` (`/data/movies`) and `Shows` (`/data/shows`).
+- `scripts/arrival_notifier.py` (TODO.md #7) reuses `GET /library/sections`
+  (type discovery) and `POST /library/sections/{key}/refresh` to make the
+  "arrived on Plex" ping truthful; `stack-unwatched` uses
+  `GET /library/sections/{key}/unwatched?sort=addedAt:desc` for the
+  30-day-fresh unwatched view.
 - Canonical docs: <https://developer.plex.tv/pms/> · URL commands:
   <https://support.plex.tv/articles/201638786-plex-media-server-url-commands/>
 
@@ -195,9 +210,15 @@ library.
 - Auth for the rest of `/api/v1`: session cookie established through the web
   UI, or an API key (`X-Api-Key`) from Settings → API keys
   (`config/seerr/settings.json`).
-- The repo calls no Seerr endpoints beyond the healthcheck; Seerr is the
-  request front door (UI → Radarr/Sonarr). `SEERR_URL` in `.env` records where
-  it is hosted.
+- Endpoints exercised by this repo:
+  - `GET /api/v1/request/count` — request-state summary (`stack-requests`).
+  - `GET /api/v1/request?take=&skip=` — paginated request list, used by
+    `stack-requests` (open-pipeline render) and `scripts/arrival_notifier.py`
+    (watch set for arrival detection; paginates `take=100` until exhausted).
+  - `stack-seerr-requests`, the healthcheck, and the `SEERR_URL` variable as
+    before. The API key (`X-Api-Key`) is **not** templated from `.env`; it is
+    generated in Settings → API keys (`config/seerr/settings.json`) and
+    exported as `SEERR_API_KEY` (see `.env.template`).
 - Canonical docs: <https://docs.seerr.dev/> · API:
   <https://docs.seerr.dev/api/seerr-api/>
 

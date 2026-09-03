@@ -28,6 +28,15 @@
 # ============================================================================
 set -euo pipefail
 
+# Byte-order sorting end to end: the generated command list must be
+# identical on every machine regardless of locale. `sort` under en_US
+# collates punctuation away (stack-arr-logs < stack-arrival-notify) while
+# C.UTF-8 keeps bytes (stack-arr-logs < stack-arrival-notify is reversed:
+# '-' sorts before 'i'), so a name added in one locale would silently drift
+# under the other and fail the --check gate in CI (found 2026-09-03 with
+# stack-arrival-notify).
+export LC_ALL=C
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FN_DIR="$(cd "$SCRIPT_DIR/../functions" && pwd)"
 OUT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)/completions"
