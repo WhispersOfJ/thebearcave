@@ -55,7 +55,7 @@ SPOT = {
     "stack-plex-butler-all":            (True, []),
 }
 
-EXPECTED_COUNT = 99
+EXPECTED_COUNT = 105  # 99 + stack-watchable/stack-unwatched/stack-recent/stack-requests/stack-arrival-notify/stack-activity-feed
 EXPECTED_PLACEHOLDER_COUNT = 9
 
 
