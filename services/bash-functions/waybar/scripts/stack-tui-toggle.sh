@@ -92,6 +92,17 @@ cmd_opacity() {
 launch() {
     [ -x "$TUI" ] || { notify-send -u critical "stack-tui" \
         "launcher not found: $TUI" 2>/dev/null || true; exit 1; }
+    # Serialize launches: the alacritty window takes ~1s to map, so two
+    # rapid toggles can both see "no window" here and spawn duplicates
+    # (found by hammering the module in testing). Non-blocking: a concurrent
+    # launcher already running is treated as this toggle's launch.
+    exec 9>"${XDG_CACHE_HOME:-$HOME/.cache}/waybar-stack-tui/launch.lock"
+    if ! flock -n 9; then
+        # Another toggle is mid-launch; give its window a beat to map and
+        # treat this toggle as a show/no-op rather than a second launch.
+        sleep 1
+        return 0
+    fi
     local log="${XDG_CACHE_HOME:-$HOME/.cache}/waybar-stack-tui/tui.log"
     mkdir -p "$(dirname "$log")"
     # alacritty: --class sets the Wayland app_id, --title the window title;
@@ -102,10 +113,18 @@ launch() {
         -e "$TUI" >>"$log" 2>&1 &
     disown
     # Give the window a beat to map before applying the sway rules.
+    local mapped=0
     for _ in 1 2 3 4 5 6 7 8 9 10; do
-        window_open && break
+        if window_open; then mapped=1; break; fi
         sleep 0.15
     done
+    if [ "$mapped" -eq 0 ]; then
+        # Never mapped: the terminal died on startup. Leave a breadcrumb in
+        # the log path instead of leaving a phantom "launching" state.
+        notify-send -u critical "stack-tui" \
+            "terminal failed to map — see $log" 2>/dev/null || true
+        return 1
+    fi
     # Float it, size it, centre it, then tuck it into the scratchpad and
     # immediately show it — a second click therefore just hides it again.
     # sway parses "resize set width W height H" (i3's WxH shorthand fails).
