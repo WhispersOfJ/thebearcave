@@ -1,0 +1,221 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 32,
+    "spacing": 0,
+    "fixed-center": true,
+    "margin-top": 0,
+    "margin-bottom": 0,
+    "margin-left": 6,
+    "margin-right": 6,
+
+    "modules-left": ["sway/workspaces", "sway/scratchpad"],
+    "modules-center": ["sway/window"],
+    "modules-right": [
+        "privacy",
+        "temperature#cpu",
+        "temperature#gpu",
+        "network",
+        "mpris",
+        "pulseaudio",
+        "pulseaudio#mic",
+        "bluetooth",
+        "power-profiles-daemon",
+        "systemd-failed-units",
+        "custom/stack",
+        "tray",
+        "custom/power",
+        "clock"
+    ],
+
+    // ── Left ─────────────────────────────────────
+    "sway/workspaces": {
+        "format": "{name}",
+        "enable-bar-scroll": true,
+        "tooltip": true,
+        "tooltip-format": "Workspace {name}"
+    },
+
+    "sway/window": {
+        "max-length": 60,
+        "align": 0.5,
+        "tooltip": false,
+        "on-click": "rofi -show window -config ~/.config/rofi/config.rasi"
+    },
+
+    // ── Left / center ───────────────────────────
+    "sway/scratchpad": {
+        "format": " {count}",
+        "show-empty": false,
+        "tooltip": true,
+        "tooltip-format": "{app}: {title}"
+    },
+
+    // ── Right ────────────────────────────────────
+    "temperature#cpu": {
+        "hwmon-path": "/sys/class/hwmon/hwmon3/temp1_input",
+        "interval": 5,
+        "format": " {temperatureC}°",
+        "format-warning": " {temperatureC}°",
+        "format-critical": " {temperatureC}°",
+        "warning-threshold": 75,
+        "critical-threshold": 90,
+        "tooltip-format": "CPU: {temperatureC}°C"
+    },
+
+    "temperature#gpu": {
+        "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
+        "interval": 5,
+        "format": "󰢮 {temperatureC}°",
+        "format-warning": "󰢮 {temperatureC}°",
+        "format-critical": "󰢮 {temperatureC}°",
+        "warning-threshold": 80,
+        "critical-threshold": 95,
+        "tooltip-format": "GPU edge: {temperatureC}°C"
+    },
+
+    "mpris": {
+        "interval": 5,
+        "format": "{status_icon} {dynamic}",
+        "format-paused": "{status_icon} {dynamic}",
+        "max-length": 34,
+        "dynamic-len": 30,
+        "tooltip": true,
+        "tooltip-format": "{player}: {artist} - {title}",
+        "player-icons": {
+            "default": "",
+            "mpv": ""
+        },
+        "status-icons": {
+            "playing": "",
+            "paused": "",
+            "stopped": ""
+        },
+        "on-click": "playerctl play-pause",
+        "on-click-middle": "playerctl previous",
+        "on-click-right": "playerctl next"
+    },
+
+    "bluetooth": {
+        "format": "",
+        "format-off": " off",
+        "format-on": "",
+        "format-connected": " {num_connections}",
+        "format-no-controller": "",
+        "tooltip": true,
+        "tooltip-format": "{controller_alias}: {num_connections} connected",
+        "on-click": "bluetoothctl power on",
+        "on-click-right": "alacritty -e bluetoothctl"
+    },
+
+    "power-profiles-daemon": {
+        "format": "{icon}",
+        "tooltip": true,
+        "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
+        "format-icons": {
+            "performance": "",
+            "balanced": "",
+            "power-saver": "",
+            "default": ""
+        }
+    },
+
+    "systemd-failed-units": {
+        "user": true,
+        "system": false,
+        "hide-on-ok": true,
+        "format": " {nr_failed_user}",
+        "format-ok": "",
+        "tooltip": true
+    },
+
+    "privacy": {
+        "icon-spacing": 5,
+        "icon-size": 16,
+        "tooltip": true,
+        "modules": [
+            {
+                "type": "screenshare"
+            },
+            {
+                "type": "audio-in"
+            },
+            {
+                "type": "audio-out"
+            }
+        ]
+    },
+
+    "cpu": {
+        "interval": 2,
+        "format": "\uf2db {usage}%",
+        "tooltip": false,
+        "on-click": "alacritty -e btop"
+    },
+
+    "memory": {
+        "interval": 2,
+        "format": "\uf1c0 {percentage}%",
+        "tooltip": false,
+        "on-click": "alacritty -e btop"
+    },
+
+    "network": {
+        "format-wifi": "\uf1eb {signalStrength}%  \uf019 {bandwidthDownBytes} \uf093 {bandwidthUpBytes}",
+        "format-ethernet": "\uf6ff {bandwidthDownBytes} \uf093 {bandwidthUpBytes}",
+        "interval": 2,
+        "format-disconnected": "\uf127 offline",
+        "tooltip": true,
+        "tooltip-format": "{ifname}: {ipaddr}/{cidr} via {gwaddr}",
+        "on-click": "alacritty -e nmtui",
+        "on-click-right": "alacritty -e nmcli device wifi list"
+    },
+
+    "pulseaudio": {
+        "scroll-step": 5,
+        "format": "{icon} {volume}%",
+        "format-icons": ["\uf026", "\uf027", "\uf028", "\uf028", "\uf028", "\uf028"],
+        "format-muted": "\uf026 muted",
+        "tooltip": true,
+        "tooltip-format": "{desc}: {volume}%",
+        "on-click": "bash -c 'command -v pavucontrol >/dev/null && pavucontrol'",
+        "on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle"
+    },
+
+    "pulseaudio#mic": {
+        "target": "source",
+        "format": "\uf130 {volume}%",
+        "format-muted": "\uf131 muted",
+        "tooltip": true,
+        "tooltip-format": "{desc}: {volume}%",
+        "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
+        "on-click-right": "bash -c 'command -v pavucontrol >/dev/null && pavucontrol'"
+    },
+
+    "tray": {
+        "icon-size": 12,
+        "spacing": 4
+    },
+
+    "custom/stack": {
+        "exec": "$HOME/.config/waybar/scripts/stack-tui-toggle.sh state",
+        "on-click": "$HOME/.config/waybar/scripts/stack-tui-toggle.sh toggle",
+        "interval": 2,
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}"
+    },
+
+    "custom/power": {
+        "format": "\uf011",
+        "tooltip": false,
+        "on-click": "bash $HOME/.config/sway/power.sh"
+    },
+
+    "clock": {
+        "interval": 1,
+        "format": "\uf073 {:%a %e %b   %H:%M:%S}",
+        "tooltip-format": "{:%A %d %B %Y, week %V}",
+        "on-click": "alacritty -e sh -c 'cal -3; read'"
+    }
+}
