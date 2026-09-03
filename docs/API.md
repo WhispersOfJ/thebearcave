@@ -208,9 +208,16 @@ library.
 - Healthcheck: `GET /ping` (unauthenticated, plain 200). This is the only
   unauthenticated endpoint; everything else 401s without the key.
 - Auth for `/api/...`: `X-Api-Key` header with the API key generated on first
-  run (stored in `config/bazarr/config/config.ini`). Unlike the \*arr apps the
-  key is **not** templated from `.env` — Bazarr has no env-var settings
-  surface; Sonarr/Radarr connections are configured once in its web UI.
+  run (stored in `config/bazarr/config/config.yaml`, `auth.apikey`). Unlike
+  the \*arr apps the key is **not** templated from `.env` — Bazarr has no
+  env-var settings surface; Sonarr/Radarr connections are configured once in
+  its web UI (or via the settings API below).
+- **API namespace + settings mutation are non-obvious** (verified against the
+  live 1.6.0 container): the JSON API lives under `/api/system/...` etc. —
+  `/api/v1/...` returns the SPA HTML catch-all with a misleading 200. The
+  `POST /api/system/settings` mutation takes **form-encoded keys shaped
+  `settings-<section>-<field>`** (e.g. `settings-sonarr-apikey`); posting a
+  JSON body of the settings object returns 204 but persists nothing.
 - The repo calls no Bazarr endpoints today (no scripts, no functions). It reads
   the same media trees as the \*arr apps and writes subtitle files beside the
   media; checkers interact with its SQLite only if a DB gate is ever added
