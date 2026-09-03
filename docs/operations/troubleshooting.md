@@ -114,19 +114,33 @@ same way Sonarr does internally (per series/season) but in small batches
 (`--batch 20`), pauses between batches (`--gap 60`), stops for review after
 each batch unless `--yes`, and `--verify` re-parses every new queue item's
 title and aborts the sweep — rc 2 — the moment anything is NO_MATCH or a
-different series than the one searched. Dry-run by default; only `--apply`
-POSTs search commands:
+different series than the one searched. Applied runs persist an atomic
+`~/.local/state/thebearcave/search-missing-scoped.json` checkpoint before
+posting (override it with `--checkpoint-path`). After the review stop, continue
+only with the same scope and options plus explicit `--resume`;
+completed and verified groups are skipped, while corrupt or ambiguous state
+fails closed without posting. Dry-run by default; only `--apply` POSTs search
+commands:
 
 ```bash
-python3 scripts/search_missing_scoped.py --series 25891                 # dry-run, one series
-python3 scripts/search_missing_scoped.py --all --batch 10               # dry-run, whole library
+python3 scripts/search_missing_scoped.py --series 25891                  # dry-run, one series
+python3 scripts/search_missing_scoped.py --all --batch 10                # dry-run, whole library
 python3 scripts/search_missing_scoped.py --series 25891 --apply --verify  # scoped sweep + guard
-python3 scripts/search_missing_scoped.py --all --apply --yes            # no checkpoints
+python3 scripts/search_missing_scoped.py --series 25891 --apply --verify --resume
+python3 scripts/search_missing_scoped.py --all --apply --yes             # no checkpoints
 ```
 
 Manually: search one series at a time (never the whole Wanted list) and
 check the queue between series; prefer season-scoped searches, whose
-season packs tend to title-match cleanly.
+season packs tend to title-match cleanly. If a checkpoint reports an
+ambiguous group with no command ID, stop and inspect it rather than deleting
+or editing the file: Sonarr cannot prove whether that POST reached the
+server, so the wrapper intentionally refuses to guess.
+
+The executable interface in `scripts/search_missing_scoped.py` only parses
+arguments and renders results. `scripts/search_missing_scoped_core.py` owns
+Sonarr planning, command lifecycle, and verification; the atomic state-file
+logic lives in `scripts/search_missing_scoped_checkpoint.py`.
 
 Three title variants from the Sep-1 burst are *genuine* scene-mapping
 candidates — right content under a variant title. Adding them to the shared

@@ -1,417 +1,428 @@
 #!/usr/bin/env python3
-"""Regression test for scripts/search_missing_scoped.py.
-
-Verifies the pure planning logic and the guarded sweep loop:
-
-  * wanted/missing records are grouped by (series, season) and ordered
-    by lastSearchTime (never-searched first) so checkpoints resume in a
-    deterministic order
-  * batches cap episodes at --batch while never splitting a season group
-  * multi-episode seasons issue SeasonSearch, single episodes
-    EpisodeSearch (mirroring Sonarr's own search flow)
-  * dry-run issues zero POST /command calls and still runs the --verify
-    pre-flight read-only
-  * --verify passes when new queue items parse to their own series,
-    aborts with rc 2 and the offenders listed on NO_MATCH or a
-    different-series parse, and ignores pre-existing queue items
-  * --verify aborts on a grab that fails before it is ever queue-visible
-    (caught via the grabbed-history watermark), treats unknown-series
-    queue items as suspects, ignores pre-existing grabs via the watermark,
-    and falls back to the queue diff alone when the history API is
-    unavailable
-  * checkpoints stop after the first batch; --yes runs every batch
-
-Runs against importable pure-Python logic (no live Sonarr needed), so it
-works on the CI runner. Run by .github/workflows/validate.yml and locally
-via `python3 scripts/test_search_missing_scoped.py`. Exits 0 when every
-assertion holds, 1 otherwise.
-"""
+"""Focused regression tests for the scoped Sonarr search engine."""
 
 import importlib.util
-import sys
-import urllib.parse
+import json
 from pathlib import Path
+import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_PATH = ROOT / "scripts" / "search_missing_scoped.py"
+SCRIPTS = ROOT / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
-# Import the tool as a module (it has no package-relative imports).
-spec = importlib.util.spec_from_file_location("search_missing_scoped", SCRIPT_PATH)
-mod = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+mod = load("search_missing_scoped_core", SCRIPTS / "search_missing_scoped_core.py")
+checkpoint_mod = load(
+    "search_missing_scoped_checkpoint", SCRIPTS / "search_missing_scoped_checkpoint.py"
+)
 
 failures = 0
 
 
-def check(label, cond):
+def check(label, condition):
     global failures
-    if cond:
+    if condition:
         print(f"  [PASS] {label}")
     else:
         failures += 1
         print(f"  [FAIL] {label}")
 
 
-def ep(sid, sn, num, last=None, eid=None):
-    return {"id": eid or (sid * 1000 + sn * 100 + num), "seriesId": sid,
-            "seasonNumber": sn, "episodeNumber": num,
-            "title": f"Show.S{sn:02d}E{num:02d}", "monitored": True,
-            "lastSearchTime": last}
+def episode(series_id, season, number, episode_id=None):
+    return {
+        "id": episode_id or series_id * 1000 + season * 100 + number,
+        "seriesId": series_id,
+        "seasonNumber": season,
+        "episodeNumber": number,
+        "monitored": True,
+        "hasFile": False,
+        "lastSearchTime": None,
+    }
+
+
+class FakeSonarr:
+    """Small API-shaped fake with controllable queue/history state."""
+
+    def __init__(self, missing):
+        self.missing = missing
+        self.queue = []
+        self.history = []
+        self.posted = []
+        self.command_polls = 0
+        self.queue_reads = 0
+        self.history_available = True
+        self.next_command = 41
+        self.late_queue = None
+        self.parse_results = {}
+
+    def fetch_missing(self, series_ids=None):
+        if series_ids:
+            return [record for record in self.missing
+                    if record["seriesId"] in series_ids]
+        return list(self.missing)
+
+    def fetch_queue_records(self):
+        self.queue_reads += 1
+        if self.late_queue and self.queue_reads >= self.late_queue[0]:
+            self.queue.extend(self.late_queue[1])
+            self.late_queue = None
+        return list(self.queue)
+
+    @staticmethod
+    def queue_key(record):
+        download_id = record.get("downloadId")
+        if download_id is not None:
+            return f"download:{download_id}"
+        return f"queue:{record.get('id')}"
+
+    def fetch_queue_keys(self):
+        return frozenset(self.queue_key(record) for record in self.queue)
+
+    @staticmethod
+    def grab_key(record):
+        return (str(record.get("date") or ""), int(record.get("id") or 0))
+
+    @staticmethod
+    def is_grabbed(record):
+        event_type = record.get("eventType")
+        return event_type == 1 or str(event_type).casefold() == "grabbed"
+
+    def fetch_grab_watermark(self):
+        if not self.history_available:
+            raise RuntimeError("history unavailable")
+        return max((self.grab_key(record) for record in self.history),
+                   default=("", 0))
+
+    def fetch_grab_history(self, stop_at=None):
+        if not self.history_available:
+            raise RuntimeError("history unavailable")
+        return list(self.history)
+
+    def parse_title(self, title):
+        return self.parse_results.get(
+            title, {"series": None, "episodes": []}
+        )
+
+    def post_command(self, command):
+        self.posted.append(command)
+        command_id = self.next_command
+        self.next_command += 1
+        return {"id": command_id, "status": "queued"}
+
+    def command_status(self, command_id):
+        self.command_polls += 1
+        return {
+            "id": command_id, "status": "completed", "result": "successful"
+        }
+
+
+def config(path, *, apply=True, checkpoint=True, verify=False, batch=20,
+           series=(1,), quiet=1):
+    return mod.SearchConfig(
+        series_ids=series, all_series=False, batch_size=batch, gap=0,
+        quiet_window=quiet, checkpoint=checkpoint, verify=verify,
+        apply=apply, timeout=5, checkpoint_path=str(path),
+    )
+
+
+def run_checkpoint_tests():
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "search.json"
+        client = FakeSonarr([
+            episode(1, 1, 1), episode(1, 2, 1),
+        ])
+        first = mod.SearchEngine(client, config(path, batch=1)).run()
+        data = json.loads(path.read_text())
+        groups = [group for batch in data["batches"] for group in batch["groups"]]
+        check("checkpoint is created before applied work completes",
+              first.summary.startswith("checkpoint after") and len(client.posted) == 1)
+        check("checkpoint records scope, group identity, and command lifecycle",
+              data["config"]["scope"] == {"mode": "series", "seriesIds": [1]}
+              and groups[0]["identity"]["episodeIds"] == [1101]
+              and groups[0]["command"]["id"] == 41
+              and groups[0]["command"]["status"] == "completed"
+              and groups[0]["command"]["result"] == "successful"
+              and groups[0]["verification"]["status"] == "not_requested")
+
+        verified_path = Path(directory) / "verified.json"
+        verified_client = FakeSonarr([episode(1, 1, 1)])
+        verified_config = config(
+            verified_path, batch=1, verify=True, quiet=1
+        )
+        verified_first = mod.SearchEngine(
+            verified_client, verified_config
+        ).run()
+        verified_posts = len(verified_client.posted)
+        verified_resume = mod.SearchEngine(
+            verified_client, verified_config
+        ).run(resume=True)
+        verified_data = json.loads(verified_path.read_text())
+        check("completed and verified group is skipped on resume",
+              verified_first.exit_code == 0
+              and verified_data["batches"][0]["groups"][0]["verification"]["status"] == "ok"
+              and verified_resume.exit_code == 0
+              and verified_resume.reports[0].skipped_groups == 1
+              and len(verified_client.posted) == verified_posts)
+
+        resumed = mod.SearchEngine(client, config(path, batch=1)).run(resume=True)
+        check("explicit resume skips completed verified group and runs next group",
+              resumed.summary == "complete" and len(client.posted) == 2
+              and client.posted[1]["episodeIds"] == [1201])
+        check("resume never reposts the already completed group",
+              client.posted.count({"name": "EpisodeSearch", "episodeIds": [1101]}) == 1)
+
+        interrupted = json.loads(path.read_text())
+        interrupted_group = interrupted["batches"][1]["groups"][0]
+        interrupted_group["status"] = "running"
+        interrupted_group["verification"] = {
+            "status": "pending", "historyAvailable": None,
+            "historyCount": 0, "queueCount": 0,
+        }
+        interrupted["batches"][1]["groups"][0] = interrupted_group
+        checkpoint_mod.CheckpointStore(path).write(interrupted)
+        before_resume_posts = len(client.posted)
+        resumed_interrupted = mod.SearchEngine(
+            client, config(path, batch=1)
+        ).run(resume=True)
+        check("interrupted known-command group resumes by polling, not reposting",
+              resumed_interrupted.exit_code == 0
+              and len(client.posted) == before_resume_posts
+              and client.command_polls >= 2)
+
+        mismatch = mod.SearchEngine(client, config(path, batch=2, series=(2,))).run(
+            resume=True
+        )
+        check("resume rejects scope/config mismatch before any POST",
+              mismatch.exit_code == 1
+              and "does not match" in mismatch.summary
+              and len(client.posted) == 2)
+
+        path.write_text("{broken", encoding="utf-8")
+        corrupt = mod.SearchEngine(client, config(path)).run(resume=True)
+        check("corrupt checkpoint fails closed before any POST",
+              corrupt.exit_code == 1 and "unreadable" in corrupt.summary
+              and len(client.posted) == 2)
+
+        path.write_text(json.dumps({"version": 1}), encoding="utf-8")
+        incomplete = mod.SearchEngine(client, config(path)).run(resume=True)
+        check("incomplete checkpoint fails closed before any POST",
+              incomplete.exit_code == 1 and len(client.posted) == 2)
+
+        ambiguous = json.loads(path.read_text())
+        ambiguous = {
+            "version": 1,
+            "config": mod.SearchConfig(
+                series_ids=(1,), all_series=False, batch_size=1, gap=0,
+                quiet_window=1, checkpoint=True, verify=False, apply=True,
+                timeout=5, checkpoint_path=str(path),
+            ).checkpoint_config(),
+            "batches": [{
+                "number": 1,
+                "groups": [{
+                    "identity": {"seriesId": 1, "seasonNumber": 1, "episodeIds": [1101]},
+                    "status": "running",
+                    "command": {"id": None, "status": None, "result": None},
+                    "snapshot": {"watermark": ["", 0], "beforeIds": []},
+                    "verification": {"status": "pending", "historyAvailable": None,
+                                     "historyCount": 0, "queueCount": 0},
+                }],
+            }],
+        }
+        checkpoint_mod.CheckpointStore(path).write(ambiguous)
+        ambiguous_result = mod.SearchEngine(
+            client, config(path, batch=1)
+        ).run(resume=True)
+        check("ambiguous running checkpoint refuses to POST",
+              ambiguous_result.exit_code == 1
+              and "ambiguous" in ambiguous_result.summary
+              and len(client.posted) == 2)
+
+        dry_path = Path(directory) / "dry.json"
+        dry_client = FakeSonarr([episode(1, 1, 1)])
+        dry = mod.SearchEngine(
+            dry_client, config(dry_path, apply=False, checkpoint=True)
+        ).run()
+        check("dry-run posts nothing and writes no checkpoint",
+              dry.exit_code == 0 and not dry_client.posted and not dry_path.exists())
+
+        no_checkpoint = mod.SearchEngine(
+            FakeSonarr([episode(1, 1, 1)]),
+            config(Path(directory) / "disabled.json", checkpoint=False),
+        ).run()
+        check("checkpoint-disabled apply remains a single-pass run",
+              no_checkpoint.exit_code == 0)
+
+        bypass_path = Path(directory) / "bypass.json"
+        bypass_client = FakeSonarr([episode(1, 1, 1)])
+        bypass_config = config(bypass_path, batch=1)
+        first_bypass = mod.SearchEngine(bypass_client, bypass_config).run()
+        bypass_posts = len(bypass_client.posted)
+        bypass_config = config(bypass_path, batch=1, checkpoint=False)
+        bypass = mod.SearchEngine(bypass_client, bypass_config).run()
+        check("--yes refuses to bypass an existing checkpoint",
+              first_bypass.exit_code == 0
+              and bypass.exit_code == 1
+              and "checkpoint exists" in bypass.summary
+              and len(bypass_client.posted) == bypass_posts)
+
+        fallback_client = FakeSonarr([episode(1, 1, 1)])
+        fallback_client.history_available = False
+        fallback_client.queue = [{
+            "downloadId": "fallback", "seriesId": 1,
+            "episodeId": 1101, "title": "fallback",
+        }]
+        fallback_client.parse_results["fallback"] = {
+            "series": {"id": 1, "title": "Show"},
+            "episodes": [{"id": 1101}],
+        }
+        fallback = mod.SearchEngine(
+            fallback_client,
+            config(Path(directory) / "fallback.json", verify=True,
+                   checkpoint=False, apply=False),
+        ).run()
+        check("history-unavailable verification falls back to queue-only",
+              fallback.exit_code == 0
+              and fallback.reports[0].verification.history_available is False)
+
+        fallback_verifier = mod.Verifier(fallback_client, {1}, {1101})
+        fallback_report = fallback_verifier.verify_once(
+            mod.VerificationSnapshot(("", 0), frozenset())
+        )
+        check("queue-only fallback still inspects new queue items",
+              fallback_report.history_available is False
+              and fallback_report.queue_count == 1
+              and not fallback_report.offenders)
+
+
+def run_verifier_tests():
+    client = FakeSonarr([])
+    client.history = [{
+        "id": 10, "date": "2026-09-01T00:00:00Z", "eventType": 1,
+        "seriesId": 1, "episodeId": 999, "commandId": 4,
+        "sourceTitle": "unrelated", "downloadId": "old",
+    }]
+    client.parse_results["wrong current"] = {
+        "series": {"id": 99, "title": "Wrong Show"}, "episodes": [{"id": 1}]
+    }
+    client.parse_results["right current"] = {
+        "series": {"id": 1, "title": "Right Show"}, "episodes": [{"id": 101}]
+    }
+    client.history.extend([
+        {
+            "id": 11, "date": "2026-09-02T00:00:00Z", "eventType": "grabbed",
+            "seriesId": 1, "episodeId": 101, "commandId": 7,
+            "sourceTitle": "wrong current", "downloadId": "current-wrong",
+        },
+        {
+            "id": 12, "date": "2026-09-02T00:00:01Z", "eventType": "grabbed",
+            "seriesId": 1, "episodeId": 999, "commandId": 88,
+            "sourceTitle": "unrelated", "downloadId": "unrelated-new",
+        },
+    ])
+    verifier = mod.Verifier(client, {1}, {101})
+    snapshot = mod.VerificationSnapshot(("2026-09-01T00:00:00Z", 10), frozenset())
+    report = verifier.verify_once(snapshot, command_id=7)
+    check("history attribution catches current grab and ignores unrelated grab",
+          report.history_available and report.history_count == 1
+          and len(report.offenders) == 1
+          and report.offenders[0]["downloadId"] == "current-wrong")
+
+    late_client = FakeSonarr([])
+    late_client.parse_results["late"] = {
+        "series": None, "episodes": []
+    }
+    late_client.late_queue = (2, [{
+        "downloadId": "late", "seriesId": None, "title": "late"
+    }])
+    late_verifier = mod.Verifier(late_client, {1}, {101})
+    late_snapshot = mod.VerificationSnapshot(("", 0), frozenset())
+    original_monotonic = mod.time.monotonic
+    original_sleep = mod.time.sleep
+    ticks = iter((0, 0, 2))
+    mod.time.monotonic = lambda: next(ticks)
+    mod.time.sleep = lambda _seconds: None
+    try:
+        late = late_verifier.verify_until_quiet(late_snapshot, 1, command_id=7)
+    finally:
+        mod.time.monotonic = original_monotonic
+        mod.time.sleep = original_sleep
+    check("quiet-window verification catches a late unknown-series queue item",
+          len(late.offenders) == 1 and late.offenders[0]["downloadId"] == "late")
+
+    late_history = FakeSonarr([])
+    late_history.parse_results["late history"] = {
+        "series": None, "episodes": []
+    }
+    late_history.history = []
+    late_history.history_late = (2, {
+        "id": 1, "date": "2026-09-02T00:00:00Z", "eventType": "grabbed",
+        "seriesId": 1, "episodeId": 101, "sourceTitle": "late history",
+        "downloadId": "late-history",
+    })
+    original_history = late_history.fetch_grab_history
+    history_reads = {"n": 0}
+
+    def fetch_late_history(stop_at=None):
+        history_reads["n"] += 1
+        if (late_history.history_late
+                and history_reads["n"] >= late_history.history_late[0]):
+            late_history.history.append(late_history.history_late[1])
+            late_history.history_late = None
+        return original_history(stop_at)
+
+    late_history.fetch_grab_history = fetch_late_history
+    late_history_verifier = mod.Verifier(late_history, {1}, {101})
+    late_history_snapshot = mod.VerificationSnapshot(("", 0), frozenset())
+    original_monotonic = mod.time.monotonic
+    original_sleep = mod.time.sleep
+    ticks = iter((0, 0, 2))
+    mod.time.monotonic = lambda: next(ticks)
+    mod.time.sleep = lambda _seconds: None
+    try:
+        late_history_report = late_history_verifier.verify_until_quiet(
+            late_history_snapshot, 1, command_id=7
+        )
+    finally:
+        mod.time.monotonic = original_monotonic
+        mod.time.sleep = original_sleep
+    check("quiet-window verification catches a late history-only grab",
+          len(late_history_report.offenders) == 1
+          and late_history_report.offenders[0]["downloadId"] == "late-history")
+
+    unknown = FakeSonarr([])
+    unknown.queue = [{"downloadId": "unknown", "seriesId": None, "title": "mystery"}]
+    unknown_verifier = mod.Verifier(unknown, {1}, {101})
+    unknown_report = unknown_verifier.verify_once(
+        mod.VerificationSnapshot(("", 0), frozenset())
+    )
+    check("unknown-series queue items are always verification suspects",
+          len(unknown_report.offenders) == 1)
+
+
+def run_planning_tests():
+    missing = [episode(1, 1, 2), episode(1, 1, 1), episode(2, 1, 1)]
+    groups = mod.build_groups(missing)
+    check("planning groups by season and sorts episodes",
+          [(group["seriesId"], group["seasonNumber"]) for group in groups]
+          == [(1, 1), (2, 1)]
+          and [item["episodeNumber"] for item in groups[0]["episodes"]] == [1, 2])
+    check("batch size never splits a season",
+          len(mod.split_batches(groups, 1)) == 2)
 
 
 def main():
-    # --- grouping + ordering (checkpoint/resume determinism) ---
-    missing = [
-        ep(1, 1, 1, last="2026-09-01T10:00:00Z"),
-        ep(1, 1, 2, last="2026-09-01T10:00:00Z"),
-        ep(1, 2, 1, last="2026-09-01T08:00:00Z"),
-        ep(2, 1, 1, last=None),
-        ep(1, 2, 2, last="2026-09-01T09:00:00Z"),
-    ]
-    groups = mod.build_groups(missing)
-    check("groups by (series, season), oldest-search first, never-searched first",
-          [(g["seriesId"], g["seasonNumber"]) for g in groups] ==
-          [(2, 1), (1, 2), (1, 1)])
-    check("group episodes are sorted by episode number",
-          [e["episodeNumber"] for e in groups[2]["episodes"]] == [1, 2])
-    check("never-searched group reports last_search None",
-          groups[0]["last_search"] is None)
-
-    # --- batch boundaries ---
-    small = mod.build_groups([ep(1, s, n, last=None)
-                              for s in (1, 2, 3, 4, 5) for n in (1, 2, 3)])
-    sizes = [sum(len(g["episodes"]) for g in b) for b in mod.split_batches(small, 10)]
-    check("batches cap episodes at --batch", sizes == [9, 6])
-    big = mod.build_groups([ep(1, 1, n, last=None) for n in range(1, 26)])
-    big_batches = mod.split_batches(big, 20)
-    check("oversized season group is never split",
-          len(big_batches) == 1 and len(big_batches[0][0]["episodes"]) == 25)
-
-    # --- command shape mirrors Sonarr ---
-    cmds = mod.search_commands_for(
-        mod.build_groups([ep(1, 1, 1, last=None), ep(1, 1, 2, last=None),
-                          ep(2, 2, 1, last=None)]))
-    check("multi-episode season issues SeasonSearch",
-          {"name": "SeasonSearch", "seriesId": 1, "seasonNumber": 1} in cmds)
-    check("single-episode season issues EpisodeSearch",
-          {"name": "EpisodeSearch", "episodeIds": [2201]} in cmds)
-
-    # --- stubbed sweep loop ---
-    missing_records = []
-    queue_records = []
-    history_records = []
-    queue_paths = []
-    command_paths = []
-    history_paths = []
-    parse_map = {}
-    posted = []
-    post_n = {"n": 0}
-    command_polls = {}
-    sim = {"append_queue": True, "append_history": True,
-           "new_series_id": 1, "history_fails": False,
-           "command_fails": False, "bulk_history": 0}
-
-    def stub(base_url, api_key, path, method="GET", body=None, timeout=None):
-        if path.startswith("/wanted/missing"):
-            return {"totalRecords": len(missing_records), "records": missing_records}
-        if path.startswith("/episode"):
-            sid = int(path.split("seriesId=", 1)[1].split("&", 1)[0])
-            return [r for r in missing_records if r["seriesId"] == sid]
-        if path.startswith("/queue"):
-            queue_paths.append(path)
-            query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
-            page = int(query.get("page", [1])[0])
-            size = int(query.get("pageSize", [100])[0])
-            records = queue_records[(page - 1) * size:page * size]
-            return {"totalRecords": len(queue_records), "records": records}
-        if path.startswith("/history"):
-            history_paths.append(path)
-            if sim["history_fails"]:
-                raise RuntimeError("history unavailable")
-            query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
-            page = int(query.get("page", [1])[0])
-            size = int(query.get("pageSize", [100])[0])
-            records = sorted(history_records,
-                             key=lambda r: r["id"], reverse=True)
-            records = records[(page - 1) * size:page * size]
-            return {"totalRecords": len(history_records), "records": records}
-        if path.startswith("/parse"):
-            title = urllib.parse.unquote(path.split("title=", 1)[1])
-            return parse_map.get(title, {"series": None, "episodes": []})
-        if path.startswith("/command/") and method == "GET":
-            command_paths.append(path)
-            command_id = path.rsplit("/", 1)[1]
-            polls = command_polls.setdefault(command_id, 0)
-            command_polls[command_id] += 1
-            return {"id": int(command_id),
-                    "status": "completed" if sim["command_fails"] else
-                    ("started" if polls == 0 else "completed"),
-                    "result": "failed" if sim["command_fails"] else
-                    ("unknown" if polls == 0 else "successful")}
-        if path.startswith("/command") and method == "POST":
-            posted.append(body)
-            # Simulate the grab appearing after each search: in the queue
-            # and/or in the grabbed-history watermark (or neither, for the
-            # instant-failure case).
-            post_n["n"] += 1
-            if sim["append_queue"]:
-                queue_records.append({"id": 900 + post_n["n"],
-                                      "downloadId": f"dl-new-{post_n['n']}",
-                                      "seriesId": sim["new_series_id"],
-                                      "title": "Show.S01E01.WEB"})
-            if sim["append_history"]:
-                for extra in range(max(1, sim["bulk_history"])):
-                    history_records.append({"id": 10000 + post_n["n"] * 1000 + extra,
-                                            "eventType": 1,
-                                            "seriesId": sim["new_series_id"],
-                                            "episodeId": 101,
-                                            "downloadId": f"dl-new-{post_n['n']}-{extra}",
-                                            "sourceTitle": "Show.S01E01.WEB"})
-            command_polls["1"] = 0
-            return {"id": 1, "status": "queued"}
-        raise AssertionError(f"unexpected path: {path}")
-
-    orig_request = mod._request
-    orig_sleep = mod.time.sleep
-    mod.time.sleep = lambda _seconds: None
-    mod._request = stub
-    try:
-        # Dry-run: nothing posted, verify pre-flight still runs read-only.
-        missing_records = [ep(1, 1, 1, last=None), ep(1, 1, 2, last=None),
-                           ep(1, 2, 1, last=None)]
-        queue_records = []
-        parse_map = {}
-        posted.clear()
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=True, verify=True, apply=False)
-        check("dry-run posts no search commands", posted == [] and code == 0)
-
-        # Verify passes when the new item parses to its own series.
-        missing_records = [ep(1, 1, 1, last=None)]  # one episode -> one POST
-        parse_map = {"Show.S01E01.WEB": {"series": {"id": 1, "title": "Show"},
-                                         "episodes": [{"id": 101}]}}
-        posted.clear()
-        queue_records = []
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("verify passes when new item parses to its own series",
-              code == 0 and "complete" in summary)
-        check("verify pass posts the episode search command",
-              {"name": "EpisodeSearch", "episodeIds": [1101]} in posted)
-        check("apply waits for the asynchronous command to finish",
-              "/command/1" in command_paths)
-
-        # A valid parse for a different series than this batch is still
-        # unsafe and must abort.
-        sim["new_series_id"] = 99
-        parse_map = {"Show.S01E01.WEB": {"series": {"id": 99, "title": "Other Show"},
-                                         "episodes": [{"id": 101}]}}
-        posted.clear()
-        queue_records = []
-        history_records = []
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("verify rejects a valid parse outside the searched series",
-              code == 2 and "verify-abort" in summary)
-        sim["new_series_id"] = 1
-
-        # Verify aborts on NO_MATCH (the ARK-into-TPB-Animated class).
-        parse_map = {}
-        posted.clear()
-        queue_records = []
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("verify aborts with rc 2 on NO_MATCH grab",
-              code == 2 and "verify-abort" in summary)
-
-        # Verify aborts on a different-series parse.
-        parse_map = {"Show.S01E01.WEB": {"series": {"id": 99, "title": "Other Show"},
-                                         "episodes": [{"id": 1}]}}
-        posted.clear()
-        queue_records = []
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("verify aborts on a different-series parse",
-              code == 2 and "verify-abort" in summary)
-
-        # Verify ignores items that existed before the batch (parse would
-        # fail for the old item, but it is not in the new-item set).
-        parse_map = {"Show.S01E01.WEB": {"series": {"id": 1, "title": "Show"},
-                                         "episodes": [{"id": 101}]}}
-        queue_records = [{"id": 5, "downloadId": "dl-old", "seriesId": 1,
-                          "title": "Old.Show.S01E01"}]
-        posted.clear()
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("verify ignores pre-existing queue items",
-              code == 0 and "complete" in summary)
-
-        # A grab that fails before it is ever queue-visible must still
-        # abort: it exists in grabbed history (the watermark) even though
-        # the queue never sees it (the wire-to-wire 430-failure case).
-        missing_records = [ep(1, 1, 1, last=None)]
-        parse_map = {}
-        queue_records = []
-        history_records = []
-        posted.clear()
-        sim["append_queue"] = False   # download dies before queue insertion
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("verify aborts on a grab that never reaches the queue",
-              code == 2 and "verify-abort" in summary)
-        sim["append_queue"] = True
-
-        # Unknown-series queue items are suspects, and the queue fetch must
-        # include unknown-series items so they are not a second blind spot.
-        queue_paths.clear()
-        parse_map = {}
-        queue_records = []
-        history_records = []
-        posted.clear()
-        sim["new_series_id"] = None
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("unknown-series queue item is a verify offender",
-              code == 2 and "verify-abort" in summary)
-        check("queue fetch includes unknown-series items",
-              len(queue_paths) > 0 and all(
-                  "includeUnknownSeriesItems=true" in p for p in queue_paths))
-        sim["new_series_id"] = 1
-
-        # Pre-existing grabs (id <= watermark) are ignored even when their
-        # titles would parse NO_MATCH.
-        missing_records = [ep(1, 1, 1, last=None)]
-        parse_map = {"Show.S01E01.WEB": {"series": {"id": 1, "title": "Show"},
-                                         "episodes": [{"id": 101}]}}
-        history_records = [{"id": 5000, "eventType": 1, "seriesId": 1,
-                            "downloadId": "dl-old-grab",
-                            "sourceTitle": "Old.Grab.NO.MATCH"}]
-        queue_records = []
-        posted.clear()
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("pre-existing grabs are ignored via the watermark",
-              code == 0 and "complete" in summary)
-
-        # History API unavailable: the queue diff still runs (fallback).
-        parse_map = {"Show.S01E01.WEB": {"series": {"id": 1, "title": "Show"},
-                                         "episodes": [{"id": 101}]}}
-        queue_records = []
-        history_records = []
-        posted.clear()
-        sim["history_fails"] = True
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("queue-diff verify still works when history is unavailable",
-              code == 0 and "complete" in summary)
-        sim["history_fails"] = False
-
-        # Checkpoint stops after batch 1; --yes runs every batch.
-        missing_records = [ep(1, s, n, last=None) for s in (1, 2)
-                           for n in (1, 2, 3)]
-        parse_map = {}
-        posted.clear()
-        queue_records = []
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=5, gap=0,
-                                checkpoint=True, verify=False, apply=True)
-        check("checkpoint stops after the first batch",
-              code == 0 and "checkpoint after batch 1" in summary
-              and len(posted) == 1)
-        posted.clear()
-        queue_records = []
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=5, gap=0,
-                                checkpoint=False, verify=False, apply=True)
-        check("--yes runs every batch in one pass",
-              code == 0 and "complete" in summary and len(posted) == 2)
-
-        # A failed asynchronous search may have created partial grabs; verify
-        # still runs and reports a wrong-show result before the command error.
-        sim["command_fails"] = True
-        sim["append_queue"] = True
-        parse_map = {}
-        posted.clear()
-        queue_records = []
-        history_records = []
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=True, apply=True)
-        check("failed async search still verifies partial grabs", code == 2
-              and "verify-abort" in summary)
-
-        # Without verification, the same terminal command failure is returned
-        # directly and no checkpoint is reported.
-        sim["append_queue"] = False
-        sim["append_history"] = False
-        posted.clear()
-        code, summary = mod.run("http://x/api/v3", "k", series_ids=[1],
-                                all_series=False, batch_size=20, gap=0,
-                                checkpoint=False, verify=False, apply=True)
-        check("failed async search stops without verification", code == 1
-              and "did not complete" in summary)
-        sim["append_queue"] = True
-        sim["append_history"] = True
-        sim["command_fails"] = False
-
-        # More than one page of post-watermark grabs is fully inspected.
-        command_paths.clear()
-        history_paths.clear()
-        sim["bulk_history"] = 101
-        long_title = "Show." + ("VeryLong.Release.Name." * 12) + "S01E01.WEB"
-        parse_map[long_title] = {"series": {"id": 1, "title": "Show"},
-                                 "episodes": [{"id": 101}]}
-        queue_records = [{"id": n, "downloadId": f"dl-old-{n}",
-                          "seriesId": 1, "title": "Old.Show.S01E01"}
-                         for n in range(1, 101)]
-        queue_records.append({"id": 101, "downloadId": "dl-long",
-                              "seriesId": 1, "title": long_title})
-        check("paged queue verification keeps the full title",
-              mod.verify_new_items("http://x/api/v3", "k",
-                                   {f"dl-old-{n}" for n in range(1, 101)},
-                                   {1}) == (True, []))
-        history_records = [{"id": n, "date": "2026-09-01T00:00:00Z",
-                            "eventType": "grabbed", "seriesId": 1,
-                            "sourceTitle": "Old.Show.S01E01"}
-                           for n in range(100, 0, -1)]
-        parse_map["Old.Show.S01E01"] = {"series": {"id": 1, "title": "Show"},
-                                         "episodes": [{"id": 101}]}
-        watermark = mod.fetch_grab_watermark("http://x/api/v3", "k")
-        history_records.extend({"id": 1000 + n, "date": "2026-09-02T00:00:00Z",
-                                "eventType": "grabbed", "seriesId": 1,
-                                "sourceTitle": "Old.Show.S01E01"}
-                               for n in range(101))
-        available, offenders, count = mod.new_grab_offenders(
-            "http://x/api/v3", "k", watermark, {1})
-        check("history verification paginates all new grabs",
-              available and not offenders and count == 101
-              and any("page=2" in p for p in history_paths))
-        sim["bulk_history"] = 0
-
-        # fetch_missing honors the --series filter, and invalid run bounds
-        # fail before any API request or search command.
-        missing_records = [ep(1, 1, 1, last=None), ep(2, 1, 1, last=None)]
-        got = mod.fetch_missing("http://x/api/v3", "k", series_ids=[1])
-        check("fetch_missing filters to the requested series",
-              [g["seriesId"] for g in got] == [1])
-        check("zero batch size is rejected", mod.run(
-            "http://x/api/v3", "k", [1], False, 0, 0, False, False, False)[0] == 1)
-        check("negative gap is rejected", mod.run(
-            "http://x/api/v3", "k", [1], False, 1, -1, False, False, False)[0] == 1)
-    finally:
-        mod._request = orig_request
-        mod.time.sleep = orig_sleep
-
+    run_planning_tests()
+    run_checkpoint_tests()
+    run_verifier_tests()
     if failures:
         print(f"\n{failures} assertion(s) failed")
         return 1
@@ -420,4 +431,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
