@@ -45,7 +45,8 @@ jobs:
           fetch-depth: 0
       - name: Bash syntax and guard tests
         run: |
-          for f in scripts/*.sh scripts/git-hooks/* tests/*/*.sh; do bash -n "$f"; done
+          for f in scripts/*.sh scripts/git-hooks/* tests/*/*.sh \
+                   services/bash-functions/waybar/scripts/*.sh; do bash -n "$f"; done
           python3 -m py_compile scripts/*.py
           python3 scripts/test_check_compose_mounts.py
           python3 scripts/test_check_nzbdav_queue.py
@@ -64,10 +65,13 @@ jobs:
           python3 scripts/test_audit_residue.py
           python3 scripts/test_check_config_drift.py
           python3 scripts/test_check_arr_import_queue.py
+          python3 scripts/test_check_waybar_drift.py
           python3 scripts/check_secret_drift.py
           python3 scripts/check_nzbdav_queue.py --offline
           python3 scripts/check_bind_mount_staleness.py --offline
+          python3 scripts/check_waybar_drift.py --offline
           python3 scripts/test_drain_sonarr_queue.py
+          python3 scripts/test_search_missing_scoped.py
       - name: YAML lint
         run: |
           pip install yamllint==1.37.1

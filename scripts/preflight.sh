@@ -112,6 +112,14 @@ check "retired residue" python3 scripts/audit_residue.py --repo-only
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
 check "python env transports" python3 scripts/check_python_env_transports.py
 
+# Waybar/sway dotfile drift — the live ~/.config only exists on the desktop
+# host; headless checkouts skip (the check itself exits 2 there).
+if [ -d "$HOME/.config/waybar" ]; then
+  check "waybar dotfile drift" python3 scripts/check_waybar_drift.py
+else
+  warn_skip "waybar dotfile drift" "no live waybar config (headless)"
+fi
+
 if [ -n "${NZBDAV_QUEUE_OFFLINE:-}" ]; then
   check "nzbdav queue" python3 scripts/check_nzbdav_queue.py --offline
 else

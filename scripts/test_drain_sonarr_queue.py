@@ -13,6 +13,10 @@ Verifies the pure import-file building logic cannot silently bit-rot:
     queue endpoint joins onto it (regression: paths used to hit the bare
     origin, which returns the HTML front page and never parses as JSON —
     the drain tool could not reach the API at all)
+  * the --auto-safe gate: a file whose own parse resolves to the queue
+    item's series/movie (matching episodes) is importable; NO_MATCH,
+    wrong-show, preview/item disagreement, and missing parent ids are
+    skipped and never removed or sent to the import command
 
 Runs against importable pure-Python logic (no live Sonarr/Radarr
 needed), so it works on the CI runner. Run by .github/workflows/validate.yml
@@ -146,6 +150,199 @@ def main():
     finally:
         mod._request = orig_request
         mod.remove_item = orig_remove
+
+    # --- --auto-safe gate ---
+    # Provable sonarr item: parse API agrees with the queue item + preview.
+    calls = []
+
+    def stub_provable(base_url, api_key, path, method="GET", body=None,
+                      timeout=None):
+        calls.append(path.split("?")[0])
+        if path.startswith("/manualimport"):
+            return [sonarr_candidate()]
+        if path.startswith("/parse"):
+            return {"series": {"id": 7, "title": "Show"},
+                    "episodes": [{"id": 101}, {"id": 102}]}
+        if path.startswith("/command") and method == "POST":
+            return {"id": 9001}
+        if path.startswith("/command/"):
+            return {"status": "completed", "message": "ok"}
+        raise AssertionError(f"unexpected path: {path}")
+
+    orig_request = mod._request
+    mod._request = stub_provable
+    try:
+        item = {"id": 1, "downloadId": "dl-s1", "seriesId": 7}
+        files, err = mod.safe_resolution(
+            "sonarr", "http://x/api/v3", "k", item, [sonarr_candidate()])
+        check("auto-safe: provable sonarr item builds a file entry",
+              err is None and files and files[0]["seriesId"] == 7
+              and files[0]["episodeIds"] == [101, 102])
+        check("auto-safe: file parse is consulted via the parse API",
+              "/parse" in calls)
+
+        # Non-safe default path still imports the same preview.
+        outcome, note = mod.import_one(
+            "sonarr", "http://x/api/v3", "k", item)
+        check("default mode still imports a resolvable preview",
+              outcome == mod.OUTCOME_OK and "completed" in note)
+
+        # Safe mode: the same provable item imports.
+        calls.clear()
+        outcome, note = mod.import_one(
+            "sonarr", "http://x/api/v3", "k", item, auto_safe=True)
+        check("auto-safe: provable item imports",
+              outcome == mod.OUTCOME_OK)
+    finally:
+        mod._request = orig_request
+
+    # NO_MATCH file parse -> not provable.
+    def stub_nomatch(base_url, api_key, path, method="GET", body=None,
+                     timeout=None):
+        if path.startswith("/manualimport"):
+            return [sonarr_candidate()]
+        if path.startswith("/parse"):
+            return {"series": None, "episodes": []}
+        raise AssertionError(f"unexpected path: {path}")
+
+    mod._request = stub_nomatch
+    try:
+        item = {"id": 2, "downloadId": "dl-s2", "seriesId": 7}
+        files, err = mod.safe_resolution(
+            "sonarr", "http://x/api/v3", "k", item, [sonarr_candidate()])
+        check("auto-safe: NO_MATCH file parse is not provable",
+              files is None and err and "no series" in err)
+        outcome, note = mod.import_one(
+            "sonarr", "http://x/api/v3", "k", item, auto_safe=True)
+        check("auto-safe: NO_MATCH item is SKIPPED",
+              outcome == mod.OUTCOME_SKIP)
+    finally:
+        mod._request = orig_request
+
+    # Wrong-show parse (different series id) -> not provable.
+    def stub_wrong(base_url, api_key, path, method="GET", body=None,
+                   timeout=None):
+        if path.startswith("/manualimport"):
+            return [sonarr_candidate()]
+        if path.startswith("/parse"):
+            return {"series": {"id": 99, "title": "Other Show"},
+                    "episodes": [{"id": 101}, {"id": 102}]}
+        raise AssertionError(f"unexpected path: {path}")
+
+    mod._request = stub_wrong
+    try:
+        files, err = mod.safe_resolution(
+            "sonarr", "http://x/api/v3", "k",
+            {"downloadId": "dl-s3", "seriesId": 7}, [sonarr_candidate()])
+        check("auto-safe: wrong-show parse is not provable",
+              files is None and err and "not the queue item's series" in err)
+    finally:
+        mod._request = orig_request
+
+    # Preview resolves a different series than the queue item claims.
+    bad_preview = [{**sonarr_candidate(), "series": {"id": 99}}]
+    files, err = mod.safe_resolution(
+        "sonarr", "http://x/api/v3", "k",
+        {"downloadId": "dl-s4", "seriesId": 7}, bad_preview)
+    check("auto-safe: preview/item series disagreement is not provable",
+          files is None and err and "preview resolved" in err)
+
+    # Queue item without a seriesId -> nothing to verify against.
+    files, err = mod.safe_resolution(
+        "sonarr", "http://x/api/v3", "k", {"downloadId": "dl-s5"},
+        [sonarr_candidate()])
+    check("auto-safe: item without seriesId is not provable",
+          files is None and err and "seriesId" in err)
+
+    # Parse and preview disagree on episodes.
+    def stub_epmismatch(base_url, api_key, path, method="GET", body=None,
+                        timeout=None):
+        if path.startswith("/manualimport"):
+            return [sonarr_candidate()]
+        if path.startswith("/parse"):
+            return {"series": {"id": 7, "title": "Show"},
+                    "episodes": [{"id": 101}]}
+        raise AssertionError(f"unexpected path: {path}")
+
+    mod._request = stub_epmismatch
+    try:
+        files, err = mod.safe_resolution(
+            "sonarr", "http://x/api/v3", "k",
+            {"downloadId": "dl-s6", "seriesId": 7}, [sonarr_candidate()])
+        check("auto-safe: episode disagreement is not provable",
+              files is None and err and "disagree on episodes" in err)
+    finally:
+        mod._request = orig_request
+
+    # Radarr: provable movie + wrong movie.
+    def stub_radar(base_url, api_key, path, method="GET", body=None,
+                   timeout=None):
+        if path.startswith("/manualimport"):
+            return [radarr_candidate()]
+        if path.startswith("/parse"):
+            return {"movie": {"id": 42, "title": "Movie"}}
+        raise AssertionError(f"unexpected path: {path}")
+
+    mod._request = stub_radar
+    try:
+        files, err = mod.safe_resolution(
+            "radarr", "http://x/api/v3", "k",
+            {"downloadId": "dl-r1", "movieId": 42}, [radarr_candidate()])
+        check("auto-safe: provable radarr movie builds a file entry",
+              err is None and files and files[0]["movieId"] == 42)
+    finally:
+        mod._request = orig_request
+
+    def stub_radar_wrong(base_url, api_key, path, method="GET", body=None,
+                         timeout=None):
+        if path.startswith("/manualimport"):
+            return [radarr_candidate()]
+        if path.startswith("/parse"):
+            return {"movie": {"id": 43, "title": "Other"}}
+        raise AssertionError(f"unexpected path: {path}")
+
+    mod._request = stub_radar_wrong
+    try:
+        files, err = mod.safe_resolution(
+            "radarr", "http://x/api/v3", "k",
+            {"downloadId": "dl-r2", "movieId": 42}, [radarr_candidate()])
+        check("auto-safe: wrong radarr movie is not provable",
+              files is None and err and "not the queue item's movie" in err)
+    finally:
+        mod._request = orig_request
+
+    # Dry-run --auto-safe evaluates the gate and counts skips, no side effects.
+    # Both queue items share the same file basename, so the parse stub
+    # answers provably on its first call and NO_MATCH on the second.
+    parse_hits = {"n": 0}
+
+    def stub_queue(base_url, api_key, path, method="GET", body=None,
+                   timeout=None):
+        if path.startswith("/queue"):
+            return {"records": [
+                {"id": 10, "downloadId": "dl-q1", "seriesId": 7,
+                 "title": "Provable Show"},
+                {"id": 11, "downloadId": "dl-q2", "seriesId": 7,
+                 "title": "Mystery Show"},
+            ], "totalRecords": 2}
+        if path.startswith("/manualimport"):
+            return [sonarr_candidate()]
+        if path.startswith("/parse"):
+            parse_hits["n"] += 1
+            if parse_hits["n"] == 1:
+                return {"series": {"id": 7, "title": "Show"},
+                        "episodes": [{"id": 101}, {"id": 102}]}
+            return {"series": None, "episodes": []}
+        raise AssertionError(f"unexpected path: {path}")
+
+    mod._request = stub_queue
+    try:
+        code, summary = mod.drain("sonarr", "http://x/api/v3", "k", 5,
+                                  "completed", apply=False, auto_safe=True)
+        check("auto-safe dry-run: provable imported, unprovable skipped",
+              code == 0 and "imported=1" in summary and "skipped=1" in summary)
+    finally:
+        mod._request = orig_request
 
     if failures:
         print(f"\n{failures} assertion(s) failed")
