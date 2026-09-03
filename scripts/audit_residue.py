@@ -72,10 +72,10 @@ RETIRED_SERVICES: dict[str, bool] = {
     "prometheus": False, "alertmanager": False, "node-exporter": False,
     "cadvisor": False, "nzbdav-exporter": False, "arr-dashboard": False,
     "landing-page": False, "metacache": False, "lidarr": False, "readarr": False,
-    "bazarr": False, "audiobookshelf": False, "komga": False, "adguard": False,
+    "audiobookshelf": False, "komga": False, "adguard": False,
     "crowdsec": False, "vaultwarden": False, "watchstate": False,
     "cleanuparr": True, "uptime-kuma": False, "n8n": False, "control-panel": False,
-}
+}  # bazarr re-adopted 2026-09-03 (removed from this registry + lifecycle table)
 
 # Retired *project* paths (the merged-source project roots). Reference to one
 # of these anywhere operational is residue — nothing runs from them anymore.

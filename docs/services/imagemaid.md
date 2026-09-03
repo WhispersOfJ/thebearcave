@@ -1,7 +1,7 @@
 # ImageMaid maintenance
 
 ImageMaid is a manual, profile-gated maintenance service for reclaiming unused Plex
-`Cache/PhotoTranscoder` files. It is not part of the normal eight-container startup and
+`Cache/PhotoTranscoder` files. It is not part of the normal nine-container startup and
 adds no always-on container.
 
 | | |

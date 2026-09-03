@@ -7,8 +7,8 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A slim, robust media-acquisition-and-serving stack. **8 always-on Compose services**
-(Prowlarr, Radarr, Sonarr, nzbdav, nzbdav_rclone, Seerr, Plex, Unpackerr), plus a
+A slim, robust media-acquisition-and-serving stack. **9 always-on Compose services**
+(Prowlarr, Radarr, Sonarr, Bazarr, nzbdav, nzbdav_rclone, Seerr, Plex, Unpackerr), plus a
 manual ImageMaid maintenance profile, published
 directly on host ports — no reverse proxy — with CI/CD via GitHub Actions. Hosted on
 Linux.
@@ -19,6 +19,10 @@ Linux.
 > The full retirement record — what was removed, why, and the re-adoption policy — is
 > in [docs/services/lifecycle.md](docs/services/lifecycle.md). Legacy files from the
 > merged source repos (`media-stack`, `metacacharr`) are preserved in `archive/`.
+>
+> **2026-09-03 re-adoption:** Bazarr returned as a fresh 9th service (768m cap, 4.4×
+> the cap it OOM'd under), removing it from the retired registry. See lifecycle.md's
+> re-adoption record.
 
 ---
 
@@ -27,9 +31,9 @@ Linux.
 ```
 Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──▶ FUSE mount ──▶ Plex
        :9696              :7878 / :8989      :3000        (nzbdav_rclone)   (host network)
-                              │
-                          Seerr :5055 (requests)
-                              │
+                              │            │
+                          Seerr :5055    Bazarr :6767 (subtitles, read-only
+                              │            over the media trees)
                         Unpackerr (post-download extraction)
 ```
 
@@ -39,6 +43,7 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
 |----------|----------|
 | **Indexing** | Prowlarr |
 | **\*arr apps** | Radarr (movies), Sonarr (TV) |
+| **Subtitles** | Bazarr (companion to both *arr apps) |
 | **Usenet** | InfiniDysk/nzbdav + nzbdav_rclone sidecar |
 | **Requests** | Seerr |
 | **Media server** | Plex (host network, VAAPI transcoding) |
@@ -59,18 +64,19 @@ Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mo
 
 ---
 
-## Services (8 always-on services)
+## Services (9 always-on services)
 
 | # | Service | Purpose | Port | Network |
 |---|---------|---------|------|---------|
 | 1 | `prowlarr` | Indexer manager | 9696 | bearcave |
 | 2 | `radarr` | Movie management | 7878 | bearcave |
 | 3 | `sonarr` | TV show management | 8989 | bearcave |
-| 4 | `nzbdav` | Usenet download client + WebDAV | 3000 | bearcave |
-| 5 | `nzbdav_rclone` | FUSE mount sidecar (streams on demand) | — | bearcave |
-| 6 | `seerr` | Request manager | 5055 | bearcave |
-| 7 | `plex` | Media server | 32400 | host |
-| 8 | `unpackerr` | Auto-extracts downloads | — | bearcave |
+| 4 | `bazarr` | Subtitle management (Sonarr/Radarr companion) | 6767 | bearcave |
+| 5 | `nzbdav` | Usenet download client + WebDAV | 3000 | bearcave |
+| 6 | `nzbdav_rclone` | FUSE mount sidecar (streams on demand) | — | bearcave |
+| 7 | `seerr` | Request manager | 5055 | bearcave |
+| 8 | `plex` | Media server | 32400 | host |
+| 9 | `unpackerr` | Auto-extracts downloads | — | bearcave |
 
 ### Memory caps (slim-stack rebalance)
 
@@ -78,13 +84,14 @@ Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mo
 |---------|-----------|------|
 | `radarr` | 1536m | 1GB DB with MediaInfo blobs; was OOMing at 1g; 1.5 CPU for imports |
 | `sonarr` | 1024m | ~365MB actual usage; 1.5 CPU to avoid scan/import throttling |
+| `bazarr` | 768m | 174MiB steady-state observed; 1 CPU for provider searches/mass moves; 4.4× the 128m cap it OOM'd under in the pre-slim stack |
 | `nzbdav` | 2560m | download + WebDAV; 2 CPU for concurrent provider/WebDAV work |
 | `nzbdav_rclone` | 4096m | FUSE/WebDAV cache; 2 CPU for concurrent media reads. 4096 (was 3072) because the vfs metadata cache peaks near the old cap during 100k+ item library analysis; host has headroom. |
 | `prowlarr` | 512m | |
 | `seerr` | 512m | |
 | `plex` | 2048m | host network, VAAPI; 4 CPU for library analysis |
 | `unpackerr` | 64m | |
-| **Total caps** | **≈ 12.1g** | CPU quotas leave headroom for concurrent scans/downloads; memory remains below the 22 GiB host total |
+| **Total caps** | **≈ 12.9g** | CPU quotas leave headroom for concurrent scans/downloads; memory remains below the 22 GiB host total |
 
 ### Network Topology
 
@@ -102,12 +109,13 @@ functions, tests). Full reasons and re-adoption policy are in
 [docs/services/lifecycle.md](docs/services/lifecycle.md):
 
 traefik, loki, promtail, grafana, prometheus, alertmanager, node-exporter, cadvisor,
-nzbdav-exporter, arr-dashboard, landing-page, metacache, lidarr, readarr, bazarr,
-audiobookshelf, komga, adguard, crowdsec, vaultwarden, watchstate.
+nzbdav-exporter, arr-dashboard, landing-page, metacache, lidarr, readarr,
+audiobookshelf, komga, adguard, crowdsec, vaultwarden, watchstate. (Bazarr was on
+this list until its 2026-09-03 re-adoption.)
 
 > Note: the selected plan was the extreme scenario while retaining Seerr and Unpackerr
 > because request handling and automatic extraction remain useful in the final
-> 8-service composition.
+> 8-service composition. (The stack later re-adopted Bazarr; see lifecycle.md.)
 
 ---
 
@@ -116,6 +124,7 @@ audiobookshelf, komga, adguard, crowdsec, vaultwarden, watchstate.
 ```
 3000  nzbdav (WebDAV)
 5055  Seerr (requests)
+6767  Bazarr (subtitles)
 7878  Radarr
 8989  Sonarr
 9696  Prowlarr

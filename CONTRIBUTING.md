@@ -30,7 +30,7 @@ behavior should be reported to the address in that document.
   relevant service doc under `docs/services/`. The architecture overview is in
   `docs/architecture.md`, and the operational landmines you must never trip
   are in `AGENTS.md` and `docs/landmines.md`.
-- **Know the scope.** This is a slim, 8-service media stack with strict CI.
+- **Know the scope.** This is a slim, 9-service media stack with strict CI.
   Changes must keep the stack robust and the docs honest; retiring or adding a
   service is a big change and should be proposed first.
 

@@ -35,7 +35,6 @@ was retired, why, and what it would take to bring it back.
 | `metacache` | 2026-08-30 | 2026-08-30 slim-down (extreme scenario): optional Plex metadata accelerator, not core acquisition | ❌ none (decision) | removed (no archive) |
 | `lidarr` | 2026-08-30 | 2026-08-30 slim-down: long-tail acquisitions unused | ❌ none (decision) | removed (no archive) |
 | `readarr` | 2026-08-30 | 2026-08-30 slim-down: long-tail acquisitions unused | ❌ none (decision) | removed (no archive) |
-| `bazarr` | 2026-08-30 | 2026-08-30 slim-down: was crash-looping OOM at 128m; subtitles deemed non-essential | ❌ none (decision) | removed (no archive) |
 | `audiobookshelf` | 2026-08-30 | 2026-08-30 slim-down: long-tail media server unused | ❌ none (decision) | removed (no archive) |
 | `komga` | 2026-08-30 | 2026-08-30 slim-down: long-tail media server unused | ❌ none (decision) | removed (no archive) |
 | `adguard` | 2026-08-30 | 2026-08-30 slim-down: LAN DNS blocker, non-media | ❌ none (decision) | removed (no archive) |
@@ -46,6 +45,26 @@ was retired, why, and what it would take to bring it back.
 | `uptime-kuma` | 2026-08-29 | Dropped from expansion scope by decision (image still CVE-blocked at the time) | ❌ none (decision) | removed (no archive) |
 | `n8n` | 2026-08-29 | Workflow automation removed by decision — Discord notifications are handled by alertmanager/CrowdSec hooks; no workflow glue needed | ❌ none (decision) | removed (no archive) |
 | `control-panel` (Django) | 2026-08-27 | Django backend superseded — fish functions call services directly, landing page probes via nginx | ❌ none (archived) | `archive/control-panel/` |
+
+## Re-adopted services
+
+### bazarr (2026-09-03)
+
+Bazarr was removed in the 2026-08-30 slim-down after crash-looping OOM at a 128m
+cap, with subtitles deemed non-essential. It returned on 2026-09-03 as a fresh,
+tracked implementation (not a copy of the old config): `ghcr.io/hotio/bazarr:release-1.6.0`,
+768m cap (4.4× the failed 128m; 174MiB steady-state observed on this host),
+healthchecked via the unauthenticated `/ping` endpoint, mounted **read-only** over
+the FUSE mount and media trees (`:rslave`) so it can never write into mount
+internals, and deliberately *without* a `depends_on` on `nzbdav_rclone` — it only
+reads media paths to write subtitle files beside them, so mount-owner restarts
+(landmine #2) and NzbDAV recreations (landmine #4) do not touch it. The OOM-class
+failure that caused its retirement is guarded by the cap plus the monthly
+digest's DB/footprint gates.
+
+Removed from the "Retired services" table above and from `RETIRED_SERVICES` in
+`scripts/audit_residue.py` (whose registry↔lifecycle cross-check enforced both
+sides of this move at CI time).
 
 ## Services with an active re-adoption watcher
 

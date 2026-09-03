@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# The Bear Cave — Backup Script (8-service slim stack)
+# The Bear Cave — Backup Script (9-service stack)
 # ============================================================================
 # Creates backups of configurations, databases, and secrets.
 #
@@ -54,11 +54,12 @@ backup_configs() {
     local config_backup="$BACKUP_DIR/$BACKUP_NAME/configs"
     mkdir -p "$config_backup"
 
-    # Backup service configs (8-service slim stack)
+    # Backup service configs (9-service stack)
     local services=(
         "prowlarr"
         "radarr"
         "sonarr"
+        "bazarr"
         "nzbdav"
         "nzbdav-rclone"
         "seerr"
