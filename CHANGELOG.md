@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.30.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.29.0...v1.30.0) (2026-09-03)
+
+
+### Features
+
+* add bazarr.db to the maintenance digest DB gate ([#146](https://github.com/WhispersOfJ/thebearcave/issues/146)) ([466e776](https://github.com/WhispersOfJ/thebearcave/commit/466e776878a726b481e500fd4c3d8ffde2eb8449))
+* DB growth-trend predictor turns bloat incidents into prune dates ([#147](https://github.com/WhispersOfJ/thebearcave/issues/147)) ([da16551](https://github.com/WhispersOfJ/thebearcave/commit/da16551c8ffd0e1ecd945fe9cf5def30865f7544))
+
 ## [1.29.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.28.0...v1.29.0) (2026-09-03)
 
 
