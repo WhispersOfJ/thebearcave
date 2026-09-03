@@ -33,6 +33,39 @@ Important values:
   `NZBDAV_CONFIG__USENET__PROVIDERS` JSON in Compose.
 - `NZBDAV_PROFILE_TOKEN`: profile/watchtower token
 
+## Library directory (orphan-cleanup protection)
+
+`NZBDAV_CONFIG__MEDIA__LIBRARY_DIR` tells InfiniDysk where the organized library
+root lives so its Remove Orphaned Files maintenance can tell Arr-imported content
+apart from true orphans. It is set to `/media`, backed by a read-only bind of the
+host `./media` directory (the parent of the Radarr/Sonarr root folders):
+
+```yaml
+volumes:
+  - ./media:/media:ro
+environment:
+  NZBDAV_CONFIG__MEDIA__LIBRARY_DIR: "/media"
+```
+
+`./media/shows` and `./media/movies` hold the ~137k Arr-imported symlinks that
+point at InfiniDysk `.ids` content objects; the read-only bind is safe because the
+maintenance task only *scans* the library dir and deletes orphans from its own store.
+
+Do **not** point this at `/mnt/remote/nzbdav/completed-symlinks` (the historical
+value). That folder is InfiniDysk's virtual view of current history rows and sits
+inside the rclone mount; per the upstream docs (infinidysk.com/operations/
+retention-cleanup) it cannot protect files after history is cleared, and Remove
+Orphaned Files **aborts — dry run included** — when the Library Directory is the
+mount or a path inside it. That abort is why orphan cleanup never ran before the
+2026-09 fix.
+
+The orphan-cleanup schedule stays disabled
+(`NZBDAV_CONFIG__MAINTENANCE__REMOVE_ORPHANED_SCHEDULE_ENABLED: "false"`); runs
+are manual only and should always start with the task's dry run and an audit that
+no Arr-imported item is a candidate. Rollback of the fix is a two-line revert
+(remove the bind, restore the old value) plus `docker compose up -d --no-deps
+--force-recreate nzbdav`.
+
 ## Queue safety
 
 The queue is not persistent across container recreation. Always check it first:

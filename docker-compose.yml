@@ -141,6 +141,7 @@ services:
       - *ca-mount
       - ./config/nzbdav:/config
       - /mnt:/mnt
+      - ./media:/media:ro
     environment:
       <<: *common-env
       FRONTEND_BACKEND_API_KEY: ${FRONTEND_BACKEND_API_KEY}
@@ -150,7 +151,7 @@ services:
       NZBDAV_CONFIG__WEBDAV__USER: ${NZBDAV_WEBDAV_USER}
       NZBDAV_CONFIG__WEBDAV__PASS: ${NZBDAV_WEBDAV_PASS}
       NZBDAV_CONFIG__RCLONE__MOUNT_DIR: "/mnt/remote/nzbdav"
-      NZBDAV_CONFIG__MEDIA__LIBRARY_DIR: "/mnt/remote/nzbdav/completed-symlinks"
+      NZBDAV_CONFIG__MEDIA__LIBRARY_DIR: "/media"
       NZBDAV_CONFIG__USENET__PROVIDERS: >-
         {"Providers":[{"Type":1,"Host":"${NZBDAV_USENET_HOST}","Port":${NZBDAV_USENET_PORT},"UseSsl":true,"User":"${NZBDAV_USENET_USER}","Pass":"${NZBDAV_USENET_PASS}","MaxConnections":50,"Priority":0,"Nickname":"primary"},{"Type":1,"Host":"${NZBDAV_USENET_BACKUP_HOST}","Port":${NZBDAV_USENET_BACKUP_PORT},"UseSsl":true,"User":"${NZBDAV_USENET_BACKUP_USER}","Pass":"${NZBDAV_USENET_BACKUP_PASS}","MaxConnections":50,"Priority":0,"Nickname":"backup"},{"Type":1,"Host":"${NZBDAV_USENET_EWEKA_HOST}","Port":${NZBDAV_USENET_EWEKA_PORT},"UseSsl":true,"User":"${NZBDAV_USENET_EWEKA_USER}","Pass":"${NZBDAV_USENET_EWEKA_PASS}","MaxConnections":50,"Priority":0,"Nickname":"eweka"}]}
       NZBDAV_CONFIG__USENET__CASCADE__ENABLED: "true"
