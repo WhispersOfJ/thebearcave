@@ -28,5 +28,10 @@ Subcommands:
 Env overrides: `STACK_TUI_REPO`, `STACK_TUI_TERM`, `STACK_TUI_CLASS`,
 `STACK_TUI_TITLE`, `STACK_TUI_SIZE`, `STACK_TUI_OPACITY`.
 
-The sway side needs its `for_window [app_id="stack_tui"] floating enable`
-rule (kept in the session's sway config).
+The sway side needs its window rule, tracked here as
+`sway/stack-tui.conf` and pulled into the session config with an `include`:
+
+```bash
+cp sway/stack-tui.conf ~/.config/sway/stack-tui.conf
+swaymsg reload
+```
