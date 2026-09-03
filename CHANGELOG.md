@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.28.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.27.0...v1.28.0) (2026-09-03)
+
+
+### Features
+
+* add --auto-safe drain mode that imports only provably-correct queue items ([#135](https://github.com/WhispersOfJ/thebearcave/issues/135)) ([4d70a0d](https://github.com/WhispersOfJ/thebearcave/commit/4d70a0dfca1f08693d0104bc07a15fbd94b63540))
+* extend the queue drain to Radarr with an --app flag ([#132](https://github.com/WhispersOfJ/thebearcave/issues/132)) ([0f36ccb](https://github.com/WhispersOfJ/thebearcave/commit/0f36ccb92a754c51e9a3566546e3140ff013c87b))
+* flag *arr import-queue pile-ups in the maintenance digest ([#133](https://github.com/WhispersOfJ/thebearcave/issues/133)) ([16f01f6](https://github.com/WhispersOfJ/thebearcave/commit/16f01f65c58f709c0178797b6f5729a12003f43a))
+* scoped missing-search wrapper replacing blind whole-series sweeps ([#136](https://github.com/WhispersOfJ/thebearcave/issues/136)) ([65cbc3e](https://github.com/WhispersOfJ/thebearcave/commit/65cbc3e4622bb34d96ab32b051c8ce3b96d34ae0))
+* track the waybar stack-tui launcher module as dotfiles ([#139](https://github.com/WhispersOfJ/thebearcave/issues/139)) ([0f60f1b](https://github.com/WhispersOfJ/thebearcave/commit/0f60f1b90688983e5d08fd40150f0ff3f6b628b9))
+
+
+### Bug Fixes
+
+* **nzbdav:** point library dir at the real media root ([#138](https://github.com/WhispersOfJ/thebearcave/issues/138)) ([84e5005](https://github.com/WhispersOfJ/thebearcave/commit/84e5005a7ac2172345bd1553711c3bdf3408a548))
+* restore /api/v3 prefix so drain_sonarr_queue reaches the Sonarr API ([#130](https://github.com/WhispersOfJ/thebearcave/issues/130)) ([d794815](https://github.com/WhispersOfJ/thebearcave/commit/d794815e4011ff4ade361fd4e5c69953e9e1e4fe))
+* serialize stack-tui launches against rapid-toggle races ([#140](https://github.com/WhispersOfJ/thebearcave/issues/140)) ([4ad4918](https://github.com/WhispersOfJ/thebearcave/commit/4ad49181200dd9be0bee6ed04c009149af12d496))
+
+
+### Performance Improvements
+
+* plan --all missing searches per series, not wanted pagination ([#137](https://github.com/WhispersOfJ/thebearcave/issues/137)) ([15b45d9](https://github.com/WhispersOfJ/thebearcave/commit/15b45d96ff624aaae386541380038a8c0203fdf2))
+
 ## [1.27.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.26.0...v1.27.0) (2026-09-02)
 
 
