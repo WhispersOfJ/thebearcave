@@ -37,8 +37,10 @@ re-adopted 2026-09-03 as a fresh implementation (see
   keeps running through mount-owner restarts and NzbDAV recreations (landmines
   #2/#4 in AGENTS.md do not apply to it).
 - **Auth**: API-key family like the *arr apps — `X-Api-Key` header, key in
-  `config/bazarr/config/config.ini`. The repo's scripts call no Bazarr
-  endpoints today; the healthcheck uses the unauthenticated `/ping`.
+  `config/bazarr/config/config.yaml` (`auth.apikey`). The repo's scripts call
+  no Bazarr endpoints today; the healthcheck uses the unauthenticated `/ping`.
+  Note the settings API (`POST /api/system/settings`) is form-keyed
+  (`settings-<section>-<field>`), not JSON — see docs/API.md.
 
 ## Operational notes
 
