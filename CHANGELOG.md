@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.29.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.28.0...v1.29.0) (2026-09-03)
+
+
+### Features
+
+* mine grab history for Sonarr alias candidates ([#142](https://github.com/WhispersOfJ/thebearcave/issues/142)) ([91bca5c](https://github.com/WhispersOfJ/thebearcave/commit/91bca5c945e1b3457ee04c42b454eb3fedafe398))
+* re-adopt Bazarr as the 9th always-on service ([#144](https://github.com/WhispersOfJ/thebearcave/issues/144)) ([c208bdd](https://github.com/WhispersOfJ/thebearcave/commit/c208bddf35d8d9bced26a48ce205594c36d36e95))
+
 ## [1.28.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.27.0...v1.28.0) (2026-09-03)
 
 
