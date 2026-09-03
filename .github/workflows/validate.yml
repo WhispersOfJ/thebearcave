@@ -56,6 +56,7 @@ jobs:
           python3 scripts/test_check_stack_tui.py
           python3 scripts/test_reclaim_docker_disk.py
           python3 scripts/test_maintenance_digest.py
+          python3 scripts/test_db_growth_trend.py
           python3 scripts/test_audit_residue.py
           python3 scripts/test_check_config_drift.py
           python3 scripts/test_check_arr_import_queue.py

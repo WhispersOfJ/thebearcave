@@ -84,3 +84,6 @@ temp/
 # Freebuff client workspace state (lives inside the repo via the symlink at ~/Projects/The Bear Cave)
 .freebuff/
 .memsearch/
+
+# db_growth_trend.py runtime sample history (TODO.md #5)
+.cache/
