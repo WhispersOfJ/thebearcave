@@ -241,11 +241,11 @@ library.
 
 | Surface | Where | Read by |
 |---|---|---|
-| Sonarr SQLite | `config/sonarr/sonarr.db` (+ `logs.db`) | `check_radarr_db_size.py` (shared gate), `prune_sonarr_db.py`, `maintenance_digest.py` |
-| Radarr SQLite | `config/radarr/radarr.db` (+ `logs.db`) | `check_radarr_db_size.py`, `prune_radarr_db.py`, `check_radarr_profiles.py`, `check_sonarr_refs.py` |
+| Sonarr SQLite | `config/sonarr/sonarr.db` (+ `logs.db`) | `check_radarr_db_size.py` (shared gate), `prune_sonarr_db.py`, `maintenance_digest.py`, `db_growth_trend.py` |
+| Radarr SQLite | `config/radarr/radarr.db` (+ `logs.db`) | `check_radarr_db_size.py`, `prune_radarr_db.py`, `check_radarr_profiles.py`, `check_sonarr_refs.py`, `db_growth_trend.py` |
 | Prowlarr SQLite | `config/prowlarr/prowlarr.db` | `check_prowlarr_refs.py` |
 | InfiniDysk SQLite | `config/nzbdav/db.sqlite` (`infinidysk-db-v1`) | nzbdav itself; see `docs/services/nzbdav.md` |
-| Bazarr SQLite | `config/bazarr/db/bazarr.db` | bazarr itself (no repo gate yet) |
+| Bazarr SQLite | `config/bazarr/db/bazarr.db` | `db_growth_trend.py` (trend sample; no blob leg — Bazarr stores no MediaInfo) |
 | FUSE mount | `nzbdav_rclone` at `/mnt/remote/nzbdav` | Radarr/Sonarr/Plex/Unpackerr consumers |
 | Docker | socket/CLI | `check_config_drift.py`, `reclaim_docker_disk.py`, `preflight.sh` |
 | Host scheduling | user systemd units/timers, crontab | `audit_residue.py`, `maintenance_digest.py` |

@@ -119,7 +119,7 @@ services, lifecycle re-adoption record, API.md section. One-time step that
 needs the UI: connect Sonarr/Radarr in Bazarr's settings (no env-var surface
 upstream).
 
-## 5. Radarr DB growth-trend predictor
+## 5. Radarr DB growth-trend predictor — ✅ DONE 2026-09-03
 
 `check_radarr_db_size.py` (gate) and `prune_radarr_db.py` (remediation) exist;
 nothing *predicts* when the next prune is needed from growth history.
@@ -127,6 +127,18 @@ nothing *predicts* when the next prune is needed from growth history.
 **Compatibility research (2026-09-02):** gate + remediation live (AGENTS.md
 landmine #9). Add a size-history record (SQLite or flat log) and trend the
 growth rate — turns the incident into a calendar entry.
+
+**Closeout (2026-09-03):** `scripts/db_growth_trend.py` (+ regression test).
+JSONL sample history at `.cache/db-growth/history.jsonl` (gitignored runtime
+state); metrics recorded through the gate's own `read_metrics` so predictor
+and gate can never disagree; OLS trend segmented at prune/VACUUM resets
+(>10% drops start a new segment, so pre-prune growth never masks current
+history); predicts the crossing date of each DB's per-app footprint
+high-water (the gate's own `footprint_default_mb`). The nightly digest both
+consumes and feeds it: `check_db_growth` delegates with the same rc 0/1/2
+semantics (rc 1 = crossing inside the 30-day horizon → schedule the prune;
+rc 2 = fresh history, soft WARN), and each nightly run appends the sample
+that sharpens tomorrow's forecast. Covers radarr, sonarr, and bazarr.
 
 ## 6. "What's watchable tonight" — thin read-only view
 

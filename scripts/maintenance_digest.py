@@ -354,6 +354,24 @@ def check_arr_import_queue(repo_root: Path, app: str) -> Finding:
     return Finding(f"{app} import queue", level, msg)
 
 
+def check_db_growth(repo_root: Path) -> Finding:
+    """DB growth-trend forecast via scripts/db_growth_trend.py (TODO.md #5,
+    exit 0/1/2). The nightly cadence is what accumulates the trend's sample
+    history, so this delegation is also the recorder. rc 1 = a DB crosses
+    its footprint high-water inside the horizon (schedule the prune); rc 2
+    = not yet assessable (fresh history or missing DB) — soft WARN, like
+    every other rc-2 here."""
+    rc, out = run_script("db_growth_trend.py", [], repo_root)
+    tail = out.splitlines()[-1][:90] if out else "(no output)"
+    if rc == 0:
+        level, msg = "ok", tail
+    elif rc == 2:
+        level, msg = "warn", tail  # insufficient samples / fresh install
+    else:
+        level, msg = "fail", tail
+    return Finding("db growth", level, msg)
+
+
 def check_audit_residue(repo_root: Path) -> Finding:
     """Retired-service/path residue via scripts/audit_residue.py (exit 0/1/2).
 
@@ -405,6 +423,7 @@ def main() -> int:
     repo_root = Path(args.repo)
     findings.append(check_dotfiles(Path(args.dotfiles)))
     findings += check_db_gates(repo_root)
+    findings.append(check_db_growth(repo_root))
     findings.append(check_nzbdav_queue(repo_root))
     findings.append(check_arr_import_queue(repo_root, "sonarr"))
     findings.append(check_arr_import_queue(repo_root, "radarr"))
