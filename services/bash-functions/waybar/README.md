@@ -35,3 +35,11 @@ The sway side needs its window rule, tracked here as
 cp sway/stack-tui.conf ~/.config/sway/stack-tui.conf
 swaymsg reload
 ```
+
+## `custom/idle` — presentation mode
+
+The eye module pauses/resumes the swayidle auto-lock (eye ON, aqua while
+paused). swayidle runs from `~/.config/sway/swayidle.sh`; pausing stops
+that process — waybar's built-in `idle_inhibitor` only talks to logind,
+which swayidle ignores. The sway binding `$mod+Shift+i` fires the same
+toggle as a module click.

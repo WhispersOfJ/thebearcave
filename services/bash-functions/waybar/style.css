@@ -42,6 +42,7 @@ window#waybar {
 #power-profiles-daemon,
 #systemd-failed-units,
 #custom-stack,
+#custom-idle,
 #tray,
 #custom-power,
 #clock {
@@ -97,6 +98,10 @@ window#waybar {
 /* stack-tui launcher: one muted tone, state by opacity (open = solid) */
 #custom-stack { color: #a89984; opacity: 0.55; }
 #custom-stack.open { opacity: 1; }
+
+/* idle lock: eye goes bright aqua while auto-lock is paused (presentation) */
+#custom-idle { color: #a89984; }
+#custom-idle.on { color: #8ec07c; }
 
 #privacy { color: #fb4934; }
 #temperature { color: #fabd2f; }

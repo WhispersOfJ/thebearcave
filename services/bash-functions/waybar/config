@@ -23,6 +23,7 @@
         "power-profiles-daemon",
         "systemd-failed-units",
         "custom/stack",
+        "custom/idle",
         "tray",
         "custom/power",
         "clock"
@@ -201,6 +202,15 @@
         "exec": "$HOME/.config/waybar/scripts/stack-tui-toggle.sh state",
         "on-click": "$HOME/.config/waybar/scripts/stack-tui-toggle.sh toggle",
         "interval": 2,
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}"
+    },
+
+    "custom/idle": {
+        "exec": "$HOME/.config/sway/idle-toggle.sh state",
+        "on-click": "$HOME/.config/sway/idle-toggle.sh toggle",
+        "interval": 5,
         "return-type": "json",
         "tooltip": true,
         "format": "{}"
