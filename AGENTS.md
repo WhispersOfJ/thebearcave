@@ -251,6 +251,14 @@ From this point forward, **all edits happen on dedicated git worktrees** — one
 worktree per task, named by the task, never mixed with unrelated work. This
 rule applies to every future change, including the change that introduced it.
 
+**Repository containment rule (2026-09-04):** Every worktree for this site must
+live inside `/home/bear/TheBearCave/`, preferably under
+`/home/bear/TheBearCave/.worktrees/<task-name>`. Do not create or retain site
+worktrees under `/home/bear/.worktrees/`, `/home/bear/wt-*`, or any other
+external path. Before editing, verify with `git worktree list --porcelain`; after
+relocating or removing a worktree, run `git worktree prune` and verify again.
+The main checkout remains reference-only and must stay free of task edits.
+
 1. **One worktree per task.** Before making any edit, create a task-named
    worktree and branch off `origin/main`:
    `git worktree add <path> -b <task-branch> origin/main`. Both the worktree

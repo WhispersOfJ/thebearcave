@@ -81,6 +81,9 @@ tmp/
 temp/
 *.tmp
 
+# Worktrees must remain inside this repository; their contents are ignored.
+.worktrees/
+
 # Freebuff client workspace state (lives inside the repo via the symlink at ~/Projects/The Bear Cave)
 .freebuff/
 .memsearch/
