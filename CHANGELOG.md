@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.31.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.31.0...v1.31.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* close queue and import safety gaps ([#153](https://github.com/WhispersOfJ/thebearcave/issues/153)) ([7c64b2a](https://github.com/WhispersOfJ/thebearcave/commit/7c64b2a36d6dd0ab0134af76b3decc70d37e881f))
+
 ## [1.31.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.30.0...v1.31.0) (2026-09-04)
 
 
