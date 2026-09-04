@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.33.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.32.0...v1.33.0) (2026-09-04)
+
+
+### Features
+
+* add waybar idle-lock pause module (presentation mode) ([#164](https://github.com/WhispersOfJ/thebearcave/issues/164)) ([73aa6a3](https://github.com/WhispersOfJ/thebearcave/commit/73aa6a32e538c89d876302b054fbc433657f1cf0))
+* add waybar recording and night-light status indicators ([#165](https://github.com/WhispersOfJ/thebearcave/issues/165)) ([d32c056](https://github.com/WhispersOfJ/thebearcave/commit/d32c0563eb36518d9164452add45fdf45fb07ad3))
+* scale waybar bar up 40% ([#163](https://github.com/WhispersOfJ/thebearcave/issues/163)) ([c2878c7](https://github.com/WhispersOfJ/thebearcave/commit/c2878c786a23d9336917afdf1d072f27e8e6ea2d))
+
+
+### Bug Fixes
+
+* disable env-managed segment cache for the symlinks import strategy ([3310219](https://github.com/WhispersOfJ/thebearcave/commit/3310219e10aa4c25207f41961384f641a0fdcb90))
+* use swayr for the waybar window switcher ([#161](https://github.com/WhispersOfJ/thebearcave/issues/161)) ([816f044](https://github.com/WhispersOfJ/thebearcave/commit/816f04474d56d65005d83715733967b703315934))
+
+
+### Performance Improvements
+
+* route rclone WebDAV directly to the internal nzbdav backend ([d223ee6](https://github.com/WhispersOfJ/thebearcave/commit/d223ee69f18cc1b27afe7c194fc5ef0826f2e158))
+* un-saturate the rclone vfs disk cache and drop cookie handling ([adb24a9](https://github.com/WhispersOfJ/thebearcave/commit/adb24a976654e7b82ed2af00e6ce4fc4c383bec2))
+
 ## [1.32.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.31.1...v1.32.0) (2026-09-04)
 
 
