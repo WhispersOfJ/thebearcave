@@ -109,7 +109,7 @@ healthy-looking containers with inaccessible root folders or apparent Plex delet
 ## Storage layout
 
 ```text
-TheBearCave/
+cave/
 ├── config/plex/                 # Plex database and metadata; highest-value state
 ├── config/{prowlarr,radarr,sonarr}/
 ├── config/nzbdav/                # NzbDAV database and settings

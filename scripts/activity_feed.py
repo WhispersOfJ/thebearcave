@@ -42,8 +42,8 @@ Install as a user timer (mirrors the arrival notifier):
   Description=Bear Cave media activity feed
   [Service]
   Type=oneshot
-  EnvironmentFile=/home/bear/TheBearCave/.env
-  ExecStart=/usr/bin/python3 /home/bear/TheBearCave/scripts/activity_feed.py
+  EnvironmentFile=/home/bear/cave/.env
+  ExecStart=/usr/bin/python3 /home/bear/cave/scripts/activity_feed.py
 
   # ~/.config/systemd/user/stack-activity-feed.timer
   [Unit]

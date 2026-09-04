@@ -254,8 +254,8 @@ worktree per task, named by the task, never mixed with unrelated work. This
 rule applies to every future change, including the change that introduced it.
 
 **Repository containment rule (2026-09-04):** Every worktree for this site must
-live inside `/home/bear/TheBearCave/`, preferably under
-`/home/bear/TheBearCave/.worktrees/<task-name>`. Do not create or retain site
+live inside `/home/bear/cave/`, preferably under
+`/home/bear/cave/.worktrees/<task-name>`. Do not create or retain site
 worktrees under `/home/bear/.worktrees/`, `/home/bear/wt-*`, or any other
 external path. Before editing, verify with `git worktree list --porcelain`; after
 relocating or removing a worktree, run `git worktree prune` and verify again.
