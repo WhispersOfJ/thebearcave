@@ -1,6 +1,9 @@
 [nzbdav]
 type = webdav
-url = http://nzbdav:3000/
+# Internal backend only (bearcave network): rclone consumes WebDAV directly on
+# the backend's :8080 so streamed bytes bypass the Node frontend proxy (:3000).
+# Never publish :8080 to the host; host-side consumers use the :3000 frontend.
+url = http://nzbdav:8080/
 vendor = other
 user = usenet
 pass = REPLACE_WITH_RCLONE_ENCODED_PASSWORD

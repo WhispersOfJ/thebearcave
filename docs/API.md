@@ -29,7 +29,7 @@ those docs to the APIs behind them.
 | Radarr | `http://HOST_IP:7878` · `/api/v3` | `RADARR_API_KEY` | \*arr (v3) | `drain_sonarr_queue.py --app radarr`, `arrival_notifier.py`, `activity_feed.py`, Unpackerr, Recyclarr |
 | Sonarr | `http://HOST_IP:8989` · `/api/v3` | `SONARR_API_KEY` | \*arr (v3) | `search_missing_scoped*.py`, `drain_sonarr_queue.py`, `arrival_notifier.py`, `activity_feed.py`, Unpackerr, Recyclarr |
 | Bazarr | `http://HOST_IP:6767` · `/api` | key in `config/bazarr/` | Bazarr (Flask/wtforms) | healthcheck only |
-| InfiniDysk (nzbdav) | `http://HOST_IP:3000` · `/api` | `FRONTEND_BACKEND_API_KEY` | SABnzbd-compatible + WebDAV | Radarr/Sonarr (download client), rclone, checks |
+| InfiniDysk (nzbdav) | `http://HOST_IP:3000` · `/api` | `FRONTEND_BACKEND_API_KEY` | SABnzbd-compatible + WebDAV | Radarr/Sonarr (download client), checks |
 | nzbdav_rclone | internal `http://nzbdav_rclone:5572` · `/` | `NZBDAV_RCLONE_RC_PASS` | rclone RC | InfiniDysk (NZBDAV_CONFIG__RCLONE__HOST) |
 | Plex | `http://HOST_IP:32400` | `PLEX_TOKEN` | Plex Media Server | `stack-plex-*` bash functions, `arrival_notifier.py` |
 | Seerr | `http://HOST_IP:5055` · `/api/v1` | session / key in `config/seerr/` | Seerr (Overseerr-lineage) | `stack-watchable`, `stack-requests`, `arrival_notifier.py`; healthcheck |
@@ -145,7 +145,10 @@ HTTP.
   `NZBDAV_WEBDAV_PASS`. Exposes `/content` (processed streamable files),
   `/completed-symlinks` (`*.rclonelink` pointers for items still in history),
   `/nzbs`, and `/` `.ids` (the content-addressed object store; see below).
-- Consumed by rclone (remote `nzbdav:`) to build the FUSE mount.
+- rclone (remote `nzbdav:`) builds the FUSE mount from the **internal backend**
+  WebDAV at `http://nzbdav:8080/` (bearcave-only, not a published port) so streamed
+  bytes bypass the Node frontend proxy; see `docs/services/nzbdav-rclone.md`. The
+  frontend still proxies the same tree on the published `:3000` for host-side probes.
 
 **Storage model (verified 2026-09-03).** InfiniDysk stores every processed file
 as a content-addressed object under `.ids/<shard>/<uuid>` on the mount. The
