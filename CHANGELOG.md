@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.31.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.30.0...v1.31.0) (2026-09-04)
+
+
+### Features
+
+* streaming Dropbox backup of the repo (no media/metadata/secrets) ([#152](https://github.com/WhispersOfJ/thebearcave/issues/152)) ([137fcec](https://github.com/WhispersOfJ/thebearcave/commit/137fcec014ff144da96656d8625b10cc211f4e2b))
+* watchable view, request arrival notifier, and activity feed (TODO [#6](https://github.com/WhispersOfJ/thebearcave/issues/6)-[#8](https://github.com/WhispersOfJ/thebearcave/issues/8)) ([#149](https://github.com/WhispersOfJ/thebearcave/issues/149)) ([4a27606](https://github.com/WhispersOfJ/thebearcave/commit/4a27606c464563c7e7278f12fc5e11724b81d70d))
+
 ## [1.30.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.29.0...v1.30.0) (2026-09-03)
 
 
