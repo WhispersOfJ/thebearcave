@@ -5,7 +5,7 @@ Movies and Shows libraries from symlinks backed by the NzbDAV WebDAV/FUSE mount.
 
 | | |
 |---|---|
-| Image | `plexinc/pms-docker` (digest-pinned) |
+| Image | `plexinc/pms-docker:latest` (mutable tag) |
 | Port | 32400, direct host network |
 | Config | `config/plex/` |
 | Transcode | `config/plex-transcode/` |

@@ -121,7 +121,7 @@ services:
   # ==========================================================================
   nzbdav:
     <<: *common
-    image: ghcr.io/infinidysk/infinidysk@sha256:8cf616c1806c3443e6cfbd4b10bf7562d0e09cdfe735360c2e992f3a0c623dd0
+    image: ghcr.io/infinidysk/infinidysk:dev
     container_name: nzbdav
     mem_limit: 2560m
     cpus: "2.0"
@@ -370,7 +370,7 @@ services:
   # Media server — Plex (host network: GDM/DLNA/remote access)
   # ==========================================================================
   plex:
-    image: plexinc/pms-docker@sha256:83a425ae9e133b1cb2cc3b809556e01c61cd8ff65c582e41b4374bc2210bac9e
+    image: plexinc/pms-docker:latest
     container_name: plex
     mem_limit: 2048m
     cpus: "4.0"

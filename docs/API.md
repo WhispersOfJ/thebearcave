@@ -178,7 +178,7 @@ library.
 
 ## Plex — `:32400` (host network)
 
-- See `docs/services/plex.md`; image `plexinc/pms-docker` (digest-pinned).
+- See `docs/services/plex.md`; image `plexinc/pms-docker:latest` (mutable tag).
 - Auth: `X-Plex-Token` header (or query param) from `PLEX_TOKEN`; base from
   `PLEX_URL` (default `http://localhost:32400`). No API key secret in `.env`
   beyond the token.
