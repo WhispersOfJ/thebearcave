@@ -2,6 +2,13 @@
 # ============================================================================
 # The Bear Cave — Setup Script
 # ============================================================================
+# This script and its lib/ modules are bash-only (arrays, [[ ]], process
+# substitution). Dispatch paths such as `newgrp -c` can invoke scripts with a
+# non-bash shell (zsh), which misparses/bash-quirk-leaks variable values to
+# stdout; re-exec under bash so behavior is identical everywhere.
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
 # Initializes Docker secrets, validates the Linux runtime, prepares bind mounts,
 # and gets the stack ready for first deployment.
 #

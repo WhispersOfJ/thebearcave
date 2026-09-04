@@ -80,4 +80,17 @@ if (
     exit 1
 fi
 
+# The bash guard: sourced from a non-bash shell (e.g. newgrp -> zsh), the lib
+# must refuse loudly instead of leaking variable values to stdout.
+if command -v zsh >/dev/null 2>&1; then
+    if output=$(zsh -c 'source "$1/scripts/lib/helpers.sh"' _ "$ROOT" 2>&1); then
+        echo "FAIL: helpers.sh was accepted under zsh" >&2
+        exit 1
+    fi
+    case "$output" in
+        *"must be sourced from bash"*) ;;
+        *) echo "FAIL: zsh guard message missing: $output" >&2; exit 1 ;;
+    esac
+fi
+
 echo "test_setup: all assertions passed"
