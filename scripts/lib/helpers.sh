@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 # Shared helpers for The Bear Cave setup modules.
+#
+# These modules are bash-only (arrays, [[ ]], process substitution). When
+# sourced from a non-bash shell (for example `newgrp -c` on a zsh login),
+# zsh leaks `local value; value=$(...)` loop values to stdout — including
+# secret values read from .env. Refuse loudly instead of running degraded.
+if [ -z "${BASH_VERSION:-}" ]; then
+    echo "error: scripts/lib/* must be sourced from bash (found ${ZSH_VERSION:-non-bash})" >&2
+    # return-if-sourced / exit-if-executed idiom; shellcheck flags the exit
+    # branch as unreachable, but it fires when the file is executed directly.
+    # shellcheck disable=SC2317
+    return 1 2>/dev/null || exit 1
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
