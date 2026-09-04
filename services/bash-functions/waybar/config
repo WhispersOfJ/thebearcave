@@ -40,7 +40,7 @@
         "max-length": 60,
         "align": 0.5,
         "tooltip": false,
-        "on-click": "rofi -show window -config ~/.config/rofi/config.rasi"
+        "on-click": "swayr switch-window"
     },
 
     // ── Left / center ───────────────────────────
