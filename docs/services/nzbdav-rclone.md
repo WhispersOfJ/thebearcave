@@ -31,7 +31,7 @@ Consumers receive
 ```ini
 [nzbdav]
 type = webdav
-url = http://nzbdav:3000/
+url = http://nzbdav:8080/
 vendor = other
 user = usenet
 pass = <rclone-obscured WebDAV password>
@@ -39,6 +39,15 @@ pass = <rclone-obscured WebDAV password>
 
 Generate the password with `rclone obscure`; never put the plaintext password in the
 config file or repository.
+
+## Direct backend route (no frontend proxy)
+
+The remote targets InfiniDysk's **internal WebDAV backend** at `nzbdav:8080` rather
+than the published `:3000` frontend, because the Node frontend proxies every streamed
+byte and media reads are the stack's highest-bandwidth path. `:8080` is reachable only
+inside the `bearcave` network (it is not a published port) — never expose it to the
+host or untrusted networks. Host-side WebDAV consumers (probes, checks) keep using the
+`:3000` frontend.
 
 ## Recovery
 
