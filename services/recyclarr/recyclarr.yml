@@ -1,0 +1,41 @@
+# ============================================================================
+# Recyclarr sync config — TRaSH-Guides quality profiles for The Bear Cave
+# ============================================================================
+# Applies the TRaSH recommended 1080p Bluray + WEB tier to Radarr and Sonarr:
+# custom formats, profile scores, and quality definitions. Synced daily by the
+# `recyclarr` compose service (CRON_SCHEDULE, default 04:00) or manually:
+#
+#   docker compose run --rm recyclarr sync
+#
+# API keys resolve from `!secret` names in config/recyclarr/secrets.yml,
+# which scripts/setup.sh generates from .env (never commit secrets.yml).
+#
+# Reference: https://recyclarr.dev/
+
+radarr:
+  movies:
+    base_url: http://radarr:7878
+    api_key: !secret radarr_apikey
+    delete_old_custom_formats: true
+    quality_definition:
+      type: movie
+    quality_profiles:
+      # HD Bluray + WEB (1080p) — the TRaSH recommended tier for this stack.
+      - trash_id: d1d67249d3890e49bc12e275d989a7e9
+        reset_unmatched_scores:
+          enabled: true
+
+sonarr:
+  tv:
+    base_url: http://sonarr:8989
+    api_key: !secret sonarr_apikey
+    delete_old_custom_formats: true
+    quality_definition:
+      type: series
+    quality_profiles:
+      # WEB-1080p (Alternative) is the guide's Bluray-inclusive 1080p profile;
+      # renamed for clarity vs the WEB-only WEB-1080p variant.
+      - trash_id: 9d142234e45d6143785ac55f5a9e8dc9
+        name: Bluray + WEB 1080p
+        reset_unmatched_scores:
+          enabled: true

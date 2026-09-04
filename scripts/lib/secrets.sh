@@ -46,3 +46,30 @@ generate_secrets() {
 
     log_success "All active-stack secrets generated"
 }
+
+generate_recyclarr_secrets() {
+    log_info "Generating Recyclarr secrets (config/recyclarr/secrets.yml)..."
+
+    mkdir -p "config/recyclarr"
+
+    if [ ! -f "$ENV_FILE" ]; then
+        log_warning "Skipping Recyclarr secrets: $ENV_FILE missing"
+        return 0
+    fi
+
+    local radarr_key sonarr_key
+    radarr_key=$(awk -F= '/^RADARR_API_KEY=/{print $2; exit}' "$ENV_FILE" | tr -d '"' | tr -d "'")
+    sonarr_key=$(awk -F= '/^SONARR_API_KEY=/{print $2; exit}' "$ENV_FILE" | tr -d '"' | tr -d "'")
+
+    if [ -z "$radarr_key" ] || [ -z "$sonarr_key" ]; then
+        log_warning "Skipping Recyclarr secrets: RADARR_API_KEY/SONARR_API_KEY missing from $ENV_FILE"
+        return 0
+    fi
+
+    cat > "config/recyclarr/secrets.yml" <<EOF
+radarr_apikey: $radarr_key
+sonarr_apikey: $sonarr_key
+EOF
+    chmod 600 "config/recyclarr/secrets.yml"
+    log_success "Recyclarr secrets generated"
+}

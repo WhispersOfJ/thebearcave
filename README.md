@@ -1,6 +1,6 @@
 # The Bear Cave
 
-**A lean, Usenet-only media stack — 9 always-on containers, one `docker compose up -d`.**
+**A lean, Usenet-only media stack — 10 always-on containers, one `docker compose up -d`.**
 
 Prowlarr indexing → Radarr/Sonarr acquisition → NzbDAV (InfiniDysk) Usenet downloads →
 rclone FUSE streaming → Plex serving, with Seerr handling requests and Bazarr fetching
@@ -22,13 +22,13 @@ subtitles. Every download is streamed on demand — no media sits on local disk.
 
 | Metric | Value |
 |--------|-------|
-| Always-on containers | **9** (`docker compose ps`) |
+| Always-on containers | **10** (`docker compose ps`) |
 | Acquisition apps | 2 — Radarr (movies), Sonarr (TV) |
 | Download client | NzbDAV (InfiniDysk) — SABnzbd-compatible |
 | Media libraries | Movies, Shows |
 | Requests | Seerr → Radarr/Sonarr/Plex watchlists |
 | Manual maintenance | ImageMaid PhotoTranscoder cache cleanup (profile-gated) |
-| Memory caps | ≈11.9 GiB total (was ~19 GiB before the slim-down); CPU quotas tuned for scans/downloads |
+| Memory caps | ≈12.0 GiB total (was ~19 GiB before the slim-down); CPU quotas tuned for scans/downloads |
 
 ## Architecture
 
@@ -45,11 +45,12 @@ subtitles. Every download is streamed on demand — no media sits on local disk.
                                Plex :32400  (host network, streams on demand)
 
   Unpackerr ── watches *arr queues, auto-extracts
+  Recyclarr ── daily TRaSH-Guides profile/custom-format sync → Radarr/Sonarr
 ```
 
 No reverse proxy: all services are reached directly on their host ports over LAN.
 
-## Services (9)
+## Services (10)
 
 | Service | Port | Purpose | Network |
 |---------|------|---------|---------|
@@ -62,6 +63,7 @@ No reverse proxy: all services are reached directly on their host ports over LAN
 | **Unpackerr** | — | Auto-extracts downloads for Radarr/Sonarr | bearcave |
 | **Seerr** | 5055 | Requests + discovery (Radarr/Sonarr/Plex) | bearcave |
 | **Plex** | 32400 | Media server (host network) | host |
+| **Recyclarr** | — | Syncs TRaSH-Guides quality profiles/custom formats into Radarr/Sonarr (daily) | bearcave |
 
 ## How the apps connect
 
@@ -76,13 +78,16 @@ No reverse proxy: all services are reached directly on their host ports over LAN
 - **Subtitles** — **Bazarr** reads the same read-only media trees as Plex and drops
   subtitle files next to the media; it never writes into mount internals and does not
   depend on the FUSE mount being healthy to run.
+- **TRaSH config** — **Recyclarr** syncs the TRaSH-Guides quality profiles, custom
+  formats, scores, and quality definitions into Radarr and Sonarr daily at 04:00
+  (`services/recyclarr/recyclarr.yml`; see `docs/services/recyclarr.md`).
 - **Plex feedback** — Radarr/Sonarr notify **Plex** on import to trigger a library scan.
 - **ImageMaid** — optional maintenance profile removes generated PhotoTranscoder cache
   files only; run `stack-plex-image-clean` while Plex is idle.
 
 ## Memory caps
 
-Rebalanced during the slim-down (total ≈11.1 GiB, down from ~19 GiB); quotas are sized to avoid observed scan/download throttling:
+Rebalanced during the slim-down (total ≈11.2 GiB, down from ~19 GiB); quotas are sized to avoid observed scan/download throttling:
 
 | Service | Cap |
 |---------|-----|
@@ -95,6 +100,7 @@ Rebalanced during the slim-down (total ≈11.1 GiB, down from ~19 GiB); quotas a
 | prowlarr | 512m |
 | seerr | 512m |
 | unpackerr | 64m |
+| recyclarr | 128m |
 
 ## Testing
 
@@ -132,7 +138,7 @@ cp .env.template .env        # edit with real values (see .env.template)
 docker compose up -d
 
 # 3. Verify
-docker compose ps            # all 8 up
+docker compose ps            # all 10 up
 ```
 
 ## Configuration
