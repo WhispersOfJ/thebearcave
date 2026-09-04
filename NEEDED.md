@@ -23,7 +23,7 @@ diagnosis.
 sudo pacman -S --needed \
   docker docker-compose docker-buildx \
   git openssh \
-  fish python curl jq sqlite openssl \
+  fish python python-requests curl jq sqlite openssl \
   rclone \
   pacman-contrib smartmontools nftables cronie \
   ruff shellcheck actionlint gitleaks pre-commit yamllint trivy \
@@ -50,6 +50,7 @@ host-tools install, cron/timers).
 | `scripts/setup.sh` secret generation | `openssl` | random secret material |
 | `stack-plex-markers` | `sqlite` CLI | read-only queries against the Plex DB |
 | `rclone obscure` setup step (docs/quick-start) | `rclone` host binary | generating the obscured WebDAV password for `config/nzbdav-rclone/rclone.conf`; also handy to probe the WebDAV remote independently of the container |
+| `scripts/backup_dropbox.py` (docs/operations/dropbox-backup.md) | `python-requests` | streaming single-tar Dropbox snapshot (tar → chunked upload-session API) |
 | `stack-disk-health` | `smartmontools` | SMART queries (`smartctl`, needs root) |
 | `stack-pkg-clean-cache`, `stack-pkg-orphans` | `pacman-contrib` | `paccache -rk` cache vacuuming, `pacman -Qtd` orphan plumbing |
 | `stack-pkg-update`, `stack-aur-audit` | AUR helper: `yay` or `paru` (AUR) | `yay -Syu`, AUR security audit |

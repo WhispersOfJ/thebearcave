@@ -67,6 +67,22 @@ The timer installer keeps them in `~/.config/thebearcave-dropbox.env`
 (chmod 600, never in the repo) and the service unit loads that file via
 `EnvironmentFile`.
 
+**Gotchas learned live (2026-09-04) — read before creating the app:**
+
+1. **Enable the scopes BEFORE generating the token.** Dropbox does not
+   reliably apply scope changes to an already-issued access token: a token
+   created before `files.content.write` was enabled will keep failing the
+   upload (HTTP 400 naming the missing scope, then HTTP 401 once the scope
+   is added) until you **revoke and regenerate** it on the Settings tab.
+2. **The error message tells you which app is at fault** — it names the app
+   ID. If the ID differs from the app you think the token belongs to, the
+   wrong token is in the environment.
+3. **Validate the token before the first upload** with the account check
+   (below) — HTTP 200 proves the token and account; it does *not* prove the
+   scopes, so still expect the first upload to be the real scope test.
+4. `--dry-run` needs **no credentials at all** (it discards the archive), so
+   it validates tar/exclusions locally even before auth exists.
+
 ## Run
 
 ```bash
@@ -155,6 +171,8 @@ story (config DBs, Plex metadata, secrets — the things this snapshot skips).
 | Symptom | Check |
 |---|---|
 | Timer never fires | `systemctl --user list-timers` — is `Persistent` catching up? Is the user instance running? |
+| Upload refuses with HTTP 400 naming a missing scope (e.g. `files.content.write`) | App Console → Permissions → enable the scope, then revoke + regenerate the token (existing tokens don't pick up new scopes) |
+| HTTP 401 on upload while the account check returns 200 | The token predates the scope enablement — regenerate it (see Auth gotchas) |
 | Exit 2 | `DROPBOX_*` env: run the installer's `--check` or `python3 scripts/backup_dropbox.py --dry-run` (fails fast at auth) |
 | Exit 1 with HTTP 409 | Overwrite collision with autorename disabled — use the default (dated names, autorename on) |
 | Upload slow / retries | Chunks are a fixed 8 MB — a slow uplink just takes longer; logs show per-retry backoff progress, and the session resumes across retries |
