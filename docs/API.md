@@ -256,13 +256,15 @@ library.
   find completed downloads. Diagnostics come from `docker compose logs`.
 - Upstream: <https://github.com/golift/unpackerr>
 
-## Recyclarr (config sync client)
+## Recyclarr (config sync client, manual profile)
 
 - See `docs/services/recyclarr.md`; image `ghcr.io/recyclarr/recyclarr:8`
   (digest-pinned).
 - No published port: an outbound-only client that syncs TRaSH-Guides quality
-  profiles, custom formats, and quality definitions into Radarr/Sonarr on a
-  daily schedule (04:00), driven by `services/recyclarr/recyclarr.yml`.
+  profiles, custom formats, and quality definitions into Radarr/Sonarr, driven
+  by `services/recyclarr/recyclarr.yml`. Runs on demand via the `maintenance`
+  profile (`docker compose --profile maintenance run --rm recyclarr sync`) —
+  not always-on and not scheduled.
 - Endpoints it exercises (both apps): `GET/POST/PUT/DELETE /api/v3/customformat`,
   `GET/POST/PUT/DELETE /api/v3/qualityprofile`, and `GET/PUT /api/v3/qualitydefinition`.
 - Auth: `X-Api-Key`, with keys resolved from `config/recyclarr/secrets.yml` via

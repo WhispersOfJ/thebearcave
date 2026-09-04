@@ -17,7 +17,8 @@ started by the default deployment.
 | Plex | 32400 | Media server |
 | Unpackerr | — | Download extraction |
 
-There is no reverse proxy or landing page in the active stack. ImageMaid is a manual,
-profile-gated maintenance service and is excluded from the normal nine-container startup;
-see [imagemaid.md](imagemaid.md). Retired services are tracked in [lifecycle.md](lifecycle.md)
-and preserved only as historical records where noted.
+There is no reverse proxy or landing page in the active stack. ImageMaid and Recyclarr
+are manual, profile-gated maintenance services (the `maintenance` profile) and are
+excluded from the normal nine-container startup; see [imagemaid.md](imagemaid.md) and
+[recyclarr.md](recyclarr.md). Retired services are tracked in
+[lifecycle.md](lifecycle.md) and preserved only as historical records where noted.

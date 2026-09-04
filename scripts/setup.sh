@@ -74,6 +74,7 @@ interactive_setup() {
         generate_secrets
     fi
 
+    install_recyclarr_config
     generate_recyclarr_secrets
 
     echo ""
@@ -109,6 +110,7 @@ non_interactive_setup() {
 
     create_secrets_dir
     generate_secrets
+    install_recyclarr_config
     generate_recyclarr_secrets
     sync_github_secrets
 
