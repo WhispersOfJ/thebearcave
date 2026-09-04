@@ -28,6 +28,10 @@ Backups are written under `backups/bearcave_backup_<timestamp>/`. Copy them
 off-host. A same-disk backup protects against configuration mistakes, not disk or
 host failure. Treat backup directories as sensitive because they may contain `.env`.
 
+For an unattended offsite copy that streams a single tar to Dropbox and never
+keeps it on disk (everything except media, generated metadata, and secrets),
+see [dropbox-backup.md](dropbox-backup.md).
+
 ## Safe restore
 
 1. Stop the stack and ensure no NzbDAV job is active:
