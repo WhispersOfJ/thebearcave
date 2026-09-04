@@ -47,6 +47,28 @@ generate_secrets() {
     log_success "All active-stack secrets generated"
 }
 
+install_recyclarr_config() {
+    log_info "Installing Recyclarr config (config/recyclarr/recyclarr.yml)..."
+
+    local src="services/recyclarr/recyclarr.yml"
+    local dst_dir="config/recyclarr"
+    local dst="$dst_dir/recyclarr.yml"
+
+    mkdir -p "$dst_dir"
+
+    if [ ! -f "$src" ]; then
+        log_warning "Skipping Recyclarr config: $src missing"
+        return 0
+    fi
+
+    if [ -f "$dst" ] && ! cmp -s "$src" "$dst"; then
+        log_info "Updating $dst from tracked $src (config changed)"
+    fi
+    cp "$src" "$dst"
+    chmod 644 "$dst"
+    log_success "Recyclarr config installed"
+}
+
 generate_recyclarr_secrets() {
     log_info "Generating Recyclarr secrets (config/recyclarr/secrets.yml)..."
 

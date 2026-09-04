@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
-# The Bear Cave — Health Check Runner (10-service stack)
+# The Bear Cave — Health Check Runner (9 always-on services; ImageMaid and
+# Recyclarr are profile-gated and intentionally absent from this runner)
 # ============================================================================
 # Runs health checks for all services and reports status.
 #
@@ -83,7 +84,7 @@ check_container() {
 }
 
 # ============================================================================
-# Service Health Checks (10-service stack)
+# Service Health Checks (9 always-on services)
 # ============================================================================
 
 check_prowlarr() {
@@ -120,10 +121,6 @@ check_plex() {
 
 check_unpackerr() {
     check_container "unpackerr" "Unpackerr"
-}
-
-check_recyclarr() {
-    check_container "recyclarr" "Recyclarr"
 }
 
 # ============================================================================
@@ -172,7 +169,6 @@ main() {
             seerr) check_seerr ;;
             plex) check_plex ;;
             unpackerr) check_unpackerr ;;
-            recyclarr) check_recyclarr ;;
             *)
                 log_error "Unknown service: $SERVICE"
                 exit 1
@@ -189,7 +185,6 @@ main() {
         check_seerr
         check_plex
         check_unpackerr
-        check_recyclarr
     fi
 
     # Summary
