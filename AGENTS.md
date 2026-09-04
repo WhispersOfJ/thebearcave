@@ -7,8 +7,8 @@ work style and non-negotiable rules — this file covers the system itself.
 
 ## What This Repo Is
 
-A slim, robust media-acquisition-and-serving stack. **9 always-on Compose services**
-(Prowlarr, Radarr, Sonarr, Bazarr, nzbdav, nzbdav_rclone, Seerr, Plex, Unpackerr), plus a
+A slim, robust media-acquisition-and-serving stack. **10 always-on Compose services**
+(Prowlarr, Radarr, Sonarr, Bazarr, nzbdav, nzbdav_rclone, Seerr, Plex, Unpackerr, Recyclarr), plus a
 manual ImageMaid maintenance profile, published
 directly on host ports — no reverse proxy — with CI/CD via GitHub Actions. Hosted on
 Linux.
@@ -48,6 +48,7 @@ Prowlarr (indexers) ──▶ Radarr + Sonarr ──▶ nzbdav (Usenet) ──�
 | **Requests** | Seerr |
 | **Media server** | Plex (host network, VAAPI transcoding) |
 | **Queue mgmt** | Unpackerr |
+| **Config sync** | Recyclarr (TRaSH-Guides quality-profile sync for both *arr apps) |
 | **Manual maintenance** | ImageMaid (profile-gated PhotoTranscoder cache cleanup) |
 
 ### Content flow
@@ -64,7 +65,7 @@ Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mo
 
 ---
 
-## Services (9 always-on services)
+## Services (10 always-on services)
 
 | # | Service | Purpose | Port | Network |
 |---|---------|---------|------|---------|
@@ -77,6 +78,7 @@ Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mo
 | 7 | `seerr` | Request manager | 5055 | bearcave |
 | 8 | `plex` | Media server | 32400 | host |
 | 9 | `unpackerr` | Auto-extracts downloads | — | bearcave |
+| 10 | `recyclarr` | Syncs TRaSH quality profiles/custom formats into Radarr/Sonarr (daily 04:00) | — | bearcave |
 
 ### Memory caps (slim-stack rebalance)
 
@@ -91,7 +93,8 @@ Prowlarr indexes → Radarr/Sonarr queue → nzbdav downloads → rclone FUSE mo
 | `seerr` | 512m | |
 | `plex` | 2048m | host network, VAAPI; 4 CPU for library analysis |
 | `unpackerr` | 64m | |
-| **Total caps** | **≈ 12.9g** | CPU quotas leave headroom for concurrent scans/downloads; memory remains below the 22 GiB host total |
+| `recyclarr` | 128m | stateless TRaSH sync scheduler (supercronic); read-only fs + tmpfs |
+| **Total caps** | **≈ 13.0g** | CPU quotas leave headroom for concurrent scans/downloads; memory remains below the 22 GiB host total |
 
 ### Network Topology
 

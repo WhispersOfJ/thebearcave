@@ -74,6 +74,8 @@ interactive_setup() {
         generate_secrets
     fi
 
+    generate_recyclarr_secrets
+
     echo ""
     read -r -p "Sync RELEASE_PLEASE_TOKEN to GitHub Actions secret? (Y/n): " sync_gh
     if [ "${sync_gh:-Y}" != "n" ]; then
@@ -107,6 +109,7 @@ non_interactive_setup() {
 
     create_secrets_dir
     generate_secrets
+    generate_recyclarr_secrets
     sync_github_secrets
 
     log_success "Non-interactive setup complete"
