@@ -5,7 +5,7 @@ compatible API, and serves the remote tree over WebDAV.
 
 | | |
 |---|---|
-| Image | `ghcr.io/infinidysk/infinidysk` (digest-pinned) |
+| Image | `ghcr.io/infinidysk/infinidysk:dev` |
 | Port | 3000 |
 | Network | `bearcave` |
 | Config | `config/nzbdav/` |
