@@ -43,6 +43,8 @@ window#waybar {
 #systemd-failed-units,
 #custom-stack,
 #custom-idle,
+#custom-record,
+#custom-nightlight,
 #tray,
 #custom-power,
 #clock {
@@ -102,6 +104,12 @@ window#waybar {
 /* idle lock: eye goes bright aqua while auto-lock is paused (presentation) */
 #custom-idle { color: #a89984; }
 #custom-idle.on { color: #8ec07c; }
+
+/* recording + night light: status dots, red/amber while active */
+#custom-record { color: #a89984; }
+#custom-record.recording { color: #fb4934; font-weight: bold; }
+#custom-nightlight { color: #a89984; }
+#custom-nightlight.active { color: #fabd2f; }
 
 #privacy { color: #fb4934; }
 #temperature { color: #fabd2f; }
