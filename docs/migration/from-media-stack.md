@@ -29,7 +29,7 @@ so nothing needs to be re-matched by hand.
 ```bash
 # From the old repo:
 SRC=/home/bear/Claude/media-stack
-DST=/home/bear/TheBearCave
+DST=/home/bear/cave
 
 mkdir -p $DST/services
 

@@ -41,8 +41,8 @@ services/bash-functions/
 Add to `~/.bashrc` (interactive shells only):
 
 ```bash
-[ -f "$HOME/TheBearCave/services/bash-functions/bearcave-bash.sh" ] && \
-    source "$HOME/TheBearCave/services/bash-functions/bearcave-bash.sh"
+[ -f "$HOME/cave/services/bash-functions/bearcave-bash.sh" ] && \
+    source "$HOME/cave/services/bash-functions/bearcave-bash.sh"
 ```
 
 The loader reads `.env` at startup (only setting variables not already set),
@@ -122,7 +122,7 @@ the stack runs as the invoking user):
 # 04:00 daily — prunes dangling volumes/build cache/stopped containers, then
 # (--aggressive) every image not referenced by docker-compose.yml, run from
 # the executable checkout's bash functions with .env resolved.
-0 4 * * * bash -lc 'source "/home/<user>/TheBearCave/services/bash-functions/bearcave-bash.sh" && stack-disk-reclaim -y --aggressive' >> "$HOME/.stack-disk-reclaim.log" 2>&1
+0 4 * * * bash -lc 'source "/home/<user>/cave/services/bash-functions/bearcave-bash.sh" && stack-disk-reclaim -y --aggressive' >> "$HOME/.stack-disk-reclaim.log" 2>&1
 ```
 
 The installer fails closed: it refuses to write the entry when the target

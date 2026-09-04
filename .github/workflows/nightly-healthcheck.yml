@@ -77,6 +77,7 @@ jobs:
           python3 scripts/test_arrival_notifier.py
           python3 scripts/test_activity_feed.py
           python3 scripts/test_backup_dropbox.py
+          bash scripts/test_setup.sh
       - name: YAML lint
         run: |
           pip install yamllint==1.37.1

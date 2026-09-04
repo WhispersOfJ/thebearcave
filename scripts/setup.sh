@@ -2,13 +2,20 @@
 # ============================================================================
 # The Bear Cave — Setup Script
 # ============================================================================
-# Initializes Docker secrets, validates configuration, and prepares the
-# stack for first deployment.
+# This script and its lib/ modules are bash-only (arrays, [[ ]], process
+# substitution). Dispatch paths such as `newgrp -c` can invoke scripts with a
+# non-bash shell (zsh), which misparses/bash-quirk-leaks variable values to
+# stdout; re-exec under bash so behavior is identical everywhere.
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
+# Initializes Docker secrets, validates the Linux runtime, prepares bind mounts,
+# and gets the stack ready for first deployment.
 #
 # Usage:
 #   ./scripts/setup.sh                    # Interactive setup
 #   ./scripts/setup.sh --non-interactive  # Non-interactive (uses defaults)
-#   ./scripts/setup.sh --validate-only    # Only validate existing config
+#   ./scripts/setup.sh --validate-only    # Validate an already-prepared install
 #   ./scripts/setup.sh --sync-github-secrets  # Sync .env → GitHub Actions secrets
 # ============================================================================
 
@@ -51,6 +58,8 @@ interactive_setup() {
         fi
     fi
 
+    [ ! -f "$ENV_FILE" ] || chmod 600 "$ENV_FILE"
+
     echo ""
     log_info "Running validation checks..."
     echo ""
@@ -58,7 +67,12 @@ interactive_setup() {
     local validation_failed=0
 
     validate_docker || validation_failed=1
+    validate_host_runtime || validation_failed=1
     validate_env_file || validation_failed=1
+    if [ "$validation_failed" -eq 0 ]; then
+        prepare_directories || validation_failed=1
+        prepare_runtime_files || validation_failed=1
+    fi
     validate_compose || validation_failed=1
     validate_directories || validation_failed=1
 
@@ -103,8 +117,13 @@ non_interactive_setup() {
         log_warning "Created .env from template. Please edit with actual values."
     fi
 
+    chmod 600 "$ENV_FILE"
+
     validate_docker
+    validate_host_runtime
     validate_env_file
+    prepare_directories
+    prepare_runtime_files
     validate_compose
     validate_directories
 
@@ -120,6 +139,7 @@ non_interactive_setup() {
 validate_only() {
     log_info "Running validation only..."
     validate_docker
+    validate_host_runtime
     validate_env_file
     validate_compose
     validate_directories

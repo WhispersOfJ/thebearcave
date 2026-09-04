@@ -142,7 +142,8 @@ git clone https://github.com/WhispersOfJ/thebearcave.git
 cd thebearcave
 cp .env.template .env        # edit with real values (see .env.template)
 
-# 2. Start the stack
+# 2. Prepare runtime directories and start the stack
+./scripts/setup.sh
 docker compose up -d
 
 # 3. Verify

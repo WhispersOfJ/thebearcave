@@ -60,8 +60,8 @@ it healthy:
   Description=Bear Cave request->arrival notifier
   [Service]
   Type=oneshot
-  EnvironmentFile=/home/bear/TheBearCave/.env
-  ExecStart=/usr/bin/python3 /home/bear/TheBearCave/scripts/arrival_notifier.py
+  EnvironmentFile=/home/bear/cave/.env
+  ExecStart=/usr/bin/python3 /home/bear/cave/scripts/arrival_notifier.py
 
   # ~/.config/systemd/user/stack-arrival-notify.timer
   [Unit]

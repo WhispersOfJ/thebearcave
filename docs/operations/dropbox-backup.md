@@ -100,7 +100,7 @@ python3 scripts/backup_dropbox.py --include-dbs
 #          --overwrite · --compression gzip|none · --verbose
 ```
 
-Snapshots land at `/Backups/TheBearCave/thebearcave-backup-YYYYMMDD-HHMMSS.tar.gz`.
+Snapshots land at `/Backups/cave/thebearcave-backup-YYYYMMDD-HHMMSS.tar.gz`.
 The timestamped name means a re-run never collides; Dropbox additionally keeps
 30 days of version history on top of the `--keep` prune.
 

@@ -95,7 +95,7 @@ A host cron or systemd timer can run the backup without involving Compose, for
 example nightly at 03:30:
 
 ```cron
-30 3 * * * cd /home/bear/TheBearCave && ./scripts/backup.sh >> /var/log/bearcave-backup.log 2>&1
+30 3 * * * cd /home/bear/cave && ./scripts/backup.sh >> /var/log/bearcave-backup.log 2>&1
 ```
 
 Prune old backups only after confirming an off-host copy exists.
