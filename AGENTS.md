@@ -223,7 +223,7 @@ Run `./scripts/setup.sh` to generate secrets.
 
 3. **Plex `stop_grace_period: 90s` required** — Without it, Docker's 10s default SIGKILL fires mid-shutdown, producing a genuine unkillable D-state hang.
 
-4. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching.
+4. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching. The Compose healthcheck must probe both the public frontend (`:3000/healthz`) and an authenticated queue API request through the frontend; a green frontend alone is insufficient.
 
 5. **Plex on host network** — Plex cannot run on a bridge network without losing GDM/DLNA/remote access. Access directly at `http://HOST_IP:32400`.
 
@@ -240,6 +240,8 @@ Run `./scripts/setup.sh` to generate secrets.
 11. **Profiled run services need generated names** — Do not assign `container_name` to the manual ImageMaid profile; `docker compose run --rm` must be able to repeat after an interrupted run without a stale fixed-name collision.
 
 12. **Main may advance asynchronously** — Release automation can add commits between local review and publication; fetch `origin/main` and rebase a clean local commit before retrying a rejected push, never force-push.
+
+13. **NzbDAV backend outages can be masked by the frontend** — The frontend on port 3000 can remain healthy while its internal backend fails, causing WebDAV/API requests to return 502. Validate `/healthz`, authenticated `/api?mode=queue&output=json`, and authenticated `PROPFIND /` before declaring the service healthy. Never recreate the container until the persisted queue has been checked or the data-loss decision is explicit.
 
 ---
 
