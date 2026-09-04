@@ -43,3 +43,13 @@ paused). swayidle runs from `~/.config/sway/swayidle.sh`; pausing stops
 that process — waybar's built-in `idle_inhibitor` only talks to logind,
 which swayidle ignores. The sway binding `$mod+Shift+i` fires the same
 toggle as a module click.
+
+## `custom/record` + `custom/nightlight` — state indicators
+
+Two always-visible state dots. `custom/record` shows a muted `●` that turns
+red (bold) with an elapsed `mm:ss` while `wf-recorder` runs; its state
+script lives here (`scripts/record-status.sh`) and click-to-toggle calls
+`~/.config/sway/recorder-toggle.sh`. `custom/nightlight` shows a dim sun
+that becomes an amber moon while `gammastep` runs (click toggles via
+`~/.config/sway/gammastep-toggle.sh`). The matching sway bindings are
+`$mod+Shift+r` and `$mod+Shift+n`.

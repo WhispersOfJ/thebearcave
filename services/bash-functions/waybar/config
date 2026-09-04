@@ -22,6 +22,8 @@
         "bluetooth",
         "power-profiles-daemon",
         "systemd-failed-units",
+        "custom/record",
+        "custom/nightlight",
         "custom/stack",
         "custom/idle",
         "tray",
@@ -211,6 +213,24 @@
         "exec": "$HOME/.config/sway/idle-toggle.sh state",
         "on-click": "$HOME/.config/sway/idle-toggle.sh toggle",
         "interval": 5,
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}"
+    },
+
+    "custom/record": {
+        "exec": "$HOME/.config/waybar/scripts/record-status.sh",
+        "on-click": "$HOME/.config/sway/recorder-toggle.sh",
+        "interval": 2,
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}"
+    },
+
+    "custom/nightlight": {
+        "exec": "$HOME/.config/waybar/scripts/nightlight-status.sh",
+        "on-click": "$HOME/.config/sway/gammastep-toggle.sh",
+        "interval": 10,
         "return-type": "json",
         "tooltip": true,
         "format": "{}"
