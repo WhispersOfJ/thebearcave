@@ -3,7 +3,7 @@
     border: none;
     border-radius: 0;
     font-family: "JetBrainsMono Nerd Font";
-    font-size: 12px;
+    font-size: 16.8px;
     min-height: 0;
 }
 
@@ -45,17 +45,17 @@ window#waybar {
 #tray,
 #custom-power,
 #clock {
-    margin: 4px 0;
-    padding: 0 10px;
+    margin: 6px 0;
+    padding: 0 14px;
 }
 
 #workspaces {
-    margin-left: 6px;
-    padding: 0 4px;
+    margin-left: 8px;
+    padding: 0 6px;
 }
 
 #workspaces button {
-    padding: 0 9px;
+    padding: 0 13px;
     color: #a89984;
     background: transparent;
 }
@@ -76,7 +76,7 @@ window#waybar {
 }
 
 #window {
-    min-width: 160px;
+    min-width: 224px;
     color: #a89984;
 }
 
@@ -109,12 +109,12 @@ window#waybar {
 #systemd-failed-units { color: #fb4934; }
 #custom-power { color: #fb4934; }
 #clock {
-    margin-right: 6px;
+    margin-right: 8px;
     color: #ebdbb2;
 }
 
 #tray {
-    padding: 0 6px;
+    padding: 0 8px;
 }
 
 #bluetooth.off { color: #928374; }
