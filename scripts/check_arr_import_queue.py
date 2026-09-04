@@ -53,13 +53,32 @@ DEFAULT_THRESHOLD = 10
 
 
 def fetch_queue(base_url: str, api_key: str, timeout: int) -> dict:
-    """Fetch the queue API page. Raises on any failure."""
+    """Fetch every queue page. Raises on any failure."""
     if not api_key:
         raise RuntimeError("API key not set")
-    url = (f"{base_url.rstrip('/')}/queue?page=1&pageSize=200")
-    req = urllib.request.Request(url, headers={"X-Api-Key": api_key})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode())
+    page_size = 200
+    all_records = []
+    page = 1
+    total_records = None
+    while True:
+        url = (f"{base_url.rstrip('/')}/queue?page={page}"
+               f"&pageSize={page_size}")
+        req = urllib.request.Request(url, headers={"X-Api-Key": api_key})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode())
+        if not isinstance(data, dict) or not isinstance(data.get("records"), list):
+            raise ValueError("queue API response has no records list")
+        records = data["records"]
+        all_records.extend(records)
+        raw_total = data.get("totalRecords")
+        if isinstance(raw_total, int) and raw_total >= 0:
+            total_records = raw_total
+        if not records or len(records) < page_size or (
+                total_records is not None and len(all_records) >= total_records):
+            return {**data, "records": all_records,
+                    "totalRecords": total_records if total_records is not None
+                    else len(all_records)}
+        page += 1
 
 
 def stuck_items(data: dict) -> list[dict]:

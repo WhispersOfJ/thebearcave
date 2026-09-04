@@ -210,10 +210,10 @@ class SonarrClient:
                     raise RuntimeError(
                         f"/episode returned an unexpected shape for series {series_id}"
                     )
+                now = datetime.now(timezone.utc)
                 records.extend(
                     record for record in response
-                    if record.get("monitored", True) is not False
-                    and not record.get("hasFile")
+                    if _is_planned_missing(record, now)
                 )
             return records
 

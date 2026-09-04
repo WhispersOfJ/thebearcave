@@ -415,6 +415,16 @@ def run_planning_tests():
           [(group["seriesId"], group["seasonNumber"]) for group in groups]
           == [(1, 1), (2, 1)]
           and [item["episodeNumber"] for item in groups[0]["episodes"]] == [1, 2])
+
+    client = mod.SonarrClient("http://x/api/v3", "key")
+    client.request = lambda path: [
+        dict(episode(1, 1, 1), airDateUtc="2026-09-01T00:00:00Z"),
+        dict(episode(1, 1, 2), airDateUtc="2099-01-01T00:00:00Z"),
+        dict(episode(1, 1, 3), airDateUtc=None),
+    ]
+    check("explicit series scope excludes unaired and undated episodes",
+          [record["episodeNumber"] for record in client.fetch_missing([1])]
+          == [1])
     check("batch size never splits a season",
           len(mod.split_batches(groups, 1)) == 2)
 

@@ -110,6 +110,21 @@ def main() -> int:
 
     mod.fetch_queue = real_fetch
 
+    # --- Compose healthcheck contract -----------------------------------
+    compose = (ROOT / "docker-compose.yml").read_text()
+    expect(
+        "nzbdav healthcheck probes frontend and authenticated queue API",
+        "curl -sf http://localhost:3000/healthz && curl -sf" in compose
+        and "localhost:3000/api?mode=queue&output=json&apikey=$${FRONTEND_BACKEND_API_KEY}" in compose,
+        True,
+    )
+
+    expect(
+        "nzbdav healthcheck does not probe nonexistent backend port",
+        "localhost:8080" not in compose,
+        True,
+    )
+
     # --- live entry point smoke (offline flag) --------------------------
     proc = __import__("subprocess").run(
         [sys.executable, str(CHECKER_PATH), "--offline"],

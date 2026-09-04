@@ -187,6 +187,15 @@ def new_records(app, state, records):
     return out
 
 
+def advance_cursor(state, app, records):
+    """Advance the app cursor over every observed record, including skipped events."""
+    ids = [rec.get("id") for rec in records if rec.get("id") is not None]
+    if ids:
+        state.setdefault(app, {})["last_id"] = max(
+            state.get(app, {}).get("last_id") or 0, max(ids)
+        )
+
+
 def backfill_cutoff(records, now_ts):
     """First run without a cursor: keep only records inside the backfill window."""
     cutoff = now_ts - BACKFILL_SECONDS
@@ -367,6 +376,10 @@ def run(args):
                 state.setdefault(app, {})["last_id"] = records[0].get("id")
         else:
             fresh = new_records(app, state, records)
+        # Process oldest-first so import/delete state reflects the actual
+        # event chronology, then advance past skipped events as well.
+        fresh.sort(key=lambda rec: (rec.get("ts") or 0, rec.get("id") or 0))
+        advance_cursor(state, app, fresh)
         for rec in fresh:
             kind, updates = kind_for(app, rec, state["last_import"])
             if kind is None:
@@ -377,9 +390,6 @@ def run(args):
                 else:
                     state["last_import"][key] = val
             entries.append(build_entry(app, rec, kind))
-            state.setdefault(app, {})["last_id"] = max(
-                state.get(app, {}).get("last_id") or 0, rec.get("id") or 0
-            )
 
     if reachable == 0 and not entries:
         print("Cannot assess: neither Radarr nor Sonarr reachable", file=sys.stderr)

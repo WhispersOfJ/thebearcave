@@ -79,6 +79,44 @@ def main() -> int:
     expect("mixed queue counts only the stuck",
            len(mod.stuck_items(queue([active, blocked, no_warning]))), 1)
 
+    # --- fetch_queue pagination -----------------------------------------
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            import json
+            return json.dumps(self.payload).encode()
+
+    calls = []
+    real_urlopen = mod.urllib.request.urlopen
+    pages = {
+        1: queue([rec(id=1)] * 200),
+        2: queue([rec(id=2)] * 3),
+    }
+
+    def fake_urlopen(request, timeout):
+        import urllib.parse
+        page = int(urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)["page"][0])
+        calls.append(page)
+        payload = pages[page]
+        payload["totalRecords"] = 203
+        return FakeResponse(payload)
+
+    mod.urllib.request.urlopen = fake_urlopen
+    try:
+        paged = mod.fetch_queue("http://x/api/v3", "key", 5)
+    finally:
+        mod.urllib.request.urlopen = real_urlopen
+    expect("fetch_queue reads every page", calls, [1, 2])
+    expect("fetch_queue combines all records", len(paged["records"]), 203)
+
     # --- check() decision logic ------------------------------------------
     real_fetch = mod.fetch_queue
 

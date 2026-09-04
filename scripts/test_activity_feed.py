@@ -145,6 +145,36 @@ def main() -> int:
         [],
     )
 
+    # Cursor must advance past skipped events, otherwise the same irrelevant
+    # history row is reconsidered on every timer run.
+    state = {"radarr": {"last_id": 10}}
+    skipped = [{"id": 12, "event_type": "movieGrabbed"},
+               {"id": 11, "event_type": "movieGrabbed"}]
+    mod.advance_cursor(state, "radarr", skipped)
+    failures += not expect(
+        "cursor advances across skipped events",
+        state["radarr"]["last_id"], 12,
+    )
+
+    # Upgrade state must be applied oldest-first, not in the API's newest-first
+    # order: the second chronological import is the upgrade.
+    old_import = mod.normalize_record("radarr", {
+        "id": 20, "movieId": 5, "date": iso_now_ago(7200),
+        "eventType": "downloadFolderImported", "movie": {"id": 5, "title": "Movie"},
+    })
+    new_import = mod.normalize_record("radarr", {
+        "id": 21, "movieId": 5, "date": iso_now_ago(3600),
+        "eventType": "downloadFolderImported", "movie": {"id": 5, "title": "Movie"},
+    })
+    last_import = {}
+    chronological = []
+    for record in sorted((new_import, old_import), key=lambda r: r["ts"]):
+        kind, updates = mod.kind_for("radarr", record, last_import)
+        chronological.append(kind)
+        last_import.update(updates)
+    failures += not expect("chronological imports classify upgrade", chronological,
+                           ["import", "upgrade"])
+
     # --- renderers ---------------------------------------------------------------
     entry = mod.build_entry("radarr", mod.normalize_record("radarr", radarr_rec), "import")
     text = mod.render_text([entry], 5)
@@ -264,7 +294,15 @@ def main() -> int:
             # for movie 5 is an upgrade (run 1's import re-set the key after
             # the delete cleared it).
             Handler.records = mk_records() + [
-                {"id": 13, "movieId": 5, "date": iso_now_ago(100),
+                {"id": 15, "movieId": 5, "date": iso_now_ago(100),
+                 "eventType": "downloadFolderImported", "sourceTitle": "The Movie 2160p",
+                 "quality": {"quality": {"name": "Remux-2160p"}}, "data": {},
+                 "movie": {"id": 5, "title": "The Movie", "year": 2026}},
+                {"id": 14, "movieId": 5, "date": iso_now_ago(200),
+                 "eventType": "movieFileDeleted", "sourceTitle": "The Movie",
+                 "quality": None, "data": {},
+                 "movie": {"id": 5, "title": "The Movie", "year": 2026}},
+                {"id": 13, "movieId": 5, "date": iso_now_ago(300),
                  "eventType": "downloadFolderImported", "sourceTitle": "The Movie 2160p",
                  "quality": {"quality": {"name": "Remux-2160p"}}, "data": {},
                  "movie": {"id": 5, "title": "The Movie", "year": 2026}}
@@ -287,8 +325,9 @@ def main() -> int:
             failures += not expect("second run rc", rc2, 0)
             lines2 = Path(feed_file).read_text().splitlines()
             last_kinds = [json.loads(ln)["kind"] for ln in lines2]
-            failures += not expect("second run only new", len(last_kinds), 4)
-            failures += not expect("second run kind (upgrade)", last_kinds[-1], "upgrade")
+            failures += not expect("second run only new", len(last_kinds), 6)
+            failures += not expect("second run processes imports chronologically",
+                                   last_kinds[-3:], ["import", "delete", "upgrade"])
     finally:
         server.shutdown()
 

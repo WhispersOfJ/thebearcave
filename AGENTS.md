@@ -223,7 +223,7 @@ Run `./scripts/setup.sh` to generate secrets.
 
 3. **Plex `stop_grace_period: 90s` required** — Without it, Docker's 10s default SIGKILL fires mid-shutdown, producing a genuine unkillable D-state hang.
 
-4. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching.
+4. **NzbDAV queue is not persistent** — Recreate wipes queued NZBs and silently blocklists affected items. Confirm pending is 0 before touching. The Compose healthcheck must probe both the public frontend (`:3000/healthz`) and an authenticated queue API request through the frontend; a green frontend alone is insufficient.
 
 5. **Plex on host network** — Plex cannot run on a bridge network without losing GDM/DLNA/remote access. Access directly at `http://HOST_IP:32400`.
 
@@ -241,6 +241,8 @@ Run `./scripts/setup.sh` to generate secrets.
 
 12. **Main may advance asynchronously** — Release automation can add commits between local review and publication; fetch `origin/main` and rebase a clean local commit before retrying a rejected push, never force-push.
 
+13. **NzbDAV backend outages can be masked by the frontend** — The frontend on port 3000 can remain healthy while its internal backend fails, causing WebDAV/API requests to return 502. Validate `/healthz`, authenticated `/api?mode=queue&output=json`, and authenticated `PROPFIND /` before declaring the service healthy. Never recreate the container until the persisted queue has been checked or the data-loss decision is explicit.
+
 ---
 
 ## How to Work in This Repo
@@ -250,6 +252,14 @@ Run `./scripts/setup.sh` to generate secrets.
 From this point forward, **all edits happen on dedicated git worktrees** — one
 worktree per task, named by the task, never mixed with unrelated work. This
 rule applies to every future change, including the change that introduced it.
+
+**Repository containment rule (2026-09-04):** Every worktree for this site must
+live inside `/home/bear/TheBearCave/`, preferably under
+`/home/bear/TheBearCave/.worktrees/<task-name>`. Do not create or retain site
+worktrees under `/home/bear/.worktrees/`, `/home/bear/wt-*`, or any other
+external path. Before editing, verify with `git worktree list --porcelain`; after
+relocating or removing a worktree, run `git worktree prune` and verify again.
+The main checkout remains reference-only and must stay free of task edits.
 
 1. **One worktree per task.** Before making any edit, create a task-named
    worktree and branch off `origin/main`:
