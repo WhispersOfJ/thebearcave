@@ -108,6 +108,7 @@ else
 fi
 
 check "compose mounts" python3 scripts/check_compose_mounts.py
+check "compose commands" python3 scripts/check_compose_commands.py
 check "retired residue" python3 scripts/audit_residue.py --repo-only
 check "mcp baseline" python3 scripts/check_mcp.py --baseline
 check "python env transports" python3 scripts/check_python_env_transports.py
