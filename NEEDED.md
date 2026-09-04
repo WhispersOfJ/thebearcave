@@ -32,7 +32,7 @@ sudo pacman -S --needed \
 # AUR (pick one helper first: yay or paru)
 sudo pacman -S --needed --asdeps base-devel git
 git clone https://aur.archlinux.org/yay.git /tmp/yay && cd /tmp/yay && makepkg -si
-# then, if wanted, the optional extras from section 4
+# then, if wanted, the optional extras in section 4 (§4.1 has the desired set)
 ```
 
 Then do the non-package steps in section 6 (docker group + service, `.env`,
@@ -94,16 +94,46 @@ python -m pip install --user --break-system-packages 'ruff==0.8.6' 'pre-commit==
 > predate their official-repo packaging — on the reinstall prefer
 > `extra/trivy` and `extra/ruff` and drop the manual installs.
 
-## 4. Optional, situational
+## 4. Optional — beyond the minimum
+
+Sections 1–3 are enough to run and diagnose the stack. This section adds
+packages that make **management, security, and maintenance** more efficient
+(§4.1) plus purely situational diagnostics (§4.2). Everything here is in the
+official `extra` repo (verified 2026-09-04) except the AUR helpers. The
+additions are deliberately CLI-first — consistent with the post-slim-down
+posture, which retired containerized observability in favor of the host-side
+`stack-*` surface (see [docs/services/lifecycle.md](docs/services/lifecycle.md)).
+
+### 4.1 Desired — management, security, maintenance
+
+```bash
+sudo pacman -S --needed lazydocker btop nvtop ncdu dive restic lnav arch-audit lynis nvme-cli lsof
+```
+
+| Package | Why it earns its place |
+|---|---|
+| `lazydocker` | Terminal UI over the compose project: per-container logs, stats, restart/recreate from one screen instead of aliasing `docker compose` incantations |
+| `btop` | Live CPU/mem/disk/network + PSI pressure — the same signal `stack-mem-pressure` reads, with a process view for spotting a wedged import or scan |
+| `nvtop` | GPU utilization including video engines — confirms Plex VAAPI transcoding is actually using `/dev/dri` rather than silently falling back to CPU |
+| `ncdu` | Interactive disk-usage TUI for `config/` — spot `radarr.db`/`sonarr.db`/`logs.db` bloat (landmine 9) and `backups/` size before the prune gates or disk reclaim have to |
+| `dive` | Inspect image layer sizes to find bloat before `stack-disk-reclaim` has to remove it; pairs with the weekly dependabot image re-pins |
+| `restic` | Encrypted, incremental, off-host backups of `config/`, `secrets/`, `.env` — replaces manual `scp` copies; the backup doc warns same-disk backups protect against mistakes, not disk failure |
+| `lnav` | Log navigator over `docker compose logs` exports, `~/.stack-disk-reclaim.log`, and the prune logs the maintenance digest verifies |
+| `arch-audit` | Makes `stack-aur-audit` fully functional — it checks AUR/foreign packages against the Arch CVE tracker instead of falling back to `pacman -Qmq` |
+| `lynis` | Post-reinstall host hardening audit — the security baseline *around* the stack (open ports, file permissions, config) |
+| `nvme-cli` | NVMe SMART/firmware/log access if the boot or data disk is NVMe — deeper than the SMART summary `stack-disk-health` prints |
+| `lsof` | See which process holds a bind-mounted or FUSE-backed file open — the tool behind the bind-mount staleness and stale-mount landmines (1, 2) |
+
+### 4.2 Situational diagnostics
 
 | Package | When |
 |---|---|
-| `bind` (provides `dig`/`host`/`nslookup`) | DNS troubleshooting; the Debian/Ubuntu name is `bind-tools` — on Arch it is `bind` |
-| `openbsd-netcat` | raw port probes (`nc -zv HOST PORT`) when curl isn't enough |
-| `libva-utils` + `intel-media-driver` (Intel) or `libva-mesa-driver` (AMD) | host-side `vainfo` sanity check to isolate "GPU broken" from "Plex broken"; the Plex container ships its own VAAPI userspace, so this is diagnostic-only |
-| `flatpak` | you use Flatpak apps and want `stack-flatpak-updates` |
-| `paru` (AUR, alternative to `yay`) | you prefer paru as the AUR helper |
-| `bind` + `iproute2` (`ss`) | both are cheap and useful during network diagnosis; `iproute2` is normally in base |
+| `bind` (provides `dig`/`host`/`nslookup`; `iproute2`'s `ss` covers local sockets and ships in base) | DNS troubleshooting — the Debian/Ubuntu name `bind-tools` is `bind` on Arch |
+| `mtr` | Combined ping+traceroute to the Usenet provider host when downloads stall or history shows provider timeouts |
+| `openbsd-netcat` | Raw port probes (`nc -zv HOST PORT`) when curl isn't enough |
+| `libva-utils` + `intel-media-driver` (Intel) or `libva-mesa-driver` (AMD) | Host-side `vainfo` sanity check to isolate "GPU broken" from "Plex broken"; the Plex container ships its own VAAPI userspace, so this is diagnostic-only |
+| `flatpak` | You use Flatpak apps and want `stack-flatpak-updates` |
+| `paru` (AUR, alternative to `yay`) | You prefer paru as the AUR helper |
 | Node.js, Go toolchain | **not needed** — see §5 |
 
 ## 5. Node / Go / pip — nothing is required
