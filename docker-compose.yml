@@ -231,6 +231,18 @@ services:
         condition: service_healthy
         restart: true
     entrypoint: ["/bin/sh", "-c"]
+    # NOTE: this command is a folded YAML scalar handed to `/bin/sh -c` as ONE
+    # line, so `#` inside the block would comment out everything after it
+    # (silently dropping the vfs tuning and the entire `--rc` server block).
+    # Keep tuning rationale in YAML comments ABOVE, never inside the command.
+    #
+    # vfs-cache-max-size 100G: backing NVMe has ~250G free; the old 50G cap
+    # pinned the cache and evicted boundary files during the 553GiB
+    # library-re-analysis pass.
+    #
+    # timeout 40s / contimeout 15s: absorb the 'net/http: timeout awaiting
+    # response headers' errors seen when nzbdav is under concurrent
+    # analysis+stream load.
     command:
       - >
         fusermount3 -uz /mnt/remote/nzbdav 2>/dev/null || true;
@@ -244,8 +256,6 @@ services:
         --links
         --use-cookies
         --vfs-cache-mode=full
-        # 100G: backing NVMe has ~250G free; the old 50G cap pinned the cache and
-        # evicted boundary files during the 553GiB library-re-analysis pass.
         --vfs-cache-max-size=100G
         --vfs-cache-max-age=336h
         --buffer-size=0M
@@ -257,8 +267,6 @@ services:
         --attr-timeout=30s
         --dir-cache-time=6h
         --poll-interval=5m
-        # 40s / 15s: absorb the 'net/http: timeout awaiting response headers'
-        # errors seen when nzbdav is under concurrent analysis+stream load.
         --timeout=40s
         --contimeout=15s
         --low-level-retries=5

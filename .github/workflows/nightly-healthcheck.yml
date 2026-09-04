@@ -78,6 +78,7 @@ jobs:
           python3 scripts/test_activity_feed.py
           python3 scripts/test_backup_dropbox.py
           bash scripts/test_setup.sh
+          python3 scripts/test_check_compose_commands.py
       - name: YAML lint
         run: |
           pip install yamllint==1.37.1
