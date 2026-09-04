@@ -173,7 +173,11 @@ services:
       NZBDAV_CONFIG__MAINTENANCE__REMOVE_ORPHANED_SCHEDULE_ENABLED: "false"
       NZBDAV_CONFIG__MAINTENANCE__REMOVE_ORPHANED_SCHEDULE_TIME: "180"
       NZBDAV_CONFIG__QUEUE__WORKER_COUNT: "6"
-      NZBDAV_CONFIG__USENET__SEGMENT_CACHE__ENABLED: "true"
+      # Segment cache must stay DISABLED while the import strategy is symlinks:
+      # the app warns on segment-cache.enabled=true + api.import-strategy=symlinks
+      # (the two are incompatible for read-ahead). MAX_GB is kept dormant in case
+      # a non-symlink strategy re-enables it later.
+      NZBDAV_CONFIG__USENET__SEGMENT_CACHE__ENABLED: "false"
       NZBDAV_CONFIG__USENET__SEGMENT_CACHE__MAX_GB: "20"
       NZBDAV_CONFIG__USENET__PIPELINING__ENABLED: "true"
       NZBDAV_CONFIG__USENET__PIPELINING__DEPTH: "8"
