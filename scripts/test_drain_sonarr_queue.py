@@ -193,6 +193,34 @@ def main():
             "sonarr", "http://x/api/v3", "k", item, auto_safe=True)
         check("auto-safe: provable item imports",
               outcome == mod.OUTCOME_OK)
+
+        # An asynchronous command that never reaches a terminal state must
+        # not be reported as imported: the caller may otherwise treat a
+        # still-running/failed command as safely drained.
+        original_request = mod._request
+        original_sleep = mod.time.sleep
+        def stub_running(base_url, api_key, path, method="GET", body=None,
+                         timeout=None):
+            if path.startswith("/manualimport"):
+                return [sonarr_candidate()]
+            if path.startswith("/parse"):
+                return {"series": {"id": 7, "title": "Show"},
+                        "episodes": [{"id": 101}, {"id": 102}]}
+            if path == "/command" and method == "POST":
+                return {"id": 9002}
+            if path.startswith("/command/"):
+                return {"status": "queued"}
+            raise AssertionError(f"unexpected path: {path}")
+        mod._request = stub_running
+        mod.time.sleep = lambda _seconds: None
+        try:
+            outcome, note = mod.import_one(
+                "sonarr", "http://x/api/v3", "k", item)
+        finally:
+            mod._request = original_request
+            mod.time.sleep = original_sleep
+        check("unfinished import command remains pending",
+              outcome == mod.OUTCOME_PENDING and "not confirmed" in note)
     finally:
         mod._request = orig_request
 

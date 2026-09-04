@@ -84,7 +84,9 @@ APPS = {
 # --auto-safe could not prove the download is the right content and the
 # item must not be removed, since it may be legitimate but title-variant
 # (e.g. a foreign-language title) and simply needs manual review.
-OUTCOME_OK, OUTCOME_SKIP, OUTCOME_FAIL = "ok", "skip", "fail"
+OUTCOME_OK, OUTCOME_SKIP, OUTCOME_FAIL, OUTCOME_PENDING = (
+    "ok", "skip", "fail", "pending"
+)
 
 
 def _request(base_url, api_key, path, method="GET", body=None, timeout=DEFAULT_TIMEOUT):
@@ -222,7 +224,8 @@ def import_one(app, base_url, api_key, item, timeout=DEFAULT_TIMEOUT,
     Returns (OUTCOME, note):
       OUTCOME_OK    -- imported (in safe mode: provably right series)
       OUTCOME_SKIP  -- auto_safe could not prove the series; leave queued
-      OUTCOME_FAIL  -- import could not be done; caller may remove the item
+      OUTCOME_FAIL     -- import could not be done; caller may remove the item
+      OUTCOME_PENDING  -- command is still running; caller must not remove it
     """
     download_id = item.get("downloadId")
     if not download_id:
@@ -259,7 +262,7 @@ def import_one(app, base_url, api_key, item, timeout=DEFAULT_TIMEOUT,
             if st.get("status") == "completed":
                 return OUTCOME_OK, f"command completed {st.get('message') or ''}"
             return OUTCOME_FAIL, f"command failed {st.get('message') or ''}"
-    return OUTCOME_OK, f"command {cid} still running (assumed ok)"
+    return OUTCOME_PENDING, f"command {cid} still running; completion not confirmed"
 
 
 def remove_item(base_url, api_key, item, timeout=DEFAULT_TIMEOUT):
@@ -313,6 +316,10 @@ def drain(app, base_url, api_key, limit, status, apply, auto_safe=False,
             # legitimate but title-variant; leave it for manual review.
             skipped += 1
             print(f"[skipped ] {qid} {title} | {note}")
+            continue
+        if outcome == OUTCOME_PENDING:
+            skipped += 1
+            print(f"[pending ] {qid} {title} | {note}")
             continue
         try:
             remove_item(base_url, api_key, item, timeout)
