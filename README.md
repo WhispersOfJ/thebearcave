@@ -149,6 +149,7 @@ docker compose ps            # all 8 up
 | [Services](docs/services/) | Per-service docs, incl. [ImageMaid maintenance](docs/services/imagemaid.md) and [lifecycle](docs/services/lifecycle.md) (retired + re-adoption) |
 | [Landmines](docs/landmines.md) | Operational gotchas that bite |
 | [Operations](docs/operations/) | Backup/restore, troubleshooting |
+| [Dropbox backup](docs/operations/dropbox-backup.md) | Offsite streaming snapshot of the repo — no media/metadata/secrets, nothing kept on disk |
 
 ## Platform constraints
 

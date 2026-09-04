@@ -69,6 +69,7 @@ jobs:
           python3 scripts/test_search_missing_scoped.py
           python3 scripts/test_arrival_notifier.py
           python3 scripts/test_activity_feed.py
+          python3 scripts/test_backup_dropbox.py
 
       - name: Check Compose environment coverage
         run: |
