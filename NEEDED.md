@@ -22,7 +22,7 @@ diagnosis.
 # Official repos (core/extra)
 sudo pacman -S --needed \
   docker docker-compose docker-buildx \
-  git openssh \
+  git openssh sudo ca-certificates \
   fish python python-requests curl jq sqlite openssl \
   rclone \
   pacman-contrib smartmontools nftables cronie \
@@ -47,7 +47,8 @@ host-tools install, cron/timers).
 | `services/bash-functions/` (operational CLI) | `bash`, `curl`, `python`, `docker`, `jq`, `sqlite` | sourced from `~/.bashrc`; calls host-published APIs, embeds `python3` renderers, reads the Plex DB read-only |
 | `services/bash-functions/waybar/` toggle | `jq` (+ `swaymsg` only if you use the sway/waybar desktop integration) | `stack-tui-toggle.sh` builds JSON with `jq` |
 | `scripts/*.py`, `tests/*` | `python` (stdlib only — see §5) | DB-size gates, maintenance digest, arrival notifier, activity feed, prune/verify scripts |
-| `scripts/setup.sh` secret generation | `openssl` | random secret material |
+| `scripts/setup.sh` secret generation and trust bootstrap | `openssl`, `ca-certificates` | random secret material and the initial public CA bundle |
+| `scripts/setup.sh` external mount preparation | `sudo` | creates `/mnt/remote/nzbdav` when `/mnt` is root-owned |
 | `stack-plex-markers` | `sqlite` CLI | read-only queries against the Plex DB |
 | `rclone obscure` setup step (docs/quick-start) | `rclone` host binary | generating the obscured WebDAV password for `config/nzbdav-rclone/rclone.conf`; also handy to probe the WebDAV remote independently of the container |
 | `scripts/backup_dropbox.py` (docs/operations/dropbox-backup.md) | `python-requests` | streaming single-tar Dropbox snapshot (tar → chunked upload-session API) |
@@ -216,10 +217,11 @@ the Python standard library. So:
 ## 8. Post-install verification
 
 ```bash
-for c in docker fish python3 curl jq sqlite3 rclone openssl git gh smartctl nft paccache; do
+for c in docker fish python3 curl jq sqlite3 rclone openssl git gh smartctl nft paccache sudo; do
   command -v $c >/dev/null && echo "OK   $c" || echo "MISS $c"
 done
 ls -l /dev/fuse && ls /dev/dri          # FUSE + GPU nodes
+# /dev/fuse must exist; a renderD* node is required because Compose maps /dev/dri for Plex
 id -nG | grep -qw docker && echo "docker group OK"
 # inside the checkout:
 docker compose config --quiet && echo "compose OK"
