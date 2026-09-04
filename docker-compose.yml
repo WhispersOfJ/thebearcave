@@ -236,9 +236,12 @@ services:
     # (silently dropping the vfs tuning and the entire `--rc` server block).
     # Keep tuning rationale in YAML comments ABOVE, never inside the command.
     #
-    # vfs-cache-max-size 100G: backing NVMe has ~250G free; the old 50G cap
-    # pinned the cache and evicted boundary files during the 553GiB
-    # library-re-analysis pass.
+    # vfs-cache-max-size 300G: backing NVMe has ~800G free. The cache saturates
+    # at its cap in steady state (99.5GB/100G observed 2026-09-04), evicting
+    # LRU files on every new stream; the earlier 50G cap had pinned the cache
+    # and evicted boundary files during the 553GiB library-re-analysis pass.
+    # min-free-space 10G backstops the raised cap so the cache can never fill
+    # the disk. Cache growth does not touch the memory cap (disk-backed).
     #
     # timeout 40s / contimeout 15s: absorb the 'net/http: timeout awaiting
     # response headers' errors seen when nzbdav is under concurrent
@@ -254,9 +257,9 @@ services:
         --gid=${PGID}
         --allow-other
         --links
-        --use-cookies
         --vfs-cache-mode=full
-        --vfs-cache-max-size=100G
+        --vfs-cache-max-size=300G
+        --vfs-cache-min-free-space=10G
         --vfs-cache-max-age=336h
         --buffer-size=0M
         --vfs-read-chunk-size=32M

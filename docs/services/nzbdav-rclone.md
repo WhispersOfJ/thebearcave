@@ -16,9 +16,10 @@ mount owner for Radarr, Sonarr, Plex, and Unpackerr.
 ## Mount contract
 
 The sidecar mounts `/mnt/remote` as `rshared`, clears stale FUSE state before startup,
-and uses a full VFS cache capped at 50 GiB. The container has a 3 GiB memory
-cap because the active cache workload reached roughly 2 GiB; the cache itself is
-disk-backed. The mount is tuned for a large, mostly immutable media tree: 32 MiB
+and uses a full VFS cache capped at 300 GiB (with a 10 GiB min-free-space guard so it
+can never fill the disk). The container has a 4 GiB memory cap because the in-memory
+VFS metadata cache peaks near the old 3 GiB cap during large library-analysis passes;
+the content cache itself is disk-backed. The mount is tuned for a large, mostly immutable media tree: 32 MiB
 read chunks, 32 MiB read-ahead, fast fingerprints, 30-second attribute caching,
 and a six-hour directory cache.
 Consumers receive
