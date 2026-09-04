@@ -5,8 +5,8 @@ Get The Bear Cave running from zero to streaming with the eight-service stack.
 ## 1. Prerequisites
 
 - Linux host with Docker Engine 24+ and Compose v2 (`docker compose`)
-- `/dev/fuse` available for the rclone sidecar
-- At least one Usenet provider (host, port, username, password)
+- `/dev/fuse` and a `/dev/dri/renderD*` node available for rclone and Plex VAAPI
+- Credentials for the primary, backup, and Eweka Usenet provider slots
 - Optional Intel/AMD GPU exposed as `/dev/dri` for Plex hardware transcoding
 
 Docker Desktop for macOS/Windows is not supported: FUSE and Plex host networking
@@ -22,24 +22,27 @@ nano .env
 ```
 
 Set real values for `HOST_IP`, Plex and *arr API keys, `FRONTEND_BACKEND_API_KEY`,
-WebDAV credentials, `NZBDAV_PROFILE_TOKEN`, and both Usenet provider blocks. The
-backup provider values may be retained as placeholders only if you intentionally
-run a single provider.
+WebDAV credentials, `NZBDAV_PROFILE_TOKEN`, and all three Usenet provider blocks.
+The setup validator rejects `changeme` placeholders because Compose otherwise
+starts services with unusable credentials. The generated rclone config and all
+bind-mount directories are prepared by `scripts/setup.sh`.
 
-The rclone remote in `config/nzbdav-rclone/rclone.conf` must use an rclone-obscured
-password. Generate one with:
-
-```bash
-rclone obscure "your-webdav-password"
-```
+The setup script creates `config/nzbdav-rclone/rclone.conf` with an
+rclone-obscured password derived from `NZBDAV_WEBDAV_PASS`. If you customize
+that file later, use `rclone obscure` and never store the plaintext password.
 
 ## 3. Validate and start
 
 ```bash
-./scripts/setup.sh --validate-only
+./scripts/setup.sh
+docker compose config --quiet
 docker compose up -d
 docker compose ps
 ```
+
+`setup.sh` creates the gitignored service state directories, external FUSE
+mountpoint, public CA trust files, and the private rclone config. It refuses to
+start when Compose credentials are missing or still set to `changeme`.
 
 Startup order is Prowlarr → NzbDAV → rclone FUSE mount → Radarr/Sonarr/Plex/Unpackerr.
 Seerr starts independently and sends requests to Radarr and Sonarr.

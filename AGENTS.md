@@ -208,7 +208,8 @@ Key groups:
 ### Docker Secrets
 
 Sensitive values should be stored in `secrets/` directory (gitignored).
-Run `./scripts/setup.sh` to generate secrets.
+Run `./scripts/setup.sh` to prepare bind-mount directories, initialize public CA trust,
+create the private rclone config, and generate secrets.
 
 ### Platform Constraints
 

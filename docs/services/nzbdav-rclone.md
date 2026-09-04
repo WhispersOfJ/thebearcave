@@ -24,7 +24,9 @@ and a six-hour directory cache.
 Consumers receive
 `/mnt/remote/nzbdav` with `rslave` propagation.
 
-`config/nzbdav-rclone/rclone.conf` must contain:
+`scripts/setup.sh` creates `config/nzbdav-rclone/rclone.conf` from
+`services/nzbdav-rclone/rclone.conf.template` and derives its credentials from
+`.env`. Existing non-placeholder configs are preserved. The file must contain:
 
 ```ini
 [nzbdav]
