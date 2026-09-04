@@ -42,7 +42,7 @@ services:
         exec rclone mount x: /mnt
         --rc
         --rc-addr=:5572
-        --vfs-cache-max-size=100G
+        --vfs-cache-max-size=300G
 """
 
 COMMENT_FIXTURE = """
@@ -53,8 +53,8 @@ services:
       - >
         exec rclone mount x: /mnt
         --rc-addr=:5572
-        # 100G cap rationale written inside the block
-        --vfs-cache-max-size=100G
+        # 300G cap rationale written inside the block
+        --vfs-cache-max-size=300G
 """
 
 MISSING_FLAG_FIXTURE = """
@@ -111,7 +111,7 @@ def main() -> int:
     )
     expect(
         "nzbdav_rclone keeps --vfs-cache-max-size",
-        "--vfs-cache-max-size=100G" in commands.get("nzbdav_rclone", ""),
+        "--vfs-cache-max-size=300G" in commands.get("nzbdav_rclone", ""),
     )
 
     # --- fixtures -------------------------------------------------------

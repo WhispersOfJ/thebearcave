@@ -31,7 +31,7 @@ COMPOSE = ROOT / "docker-compose.yml"
 # loss is silent at container start, so pin them explicitly.
 RCLONE_REQUIRED_FLAGS = (
     "--rc-addr=:5572",
-    "--vfs-cache-max-size=100G",
+    "--vfs-cache-max-size=300G",
 )
 
 
