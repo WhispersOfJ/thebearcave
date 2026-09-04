@@ -184,8 +184,8 @@ the Python standard library. So:
    ```bash
    bash services/host-tools/scripts/install.sh          # symlink fish stack-* CLI
    # add to ~/.bashrc:
-   #   [ -f "$HOME/TheBearCave/services/bash-functions/bearcave-bash.sh" ] && \
-   #       source "$HOME/TheBearCave/services/bash-functions/bearcave-bash.sh"
+   #   [ -f "$HOME/cave/services/bash-functions/bearcave-bash.sh" ] && \
+   #       source "$HOME/cave/services/bash-functions/bearcave-bash.sh"
    ./scripts/install-git-hooks.sh                        # pre-push preflight gate
    ./scripts/install-nightly-reclaim-cron.sh             # 04:00 docker reclaim (needs cronie)
    ```

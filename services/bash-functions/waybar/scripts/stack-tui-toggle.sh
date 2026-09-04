@@ -18,7 +18,7 @@
 #
 # Env overrides:
 #   STACK_TUI_TERM      terminal emulator   (default: alacritty)
-#   STACK_TUI_REPO      repo root           (default: ~/TheBearCave)
+#   STACK_TUI_REPO      repo root           (default: ~/cave)
 #   STACK_TUI_CLASS     Wayland app_id      (default: stack_tui)
 #   STACK_TUI_TITLE     window title        (default: stack-tui)
 #   STACK_TUI_SIZE      WxH in px           (default: 1400x900)
@@ -26,7 +26,7 @@
 
 set -euo pipefail
 
-REPO="${STACK_TUI_REPO:-$HOME/TheBearCave}"
+REPO="${STACK_TUI_REPO:-$HOME/cave}"
 TERM_BIN="${STACK_TUI_TERM:-alacritty}"
 APP_CLASS="${STACK_TUI_CLASS:-stack_tui}"
 APP_TITLE="${STACK_TUI_TITLE:-stack-tui}"

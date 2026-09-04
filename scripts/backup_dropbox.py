@@ -80,7 +80,7 @@ DBX_LIST_FOLDER_URL     = "https://api.dropboxapi.com/2/files/list_folder"
 DBX_DELETE_URL          = "https://api.dropboxapi.com/2/files/delete_v2"
 
 REPO_DEFAULT = Path(__file__).resolve().parent.parent   # repo root
-DEFAULT_DROPBOX_DIR = "/Backups/TheBearCave"
+DEFAULT_DROPBOX_DIR = "/Backups/cave"
 DEFAULT_KEEP = 30
 
 # ─────────────────────────────────────────────────────────────────────────────
