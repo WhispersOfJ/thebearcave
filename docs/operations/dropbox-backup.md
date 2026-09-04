@@ -28,17 +28,20 @@ files on disk (e.g. `dropbox-uploader/`, `bear-i3-config.zip`).
 | Media | Remote-backed / re-indexable; would blow any quota | `./media` |
 | Secrets | Never leave the host | `.env`, `.env.local`, `.env.*.local`, `secrets/`, `docker-compose.override.yml`, `config/nzbdav-rclone/rclone.conf` |
 | Runtime state | Regenerable / git-managed | `data/`, `logs/`, `usenet/`, `backups/`, `.cache/`, `.memsearch/`, `.freebuff/`, `.ruff_cache/`, `.worktrees/`, `tmp/` |
-| Generated metadata inside kept config dirs | Library DB state is the "metadata" you asked to skip; settings ride along | `config/*/*.db*` (+ one level deeper), `config/*/Backups`, `config/*/logs`, `*.log` |
+| Generated metadata inside kept config dirs | Library DB state is the "metadata" you asked to skip; settings ride along | `config/*/*.db*` (+ one level deeper), `config/*/Backups`, `config/*/backup*`, `config/*/restore`, `config/*/logs`, `*.log` (all lifted only by `--include-dbs`) |
+| Regenerable cache / artwork | Poster/cover artwork, crash dumps, caches inside kept config dirs — `config/radarr/MediaCover` alone was 25 GB, `config/sonarr/MediaCover` 2.9 GB | `config/*/MediaCover`, `config/*/Sentry`, `config/*/cache`, `config/*/.cache` — **never** lifted, not even by `--include-dbs` |
 | Code hygiene | — | `__pycache__/`, `*.pyc` |
 
 Kept per-app settings therefore include `config/{radarr,sonarr,prowlarr,
 seerr,bazarr}/*.{xml,ini,json}` — the small files that encode how the stack
-is configured — while the multi-GB sqlite databases, WAL/SHM files, and the
-internal `Backups/` directories of DB copies (observed 2026-09-04:
-`config/radarr` 30 GB, `config/sonarr` 13 GB) stay out.
+is configured — while the sqlite databases, WAL/SHM files, internal
+`Backups/` directories of DB copies, and the poster-artwork trees
+(observed 2026-09-04: `config/radarr` 30 GB of which `MediaCover` alone is
+25 GB, `config/sonarr` 13 GB/2.9 GB) stay out.
 
 If you *do* want the databases shipped, run with `--include-dbs` — it lifts
-only the metadata category; media, secrets, and the huge trees are never
+only the metadata category (DBs + their backup/log dirs); media, secrets,
+the huge trees, and the regenerable artwork/cache category are never
 included regardless. Expect a much larger and slower upload (and check your
 Dropbox quota: those DBs alone exceed the free tier).
 

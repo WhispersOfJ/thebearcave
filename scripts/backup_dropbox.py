@@ -25,8 +25,11 @@ What goes in (by default)
                           config/nzbdav-rclone/rclone.conf (+ its cache/)
     * media               media/
     * generated metadata  *.db, *.db-wal, *.db-shm, logs.db* under the kept
-                          config/*/ dirs, their Backups/ and logs/ dirs, and
-                          *.log anywhere   (lift with --include-dbs)
+                          config/*/ dirs, their Backups/backup*/restore/ and
+                          logs/ dirs, and *.log anywhere   (lift with
+                          --include-dbs)
+    * generated cache     MediaCover artwork, Sentry crash dumps, and cache/
+                          dirs under the kept config/*/ dirs (never lifted)
 
 A snapshot therefore contains the code, docs, compose, workflows, per-app
 *settings* (config/*.json|*.xml), and the git object store — but not the
@@ -116,14 +119,28 @@ EXCLUDE_CATEGORIES: dict[str, list[str]] = {
         "./config/nzbdav-rclone/cache",
     ],
     "media": ["./media"],
-    # Generated metadata inside the *kept* config/<app>/ dirs. Everything in
-    # config/plex|nzbdav is already excluded wholesale by "huge-trees".
+    # Regenerable per-app cache/artwork/crash trees inside the *kept*
+    # config/<app>/ dirs: poster/cover artwork (config/radarr/MediaCover was
+    # 25 GB and config/sonarr/MediaCover 2.9 GB on 2026-09-04), crash dumps,
+    # and cache dirs. Not configuration — NEVER lifted, not even by
+    # --include-dbs (that flag ships databases, not gigabytes of jpgs).
+    "generated-cache": [
+        "./config/*/MediaCover",
+        "./config/*/Sentry",
+        "./config/*/cache",
+        "./config/*/.cache",
+    ],
+    # Generated metadata (sqlite state + its backup/log dirs) inside the
+    # *kept* config/<app>/ dirs. Everything in config/plex|nzbdav is already
+    # excluded wholesale by "huge-trees". Lifted by --include-dbs.
     "metadata": [
         "./config/*/*.db",
         "./config/*/*.db-wal",
         "./config/*/*.db-shm",
         "./config/*/*/*.db",
         "./config/*/Backups",
+        "./config/*/backup*",
+        "./config/*/restore",
         "./config/*/logs",
         "./*.log",
         "./config/*/*.log",

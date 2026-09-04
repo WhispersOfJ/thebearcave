@@ -53,6 +53,13 @@ def _make_fake_checkout(root: Path) -> None:
         "config/radarr/Backups/manual/radarr.db": "big",
         "config/sonarr/sonarr.db": "s",
         "config/bazarr/db/bazarr.db": "b",
+        # regenerable cache/artwork/crash trees (OUT always)
+        "config/radarr/MediaCover/movies/123/fanart.jpg": "art",
+        "config/sonarr/MediaCover/456/poster.jpg": "art",
+        "config/radarr/Sentry/1/crash.dmp": "crash",
+        "config/bazarr/cache/fonts/f.ttf": "font",
+        "config/bazarr/.cache/cache.bin": "c",
+        "config/seerr/cache/img.png": "img",
         # huge trees (OUT)
         "config/plex/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db": "huge",
         "config/plex-transcode/cache.bin": "t",
@@ -158,6 +165,12 @@ class TarPipelineTests(unittest.TestCase):
             "./config/radarr/Backups/manual/radarr.db",
             "./config/sonarr/sonarr.db",
             "./config/bazarr/db/bazarr.db",
+            "./config/radarr/MediaCover/movies/123/fanart.jpg",
+            "./config/sonarr/MediaCover/456/poster.jpg",
+            "./config/radarr/Sentry/1/crash.dmp",
+            "./config/bazarr/cache/fonts/f.ttf",
+            "./config/bazarr/.cache/cache.bin",
+            "./config/seerr/cache/img.png",
         ):
             self.assertNotIn(member, members, f"should be excluded: {member}")
 
@@ -170,12 +183,16 @@ class TarPipelineTests(unittest.TestCase):
         self.assertIn("./config/radarr/radarr.db", members)
         self.assertIn("./config/bazarr/db/bazarr.db", members)
         self.assertIn("./config/radarr/Backups/manual/radarr.db", members)
-        # Still excluded under --include-dbs.
+        # Still excluded under --include-dbs: secrets, media, huge trees,
+        # AND the regenerable artwork/cache category (that flag ships
+        # databases, not gigabytes of posters).
         for member in ("./.env", "./secrets/token.txt",
                        "./config/nzbdav-rclone/rclone.conf",
                        "./media/movies/Movie.mkv",
                        "./config/plex/Plex Media Server/Plug-in Support/"
-                       "Databases/com.plexapp.plugins.library.db"):
+                       "Databases/com.plexapp.plugins.library.db",
+                       "./config/radarr/MediaCover/movies/123/fanart.jpg",
+                       "./config/bazarr/cache/fonts/f.ttf"):
             self.assertNotIn(member, members)
 
 
