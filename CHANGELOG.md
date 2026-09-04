@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.32.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.31.1...v1.32.0) (2026-09-04)
+
+
+### Features
+
+* add recyclarr service for TRaSH-Guides profile sync ([#156](https://github.com/WhispersOfJ/thebearcave/issues/156)) ([d9c30fd](https://github.com/WhispersOfJ/thebearcave/commit/d9c30fd3a960861b4cf68488963d0ee1a78d4562))
+
+
+### Bug Fixes
+
+* consolidate cave-path migration and host-runtime prep ([#159](https://github.com/WhispersOfJ/thebearcave/issues/159)) ([e21c6b9](https://github.com/WhispersOfJ/thebearcave/commit/e21c6b9b8534e4fa2e69ebee6eae98f1e58d6071))
+* move recyclarr off the always-on stack to the manual maintenance profile ([#158](https://github.com/WhispersOfJ/thebearcave/issues/158)) ([9ae58d3](https://github.com/WhispersOfJ/thebearcave/commit/9ae58d3fc3f4812e73a67fd806833542a943dbff))
+* stop comment text truncating the rclone command in compose ([#160](https://github.com/WhispersOfJ/thebearcave/issues/160)) ([f2ea7e3](https://github.com/WhispersOfJ/thebearcave/commit/f2ea7e3de695dee27a610fdf018ca233c2ecc993))
+
 ## [1.31.1](https://github.com/WhispersOfJ/thebearcave/compare/v1.31.0...v1.31.1) (2026-09-04)
 
 
