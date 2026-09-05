@@ -14,8 +14,8 @@ pkill -x waybar && waybar -c ~/.config/waybar/config -s ~/.config/waybar/style.c
 
 `scripts/stack-tui-toggle.sh` toggles the repo's stack-tui
 (`services/bash-functions/scripts/stack-tui`) in a centred floating
-alacritty window on the sway scratchpad; the TUI keeps running while hidden.
-A matching sway binding (`$mod+s`) fires the same script.
+alacritty window in Hyprland's `special:scratchpad`; the TUI keeps running
+while hidden. A matching binding (`$mod+s`) fires the same script.
 
 Subcommands:
 
@@ -28,13 +28,9 @@ Subcommands:
 Env overrides: `STACK_TUI_REPO`, `STACK_TUI_TERM`, `STACK_TUI_CLASS`,
 `STACK_TUI_TITLE`, `STACK_TUI_SIZE`, `STACK_TUI_OPACITY`.
 
-The sway side needs its window rule, tracked here as
-`sway/stack-tui.conf` and pulled into the session config with an `include`:
-
-```bash
-cp sway/stack-tui.conf ~/.config/sway/stack-tui.conf
-swaymsg reload
-```
+The sway-era window rule (`sway/stack-tui.conf`) was removed 2026-09-05:
+the toggle now drives Hyprland's `special:scratchpad` directly (see
+`scripts/stack-tui-toggle.sh`).
 
 ## `custom/idle` — presentation mode
 
