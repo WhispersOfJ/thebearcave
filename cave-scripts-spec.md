@@ -329,6 +329,9 @@ Four big checkpoints, each ending in a demo before the next begins:
   + adopt/convert/skip ledger; move assets (waybar, hypr, themes) + sync
   commands; cutover reference list compiled. Demo: sync round-trip + inventory
   walkthrough.
+  *Progress (2026-09-05): repo created, assets moved to `de/`, registry
+  populated (153 rows), inventory ledger + repoint list on main (PR #176);
+  submodule pin PR #178 and L3 chore PR #177 open — see plan §M1 status.*
 - **M2 — All three shells.** Bash port lands in the new layout under its
   `cave-*` names with the `stack-*` alias layer (D17); zsh and fish ports 1:1
   from the registry; unified dotfiles + installers; offline suites for all
