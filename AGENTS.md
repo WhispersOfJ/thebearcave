@@ -285,12 +285,74 @@ The main checkout remains reference-only and must stay free of task edits.
    (create → edit → push → PR → merge → remove) live in
    [docs/worktree-lifecycle.md](docs/worktree-lifecycle.md).
 
+### Source-Code Questions: grep `~/TRUTH` first — mandatory, effective 2026-09-05
+
+`/home/bear/TRUTH` (outside this repo, do not commit it) holds shallow git
+clones of the **actual upstream application source** for every container in the
+stack — each of the 9 always-on services plus both maintenance-profile services
+(ImageMaid, Recyclarr) — pinned to the exact version each image runs today.
+
+When a question is about *how something in this stack behaves in code* — an API
+endpoint or its parameters, a config/option's meaning, the origin of an error
+string, a CLI flag's semantics, a DB schema field, a request/response shape —
+answer it **first by local `rg`/`grep` over `~/TRUTH`**, never from memory,
+from docs alone, or from a web search of upstream `main` (which may describe a
+version this stack does not run). **It is the truth of all source code
+investigations.**
+
+Rules of the road:
+
+1. **Grep the owning service's tree first.** `rg -n "<pattern>" ~/TRUTH/<dir>/`
+   (add `-i` when unsure of case). Match by symbol/string, then read the hit in
+   context. For cross-cutting behaviour (e.g. how Radarr/Sonarr/Prowlarr each
+   handle a *arr pattern), grep the sibling trees too.
+2. **App source, not packaging.** The `ghcr.io/hotio/*` and similar images are
+   packaging only; their source labels point at Dockerfile repos. `~/TRUTH`
+   holds the application code (Radarr, Sonarr, Prowlarr, Bazarr, …) — the tree
+   you actually want to grep. Do not chase the hotio repo for app behaviour.
+3. **Version skew is the first suspect when a search comes up empty.** Clones
+   are pinned to the *running* versions; a symbol that exists upstream on
+   `main` may legitimately not exist here. Before going to the web, confirm the
+   clone's ref matches the running image (table below; exact refs/commits in
+   `~/TRUTH/README.md`). Only if the code truly is absent at the pinned version
+   is a web/docs consult warranted — and say so in your answer.
+4. **Keep the corpus pinned to the stack.** When `docker-compose.yml` bumps an
+   image version, re-pin that service's clone (tag-matching the running release,
+   e.g. hotio `release-4.0.19.2979` → Sonarr tag `v4.0.19.2979`) and update
+   `~/TRUTH/README.md`. Full history for a repo: `git -C ~/TRUTH/<dir> fetch
+   --unshallow --tags`.
+5. **Scope limit.** Plex's Media Server core is proprietary and has no public
+   source; `~/TRUTH/plex` is only the image wrapper (`plexinc/pms-docker`).
+   Grep it for image/container behaviour, never for PMS internals. InfiniDysk
+   (nzbdav) and ImageMaid run rolling (`dev`/`latest`) images, so their clones
+   track upstream default branches — record image digests from
+   `docker-compose.yml` when they change.
+
+Service → source map (full table incl. refs and commit SHAs:
+`~/TRUTH/README.md`):
+
+| Container / profile service | Grep dir in `~/TRUTH` | What it is |
+|---|---|---|
+| `prowlarr` | `~/TRUTH/prowlarr` | Prowlarr app source @ v2.5.2.5491 |
+| `radarr` | `~/TRUTH/radarr` | Radarr app source @ v6.3.0.10514 |
+| `sonarr` | `~/TRUTH/sonarr` | Sonarr app source @ v4.0.19.2979 |
+| `bazarr` | `~/TRUTH/bazarr` | Bazarr source @ v1.6.0 |
+| `nzbdav` | `~/TRUTH/infinidysk` | InfiniDysk source, `main` (rolling `dev` image) |
+| `nzbdav_rclone` | `~/TRUTH/rclone` | rclone source @ v1.75.0 |
+| `seerr` | `~/TRUTH/seerr` | Seerr source @ v3.4.1 |
+| `plex` | `~/TRUTH/plex` | **Core closed source** — pms-docker wrapper only; PMS 1.43.3.10896-cb3ebc72d |
+| `unpackerr` | `~/TRUTH/unpackerr` | Unpackerr source @ v0.16.1 |
+| `imagemaid` (maintenance) | `~/TRUTH/imagemaid` | ImageMaid source, `master` (rolling `latest` image) |
+| `recyclarr` (maintenance) | `~/TRUTH/recyclarr` | Recyclarr source @ v8.7.2 |
+
 ### Before Making Changes
 
 1. Create the task-named worktree (see Worktree Discipline above)
 2. Read `CLAUDE.md` for work style rules
 3. Check `docker compose ps` for current state
 4. Read `docs/` for service documentation
+5. If the task needs to know how a service behaves in code, grep the pinned
+   upstream source in `~/TRUTH` first (see Source-Code Questions above)
 
 ### After Making Changes
 
