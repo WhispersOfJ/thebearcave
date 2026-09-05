@@ -69,7 +69,7 @@ collisions between the two live `stack-*` trees. Safe to rename both sets to
 - `completions/stack-completions.sh` → generated; regenerate per shell (bash compgen / zsh compdef / fish `complete`)
 - `scripts/gen-bash-completions.sh` → becomes per-shell generators + `--check` gates
 - `scripts/stack-tui/` → ADOPT (moves; waybar/stack-tui launcher)
-- `waybar/{config,style.css,README.md, scripts/{nightlight-status,record-status,stack-tui-toggle}.sh, sway/stack-tui.conf}` → asset move to `de/waybar/` (D14; config already Hyprland-migrated, #172)
+- `waybar/{config,style.css,README.md, scripts/{nightlight-status,record-status,stack-tui-toggle}.sh, sway/stack-tui.conf}` → asset move to `de/waybar/` (D14; config already Hyprland-migrated, #172). `sway/stack-tui.conf` is removed instead of moved — see L3.
 - `__pycache__` → gitignored, not moved
 
 ---
@@ -124,8 +124,9 @@ Functions (23): `stack-aur-audit`, `stack-claude-home`, `stack-cron-list`,
 `stack-pkg-clean-cache`, `stack-pkg-history`, `stack-pkg-orphans`,
 `stack-pkg-update`, `stack-pkg-updates`, `stack-reboot-check`,
 `stack-service-failed`, `stack-ssh-doctor`, `stack-timer-status`,
-`stack-uptime-report`, `stack-zombie-check` → ADOPT → `cave-*` (e.g.
-`cave-pkg-update`, `cave-disk-health`), alias `stack-*` retained.
+`stack-uptime-report`, `stack-zombie-check` → ADOPT → **`cave-sys-*`**
+(e.g. `cave-sys-pkg-update`, `cave-sys-disk-free`), alias `stack-*`
+retained (L2).
 
 Notes: pure-host diagnostics (no API dependency). Mutating members already
 carry guards (`stack-pkg-update --yes`, `stack-pkg-orphans --remove`,
@@ -134,6 +135,12 @@ them `mutating-safe`/`destructive-confirm`. Also ships
 `scripts/{install,uninstall}.sh` → fold into the Cave-Scripts per-shell
 installer (M2); `README.md` + `docs/services/host-tools.md` content moves
 into Cave-Scripts docs.
+
+**Naming (L2):** host diagnostics are renamed **`cave-sys-*`** — e.g.
+`cave-sys-pkg-update`, `cave-sys-disk-free`, `cave-sys-mem-pressure`,
+`cave-sys-service-failed` — not plain `cave-*`, so the host health domain is
+distinct from the media families that map mechanically (`cave-disk-config-sizes`,
+`cave-docker-disk-usage`). `stack-*` aliases retained for all 25.
 
 ---
 
@@ -158,7 +165,7 @@ into Cave-Scripts docs.
 `record-status.sh`, `nightlight-status.sh`, `stack-tui-toggle.sh` (already mirrored in-repo — canonical moves), `weather.sh`, `updates.sh`, `cava-bar.sh`, `gpu-usage.sh` (host-only today; the merged config already execs them — D8 adoption closes the gap). Waybar `config` + `style.css` move as assets (style.css is theme-generated per D14 caveat).
 
 ### D4. Sway remnants (`~/.config/sway/`) — **SKIP-dead**
-Inert post-migration files (`config`, `config.bak-*`, `idle-toggle.sh`, `swayidle.sh`, `stack-tui.conf`, `backup-20260904`). Not part of Cave-Scripts; delete in M4 housekeeping (after `cave-bar-check` guards the live config). Note: the drift checker still tracks `sway/stack-tui.conf` canonical ↔ live copy — rehome decision pending the waybar restructure.
+Inert post-migration files (`config`, `config.bak-*`, `idle-toggle.sh`, `swayidle.sh`, `stack-tui.conf`, `backup-20260904`). Not part of Cave-Scripts; delete in M4 housekeeping (after `cave-bar-check` guards the live config). Exception per **L3**: `stack-tui.conf` (tracked + live) is removed **now** as a standalone chore, and the drift checker's sway support is dropped in the same change.
 
 ---
 
@@ -180,8 +187,8 @@ stays behind the guarded `docker` wrapper across the migration. Cave-Scripts'
 
 ---
 
-## Open items for the registry pass (M1 follow-up)
-1. Confirm per-function arg/flag parity between archive-era fish and bash for the 22 SKIP-superseded + 17 unique entries (verify nothing unique was lost before finalising).
-2. Decide `cave-*` names for the 23 host-tools functions (table C) — e.g. `cave-pkg-*`, `cave-disk-*`, `cave-journal-*`, `cave-service-failed`, `cave-ssh-doctor` — pending no collision with media `cave-*` names (verified disjoint pre-rename).
-3. `sway/stack-tui.conf` canonical handling during the waybar restructure (D4 note).
-4. Whether `copy`/`history` fish conveniences become `dotfiles/` additions under D19.
+## Decision log — open items resolved (2026-09-05)
+1. **L1 — Archive-vs-bash parity:** full line-by-line body diff of every paired archive-fish ↔ bash function during **M2**, before the archive fish tree is finalised as history. Nothing is dropped silently; pairs are checked at port time, not now.
+2. **L2 — Host-tools naming:** the 23 host functions + 2 helpers are renamed **`cave-sys-*`** (e.g. `cave-sys-pkg-update`, `cave-sys-disk-free`, `cave-sys-mem-pressure`) so host health commands are visually distinct from the mechanically-renamed media families (`cave-disk-config-sizes` etc.); `stack-*` aliases retained. See section C.
+3. **L3 — `sway/stack-tui.conf`:** removed **now** as a standalone chore in thebearcave — delete the tracked `services/bash-functions/waybar/sway/stack-tui.conf` + live `~/.config/sway/stack-tui.conf`, drop sway support from `scripts/check_waybar_drift.py` (+ `test_check_waybar_drift.py`), update the waybar README. Tracked-file list in §A3 and §D4 updated accordingly.
+4. **L4 — Fish conveniences:** `copy` (DIR1 DIR2), the timestamped `history` wrapper, and `__history_previous_command*` are **adopted into Cave-Scripts `dotfiles/`** as fish-only conveniences (outside the function registry) when `config.fish` is built in M2 (D19).
