@@ -30,7 +30,7 @@ pre-researched plan for approval — will be built directly from this file.
 
 | # | Question | Decision |
 |---|---|---|
-| D1 | Source inventory | **Everything — full audit.** Bash library + DE/session scripts + retired archived fish + every remaining shell script, audited one by one and classified adopt / convert / skip-with-reason. |
+| D1 | Source inventory | **Everything — full audit.** Bash library + DE/session scripts + retired archived fish + the **live `services/host-tools` fish library (25 functions)** + every remaining shell script, audited one by one and classified adopt / convert / skip-with-reason. |
 | D2 | Port model | **3 hand-maintained ports** (bash, zsh, fish) translated from one canonical spec; no transpilers. |
 | D3 | What moves | **The whole current `services/bash-functions/` dir** — functions, `__*` helpers, loader, completions, and `scripts/` incl. python-backed commands. |
 | D4 | Repo model | **Standalone repo + submodule.** `WhispersOfJ/Cave-Scripts` is its own repo; `thebearcave` pins it as a submodule. |
@@ -45,7 +45,7 @@ pre-researched plan for approval — will be built directly from this file.
 | D13 | Tests & CI home | **Split by kind.** Offline function tests → Cave-Scripts; live/integration tests needing `.env` + running services stay in `thebearcave`. |
 | D14 | Config assets | **Move assets + add sync.** waybar + hypr/theme config assets become the versioned source of truth inside Cave-Scripts, with sync/install commands pushing repo → live and reloading. |
 | D15 | License | **MIT, © 2026 WhispersOfJ** — mirrors thebearcave's LICENSE exactly. |
-| D16 | Submodule mount path | **`services/cave-scripts`, no compatibility shim.** All 85 referencing files repointed in one M4 cutover commit; the old `services/bash-functions` path is deleted. |
+| D16 | Submodule mount path | **`services/cave-scripts`, no compatibility shim.** All 23 referencing files (grep-verified on main, 2026-09-05) repointed in one M4 cutover commit; the old `services/bash-functions` path is deleted. |
 | D17 | Naming | **Full `cave-*` rename** — every function (media, DE, btrfs) becomes `cave-*`; `stack-*` kept only as deprecated aliases for muscle memory; docs/tests/completions follow the new names. |
 | D18 | `auto` theme | **Real theme + from-image regeneration.** `auto` is a matugen/Material-You theme generated from an image; `cave-theme auto-from-image <img>` regenerates it; selectable explicitly but **excluded from `cave-theme cycle`** (cycle = six palettes). |
 | D19 | Fish's role | **Make fish the default interactive/login shell.** fish gets full dotfiles; `chsh` lands as an explicit, reversible step at the end of M4; bash and zsh remain installed and fully working. |
@@ -88,19 +88,20 @@ pre-researched plan for approval — will be built directly from this file.
 
 ### 4.3 Retired / archived fish (context for the full audit)
 - Fish library was **retired** in favour of bash (docs/services/FISH.md): parallel fish doubled API/endpoint drift surface. Retirement is reversible from git history.
-- `archive/media-stack/` still holds **117 `.fish` files** (functions + scripts era tree). The M1 audit classifies each: re-adopt, superseded-by-bash, or dead.
+- `archive/media-stack/` still holds **117 `.fish` files** (62 functions + 55 completions). The M1 audit classifies each: re-adopt, superseded-by-bash, or dead.
+- **`services/host-tools/` is a *live*, fish-only library** the audit must also cover: 25 `.fish` files — 23 `stack-*` host functions (pkg/journal/firewall/disk/mem/service/timer/cron/ssh/kernel/aur/flatpak/uptime/git/claude-home…) plus `__host_*` helpers — with `scripts/{install,uninstall}.sh` and `docs/services/host-tools.md`. No bash/zsh ports exist. In scope for the M1 audit and the three-shell ports (D1, D19). Repo-wide `.fish` total: **142**.
 
 ### 4.4 Recent DE work (2026-09-05, Hyprland switchover) — inventory to turn into functions
 - `~/.config/hypr/`: `hyprland.conf`, `hyprlock.conf`, `hypridle.conf`, `hyprpaper.conf`, `README.md`, `.current-theme`, **`themes/` with 7 themes** (`auto`, `catppuccin-mocha`, `dracula`, `gruvbox`, `nord`, `rose-pine`, `tokyonight`), **`scripts/`**: `build-themes.sh`, `render-theme.sh`, `hyprtheme`, `idle-toggle.sh`, `gammastep-toggle.sh`, `recorder-toggle.sh`, `power.sh`, `cliphist-pick.sh`.
 - The `auto` theme is **not time-based**: it is a matugen/Material-You palette generated from an arbitrary image (`hyprtheme auto <image>` regenerates it) — D18 treats it as a real, explicitly-selectable theme (excluded from cycling).
 - **hypr configs appear unversioned** (no git worktree at `~/.config`) — moving them into Cave-Scripts versions them for the first time.
 - Waybar live scripts at `~/.config/waybar/scripts/`: `weather.sh`, `updates.sh`, `cava-bar.sh`, `gpu-usage.sh`, `stack-tui-toggle.sh`, `record-status.sh`, `nightlight-status.sh`. The repo's `services/bash-functions/waybar/` only mirrors config/style/README + record/nightlight/stack-tui — **weather/updates/cava/gpu-usage live only on the host today**.
-- **Stale sway wiring still in the waybar config** (repo copy): 10 `sway/*` module refs (workspaces/scratchpad/window) and 4 `on-click` paths pointing at `~/.config/sway/*.sh` (idle-toggle, recorder-toggle, gammastep-toggle, power) that now exist under `~/.config/hypr/scripts/`. Part of M3's bar work: re-point to hyprland modules + new script homes.
+- **Waybar config already migrated (#172, 2026-09-05):** the live→repo sync replaced the sway-era wiring — the tracked config now uses `hyprland/workspaces`/`hyprland/window`, adds cpu/memory/gpu/weather/cava modules, and toggle paths point at `~/.config/hypr/scripts/`; **zero `sway/` references remain**. The bar config's custom modules exec the 4 host-only live scripts (`gpu-usage.sh`, `weather.sh`, `cava-bar.sh`, `updates.sh` under `~/.config/waybar/scripts/`) that are still unversioned. M3 work: `cave-bar-check` guard against sway refs returning, adopt the host-only scripts, rehome under Cave-Scripts `de/`.
 - Installed binaries (all present): hyprctl, hyprlock, hypridle, hyprpaper, waybar, wf-recorder, cliphist, gammastep, rofi, wofi, swaync, playerctl, pactl, powerprofilesctl, pavucontrol, bluetoothctl. Absent: mako, hyprswitch, swww (not needed).
 - Toggle scripts are wf-recorder / gammastep / swayidle-era (idle) / theme-cycle / power-menu semantics — the plan maps each to a family in §6.
 
 ### 4.5 Wiring that references `services/bash-functions` (must be repointed at Cave-Scripts on cutover)
-**85 files** across md/sh/yml/py reference the path; there will be **no compatibility shim** after cutover (D16), so the repoint list must be exhaustive.
+**23 files** across md/sh/yml/py reference the path (grep-verified on main 2026-09-05 — the earlier 85-count included `.worktrees/` checkouts of the same files); there will be **no compatibility shim** after cutover (D16), so the repoint list must be exhaustive and M1 re-derives it mechanically.
 - `~/.bashrc` loader snippet (documented in `docs/services/bash-functions.md`) → path changes to the Cave-Scripts checkout/submodule location.
 - `tests/bash/test_bash_functions.sh` (offline tier + live tier split per D13), `gen-bash-completions.sh --check`, `bash -n services/bash-functions/functions/*.sh` gates.
 - Docs: `docs/services/bash-functions.md`, `docs/services/FISH.md`, `AGENTS.md` (bash-functions references, waybar pointer, validation steps), `CLAUDE.md`-adjacent workflow notes, `docs/API.md` call-surface notes, waybar README sync flow.
@@ -189,9 +190,12 @@ All 105 functions (renamed per D17, e.g. `stack-arr-backlog` → `cave-arr-backl
 across core, arr (backlog/blocklist/missing/cutoff/import/logs/queue), disk,
 lists, loop-ratings, maintenance, misc, arrivals, watchable, nzbdav,
 plex-core/extra/markers/updates, queue — plus `__*_api` helpers and `fmt_*`.
-The `stack-*` alias layer wraps every renamed command in all three shells.
-Ported file-for-file from the M1 inventory; every behaviour change lands in
-the registry first.
+The `stack-*` alias layer wraps every renamed command in all three shells.Ported
+file-for-file from the M1 inventory; every behaviour change lands in
+the registry first. The **live `services/host-tools` fish set** (23
+`stack-*` host functions + `__host_*` helpers) is audited and ported the
+same way — renamed `cave-*` (e.g. `cave-pkg-update`) with `stack-*` aliases
+where not superseded by an existing function.
 
 ### 6.2 Desktop / Hyprland switchover (new — all three shells)
 1. **Session control** (`hyprctl`-backed, read-only + dispatch): workspace list/switch/next/prev, active window info, monitor list + layout, `hyprctl version/info`, binds/errors status; mirrors hyprland.conf hotkey set.
@@ -199,7 +203,7 @@ the registry first.
 3. **Themes & nightlight**: theme list/get/set across the six palettes plus `auto`; `cave-theme cycle` rotates the **six palettes only**; `cave-theme auto-from-image <img>` regenerates the matugen `auto` theme and applies it; `cave-theme current` reads `.current-theme` (all D18). Converts `hyprtheme` + build/render-theme flows; `gammastep-toggle.sh state|toggle` → `cave-nightlight`; waybar style rebuild + reload after every theme change.
 4. **Recorder, clipboard, media**: `wf-recorder` start/stop/status + elapsed (converts `recorder-toggle.sh` + `record-status.sh`), `cliphist` pick (converts `cliphist-pick.sh`), volume/mute + default-sink/source via pactl, media via playerctl.
 5. **Power & bar**: power menu action helper (lock/logout/suspend/reboot/shutdown — each its own guarded function; converts `power.sh`), waybar restart/reload/toggle-module/signal, stack-tui launcher state/toggle/opacity (existing script → function), swaync control, systemd-failed-units status.
-6. **De-staling**: migrate the 10 `sway/*` waybar module refs → hyprland equivalents and the 4 `~/.config/sway/…` on-click paths → Cave-Scripts script homes; `cave-bar-check` fails on any stale `sway/` reference.
+6. **De-stale guard + script adoption**: the sway→hyprland module/path migration already landed on main (#172). Remaining: `cave-bar-check` (fails on any `sway/` reference or stale `~/.config/sway/…` path returning), adopt the 4 host-only live bar scripts (`weather.sh`, `updates.sh`, `cava-bar.sh`, `gpu-usage.sh`) into `de/waybar/scripts/`, and point custom-module exec paths at Cave-Scripts homes.
 
 ### 6.3 Live waybar status scripts (convert to Cave-Scripts-managed assets)
 `record-status.sh`, `nightlight-status.sh` (already in repo), `weather.sh`,
@@ -304,7 +308,7 @@ must not exist in the public Cave-Scripts repo.
   pins the latest Cave-Scripts release tag and bumps via PR when a new tag
   ships — never direct commits.
 - **Cutover ordering** (guards a broken operational surface): Cave-Scripts
-  populated and demoed from its own checkout → submodule added → all **85**
+  populated and demoed from its own checkout → submodule added → all **23**
   `thebearcave` references updated in one commit (loader snippet, tests split,
   docs, CI, cron/timer installers, residue audit, `cave-*` naming) →
   `services/bash-functions/` removed (no shim — D16) → shell dotfiles
@@ -320,8 +324,8 @@ Four big checkpoints, each ending in a demo before the next begins:
 
 - **M1 — Repo, inventory, and asset move.** Create public Cave-Scripts (with
   release-please tagging per D25) + submodule; full audit of every
-  function/script (bash live, archive fish 117
-  files, DE host scripts, host-only waybar scripts, dotfiles) → registry draft
+  function/script (bash live 105, archived fish 117, live host-tools fish 25,
+  DE host scripts, host-only waybar scripts, dotfiles) → registry draft
   + adopt/convert/skip ledger; move assets (waybar, hypr, themes) + sync
   commands; cutover reference list compiled. Demo: sync round-trip + inventory
   walkthrough.
@@ -331,10 +335,11 @@ Four big checkpoints, each ending in a demo before the next begins:
   three shells green; completions parity. Demo: same command run in three
   shells, byte-identical output.
 - **M3 — DE + btrfs families.** §6.2–6.4 functions in all three shells;
-  waybar de-stale + live status scripts adopted; btrfs guarded families live;
-  read-only live matrix run against the real stack (per shell) at the demo.
+  host-only bar scripts adopted + sway de-stale guard live; btrfs guarded
+  families live; read-only live matrix run against the real stack (per shell)
+  at the demo.
 - **M4 — Hardening, cutover, docs.** Reference repointing commit in
-  `thebearcave` (all 85 files), `services/bash-functions/` removal (no shim),
+  `thebearcave` (all 23 files), `services/bash-functions/` removal (no shim),
   dotfiles installer + `chsh` to fish (D19), cron/timer repoint,
   residue-audit update, docs (bash-functions.md/FISH.md/AGENTS.md/API.md),
   Cave-Scripts CI, final end-to-end live smoke; cleanup of worktrees.
@@ -342,7 +347,7 @@ Four big checkpoints, each ending in a demo before the next begins:
 ## 12. Decision log
 
 All previously-open items resolved 2026-09-05 and recorded in §2 as
-D15–D25: license MIT (D15); submodule `services/cave-scripts`, no shim, 85
+D15–D25: license MIT (D15); submodule `services/cave-scripts`, no shim, 23
 refs repointed (D16); full `cave-*` rename (D17); `auto` = matugen theme,
 excluded from cycling (D18); fish becomes the default shell at end of M4
 (D19); snapper `home` config for `@home` (D20); **`stack-*` aliases
@@ -376,6 +381,7 @@ M3 demo after observing space use on @home.
 ## Appendix A — counts at spec time
 - bash: 105 `stack-*` functions, 18 `functions/` files, generated completions, `scripts/` incl. python-backed commands + installers; waybar dir with 2 status scripts + toggle.
 - fish (retired, in archive): 117 `.fish` files → audit in M1.
+- fish (live): 25 `.fish` host functions under `services/host-tools/functions` (23 `stack-*` + 2 `__host_*`) + `scripts/{install,uninstall}.sh` → audit + port in M1/M2. Repo-wide `.fish` total: 142.
 - zsh/fish ports: 0 today (new work).
-- DE: 8 hypr scripts, 7 themes, 7 live waybar scripts (3 mirrored in repo, 4 host-only), 10 stale `sway/` refs + 4 stale on-click paths in the waybar config.
+- DE: 8 hypr scripts, 7 themes, 7 live waybar scripts (3 mirrored in repo, 4 host-only: weather/updates/cava-bar/gpu-usage — wired into the bar config but unversioned). Sway-era waybar wiring already migrated on main (#172): zero `sway/` references remain in the tracked config.
 - Wiring to repoint on cutover: `~/.bashrc` snippet, CI workflows, `tests/bash/`, docs (`bash-functions.md`, `FISH.md`, `AGENTS.md`, `API.md`), cron/timer installers, residue audit, waybar README.

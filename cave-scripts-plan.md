@@ -103,6 +103,9 @@ time (D14).
      `nzbdav-safe-recreate.sh`, `stack-tui`), and the `waybar/` dir;
    - archive fish: 117 `.fish` files under `archive/media-stack/` → classify
      re-adopt / superseded-by-bash / dead (expected: mostly superseded);
+   - live host-tools fish: 25 `.fish` under `services/host-tools/functions`
+     (23 `stack-*` host functions + `__host_*` helpers) +
+     `scripts/{install,uninstall}.sh` → classify + port;
    - DE host surface: 8 scripts under `~/.config/hypr/scripts/`, 7 themes
      under `~/.config/hypr/themes/`, 7 live waybar scripts under
      `~/.config/waybar/scripts/` (3 already mirrored in-repo, 4 host-only:
@@ -113,7 +116,8 @@ time (D14).
      `.github/workflows` run-blocks are out of scope unless function-relevant).
    Ledger = the seed for `spec/functions.yaml` (name, args, flags, output
    contract, timeout class, safety class).
-5. **Compile the repoint reference list**: all **85 files** referencing
+5. **Compile the repoint reference list**: all **23 files** (grep-verified)
+   referencing
    `services/bash-functions` (md/sh/yml/py) captured by path + reason —
    categories: loader docs, CI (`validate.yml` + friends), `tests/bash/`,
    docs (`docs/services/bash-functions.md`, `FISH.md`, `AGENTS.md`,
@@ -131,7 +135,7 @@ time (D14).
    reload), `--check` drift mode.
 
 **Deliverables:** public repo + submodule pin PR; `inventory.md` ledger with
-adopt/convert/skip rows; frozen 85-file repoint list; `de/` tree with sync
+adopt/convert/skip rows; frozen 23-file repoint list; `de/` tree with sync
 working; registry seed.
 
 **Demo 1:** sync round-trip (edit repo asset → `cave-sync` → live bar/session
@@ -198,8 +202,8 @@ all three; alias call (`stack-arr-backlog` ≡ `cave-arr-backlog`).
 
 **Purpose:** add the desktop (Hyprland switchover) and btrfs function
 families in all three shells (§6.2–6.4 of spec), adopt the live bar scripts,
-fix the stale sway wiring, and run the read-only live matrix against the real
-stack.
+add the sway de-stale guard, and run the read-only live matrix against the
+real stack.
 
 **Tasks**
 1. **DE function families** (all three shells, D7, §6.2 of spec):
@@ -207,8 +211,9 @@ stack.
      next/prev, active window, monitors, version/info, binds/errors.
    - *Lock & idle* (`cave-lock`, `cave-idle-toggle state|toggle|reload`):
      hyprlock + hypridle presentation-mode control (converts
-     `~/.config/hypr/scripts/idle-toggle.sh`; note waybar config still points
-     `custom/idle` at the dead `~/.config/sway/idle-toggle.sh` — repoint).
+     `~/.config/hypr/scripts/idle-toggle.sh`; the merged waybar config no
+     longer references sway paths (#172) — repoint any remaining custom-module
+     exec at Cave-Scripts homes).
    - *Themes & nightlight* (`cave-theme list|current|set|cycle`,
      `cave-theme auto-from-image <img>`, `cave-nightlight state|toggle`):
      converts `hyprtheme`, `build-themes.sh`, `render-theme.sh`,
@@ -222,12 +227,12 @@ stack.
      `cave-bar restart|reload|toggle-module|signal`, `cave-stack-tui …`,
      `cave-notify`): converts `power.sh` and `stack-tui-toggle.sh`; swaync
      control; systemd-failed-units status.
-2. **Bar + de-stale** (D8): convert/adopt the live status scripts
+2. **Bar + de-stale guard** (D8): convert/adopt the live status scripts
    (record/nightlight already mirrored; adopt weather, updates, cava-bar,
-   gpu-usage into `de/waybar/scripts/`); replace the **10 `sway/*` module
-   refs** and **4 `~/.config/sway/*.sh` on-click paths** in the waybar config
-   with hyprland modules + Cave-Scripts homes; `cave-bar-check` fails on any
-   stale `sway/` reference.
+   gpu-usage into `de/waybar/scripts/` — the merged config already execs
+   them from `~/.config/waybar/scripts/`); the sway→hyprland module/path
+   migration is done (#172), so the remaining work is `cave-bar-check`
+   (fails if any `sway/` reference or `~/.config/sway/…` path returns).
 3. **btrfs families** (§6.4, §7 of spec, all three shells):
    - *Info/read-only*: `cave-btrfs-usage`, `-subvolumes`, `-device-stats`,
      `-scrub-status`, `-balance-status`, `-qgroup`.
@@ -251,8 +256,7 @@ stack.
    hyprctl info, disk/usage). Mutating functions are listed with exclusion
    reasons. Runs at this demo and Demo 4.
 
-**Deliverables:** DE + btrfs + backup families in three shells; waybar config
-de-staled and synced live; snapper `home` timeline live (after your go);
+**Deliverables:** DE + btrfs + backup families in three shells;waybar host-only scripts adopted + sway de-stale guard live; snapper `home` timeline live (after your go);
 live-matrix harness + safe-command registry.
 
 **Demo 3:** theme switch + record toggle + idle toggle through the new
@@ -266,7 +270,7 @@ timeline first snapshot verified; live matrix run per shell; full
 
 ### M4 — Hardening, cutover, docs
 
-**Purpose:** the one milestone that changes live wiring — repoint all 85
+**Purpose:** the one milestone that changes live wiring — repoint all 23
 references, remove the old tree (no shim, D16), switch the login shell to
 fish (D19), finish docs/CI, and run the final end-to-end smoke.
 
@@ -355,10 +359,10 @@ disable timer; submodule removal = delete the gitlink line in a PR.
 
 | Milestone | Main artifacts | Rough scale |
 |---|---|---|
-| M1 | repo + submodule + inventory + assets | 117 archive fish + 105 bash fns audited; 85 refs listed; 2 asset trees moved |
+| M1 | repo + submodule + inventory + assets | 117 archived + 25 live host-tools fish + 105 bash fns audited; 23 refs listed; 2 asset trees moved |
 | M2 | 3 ports + alias layer + dotfiles + tests | ~105 functions × (rename + 2 new ports) + ~6 suites |
-| M3 | DE + btrfs + backup families | ~40–60 new functions × 3 shells; waybar de-stale; snapper config |
-| M4 | cutover + docs + CI | 1 big PR; 85 refs; 2 repos' docs/CI |
+| M3 | DE + btrfs + backup families | ~40–60 new functions × 3 shells; host-only scripts + de-stale guard; snapper config |
+| M4 | cutover + docs + CI | 1 big PR; 23 refs; 2 repos' docs/CI |
 
 Timing is deliberately not promised in days; each milestone is demo-sized and
 the effort scales with review quality, not calendar.
