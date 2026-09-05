@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.34.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.33.0...v1.34.0) (2026-09-05)
+
+
+### Features
+
+* add nzbdav backend wedge watchdog (probe, queue-safe restart, Discord alerts) ([0ca1aa2](https://github.com/WhispersOfJ/thebearcave/commit/0ca1aa208939596b53281bfb25a307170ff28386))
+
 ## [1.33.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.32.0...v1.33.0) (2026-09-04)
 
 
