@@ -78,6 +78,28 @@ python3 scripts/check_nzbdav_queue.py --api-key "$KEY"
 Use `scripts/update-nzbdav.sh` for updates. `--force` is only for knowingly accepting
 queued-NZB loss.
 
+## Backend wedge watchdog
+
+Landmine #13: the `:3000` frontend can stay healthy while the internal backend on
+`:8080` dies — Docker marks the container `unhealthy`, but `restart:
+unless-stopped` only fires on *exit*, so nothing acts on it (2026-09-05: backend
+process alive with zero open sockets for hours).
+
+`scripts/watch_nzbdav_backend.py` is the actor. It probes the wedge signature
+from the host — frontend `/healthz` up + queue API returning 502 — then restarts
+the container *queue-safely* (restart, not recreate: `/config/db.sqlite`
+survives, queued NZBs are preserved) and pings Discord on detection and
+recovery. A crash-loop guard (≥3 restarts in 30 min) stops auto-restarting and
+escalates instead of thrashing a bad `:dev` build.
+
+```bash
+python3 scripts/watch_nzbdav_backend.py --check   # probe only: 0 healthy / 3 wedged / 4 frontend-down
+```
+
+Installed as a user timer (`stack-nzbdav-watch`, every minute); install recipe is
+in the script's header, mirroring `stack-arrival-notify`. `DISCORD_WEBHOOK_URL`
+unset → detection/restart still happens, alerts are skipped.
+
 ## Troubleshooting
 
 ```bash
