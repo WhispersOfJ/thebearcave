@@ -2,12 +2,16 @@
 # stack-tui-toggle.sh — waybar custom-module backend for the repo's stack-tui.
 #
 # Click   → toggle the stack-tui TUI (services/bash-functions/scripts/stack-tui)
-#           in a centred floating window. Opening does the sway dance:
-#           launch → floating enable → resize → move position center →
-#           move scratchpad → scratchpad show. A second click tucks it back
-#           into the scratchpad; the TUI process keeps running, so re-opening
-#           is instant and the output pane keeps its history. q/esc inside
-#           the TUI quits the terminal window entirely.
+#           in a centred floating window: launch → float → resize → center.
+#           A second click tucks it into Hyprland's `special:scratchpad`
+#           workspace (hidden on every monitor, not just the current one);
+#           the TUI process keeps running, so re-opening is instant and the
+#           output pane keeps its history. q/esc inside the TUI quits the
+#           terminal window entirely.
+#           Window tracking is done via `hyprctl clients -j` matched on
+#           class, not sway's `swaymsg`/scratchpad-container model — see
+#           HYPR.md section 6 for why this needed rewriting after the
+#           sway→Hyprland migration.
 # State   → prints waybar JSON {text,class,tooltip} so style.css drives the
 #           look via #custom-stack (state by opacity, not extra colours).
 #           Tooltip shows the stack-function count and what is running.
@@ -35,23 +39,30 @@ OPACITY="${STACK_TUI_OPACITY:-0.85}"
 
 TUI="$REPO/services/bash-functions/scripts/stack-tui"
 GLYPH="󰆍"
+SEL="class:^(${APP_CLASS})\$" # hyprctl window selector for our terminal
 
 emit() { # emit <class> <tooltip>  — jq builds the JSON, no escaping pitfalls
     jq -nc --arg text "$GLYPH" --arg class "$1" --arg tooltip "$2" \
         '{text: $text, class: $class, tooltip: $tooltip}'
 }
 
-# Number of stack_tui windows currently parked in the scratchpad (hidden).
-hidden_count() {
-    swaymsg -t get_tree 2>/dev/null | jq -r '
-        [.. | objects | select(.name? == "__i3_scratch")
-         | .. | objects | select(.app_id? == "stack_tui")] | length'
+# All mapped windows matching our class, as a JSON array (one hyprctl call,
+# reused by total_count/hidden_count so a single toggle/state run doesn't
+# shell out to hyprctl twice).
+stack_windows_json() {
+    hyprctl -j clients | jq --arg cls "$APP_CLASS" '[.[] | select(.class == $cls)]'
 }
 
-# Total number of stack_tui windows anywhere in the tree.
+# Total number of stack_tui windows anywhere.
 total_count() {
-    swaymsg -t get_tree 2>/dev/null | \
-        jq -r '[.. | objects | select(.app_id? == "stack_tui")] | length'
+    stack_windows_json | jq 'length'
+}
+
+# Number of stack_tui windows currently parked in special:scratchpad (hidden
+# on every monitor regardless of whether that special workspace is toggled
+# visible — see toggle()/launch() below).
+hidden_count() {
+    stack_windows_json | jq '[.[] | select(.workspace.name == "special:scratchpad")] | length'
 }
 
 window_open()    { [ "$(total_count)" -gt 0 ]; }
@@ -112,7 +123,7 @@ launch() {
         -o "window.opacity=$OPACITY" \
         -e "$TUI" >>"$log" 2>&1 &
     disown
-    # Give the window a beat to map before applying the sway rules.
+    # Give the window a beat to map before floating/sizing/centering it.
     local mapped=0
     for _ in 1 2 3 4 5 6 7 8 9 10; do
         if window_open; then mapped=1; break; fi
@@ -125,22 +136,27 @@ launch() {
             "terminal failed to map — see $log" 2>/dev/null || true
         return 1
     fi
-    # Float it, size it, centre it, then tuck it into the scratchpad and
-    # immediately show it — a second click therefore just hides it again.
-    # sway parses "resize set width W height H" (i3's WxH shorthand fails).
+    # Float it, focus it, size it, then centre the (now-focused) window.
+    # hyprland.conf also floats class stack_tui via windowrule, but set it
+    # explicitly here too so this script doesn't silently depend on that
+    # rule existing elsewhere.
     local w h
     w="${SIZE%x*}"; h="${SIZE#*x}"
-    swaymsg "[app_id=\"$APP_CLASS\"] floating enable, resize set width $w height $h, \
-        move position center, move scratchpad, scratchpad show" >/dev/null 2>&1 || true
+    hyprctl --batch "dispatch setfloating $SEL ; dispatch focuswindow $SEL ; \
+        dispatch resizewindowpixel exact $w $h,$SEL ; dispatch centerwindow" >/dev/null 2>&1 || true
 }
 
 toggle() {
     if window_visible; then
-        # Visible → hide into the scratchpad.
-        swaymsg "[app_id=\"$APP_CLASS\"] move scratchpad" >/dev/null 2>&1 || true
+        # Visible → tuck it into special:scratchpad (hidden on every
+        # monitor; movetoworkspacesilent doesn't switch the active workspace).
+        hyprctl dispatch movetoworkspacesilent "special:scratchpad,$SEL" >/dev/null 2>&1 || true
     elif window_open; then
-        # Hidden in scratchpad → show on the current workspace.
-        swaymsg "[app_id=\"$APP_CLASS\"] scratchpad show" >/dev/null 2>&1 || true
+        # Hidden → bring it back to whatever workspace is active now, and
+        # focus it (it doesn't grab focus on its own after the move).
+        local cur_ws
+        cur_ws="$(hyprctl -j activeworkspace | jq -r '.id')"
+        hyprctl --batch "dispatch movetoworkspacesilent $cur_ws,$SEL ; dispatch focuswindow $SEL" >/dev/null 2>&1 || true
     else
         launch
     fi
