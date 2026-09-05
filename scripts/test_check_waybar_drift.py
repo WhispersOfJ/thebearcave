@@ -58,7 +58,6 @@ CANON = {
     "config": b"{}\n",
     "style.css": b"* {}\n",
     "scripts/stack-tui-toggle.sh": b"#!/usr/bin/env bash\n",
-    "sway/stack-tui.conf": b"for_window [app_id=\"stack_tui\"] floating enable\n",
 }
 
 # --- clean tree: every class reports no drift ------------------------------
@@ -88,7 +87,7 @@ pairs["scripts/stack-tui-toggle.sh"] = (None, CANON["scripts/stack-tui-toggle.sh
 expect("canonical missing", mod.find_drift(pairs),
        [{"file": "scripts/stack-tui-toggle.sh", "kind": "canonical-missing"}])
 
-# --- layout: scripts/ keep their subdirectory, sway/ map into ~/.config/sway
+# --- layout: scripts/ keep their subdirectory; sway-era rules are untracked
 
 with tempfile.TemporaryDirectory() as home_str, tempfile.TemporaryDirectory() as can_str:
     home = Path(home_str)
@@ -106,9 +105,11 @@ with tempfile.TemporaryDirectory() as home_str, tempfile.TemporaryDirectory() as
     expect("live target for script",
            str(mod.live_target("scripts/stack-tui-toggle.sh", home)),
            str(home / ".config/waybar/scripts/stack-tui-toggle.sh"))
-    expect("live target for sway rule",
-           str(mod.live_target("sway/stack-tui.conf", home)),
-           str(home / ".config/sway/stack-tui.conf"))
+    # Regression: sway-era rules must not be tracked or mapped anymore.
+    sway_dir = canonical / "sway"
+    sway_dir.mkdir(parents=True, exist_ok=True)
+    (sway_dir / "stack-tui.conf").write_bytes(b"for_window ...\n")
+    expect("sway rules untracked", "sway/stack-tui.conf" in mod.tracked_files(canonical), False)
 
     drift = mod.find_drift(mod.collect_pairs(canonical, home))
     expect("clean collect_pairs", drift, [])
