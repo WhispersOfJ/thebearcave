@@ -143,6 +143,50 @@ reflects it) + walkthrough of the inventory ledger and repoint list.
 
 **Exit gate:** you approve the ledger + repoint list → M2 may start.
 
+#### M1 execution status (2026-09-05)
+
+Progress recorded as of 2026-09-05; task numbers refer to the list above.
+
+**Done**
+- **Task 1 — remote repo created:** `WhispersOfJ/Cave-Scripts` is public with
+  MIT LICENSE © 2026 WhispersOfJ, README, `.gitignore`, `.env.template`, and
+  the `spec/` scaffold (commit `4ee193e`).
+- **Task 2 — release-please:** config + workflow mirrored; commits tagged
+  `feat: populate spec/functions.yaml registry…` (`f35a1f4`) already flow
+  through it; `RELEASE_PLEASE_TOKEN` secret set on the repo.
+- **Task 4 — inventory audit:** landed as `cave-scripts-inventory.md` on
+  thebearcave main via PR #176 (ledger: 105 bash adopt, 25 live host-tools
+  fish adopt → `cave-sys-*`, archive fish 62 reconciled 23+22+17, DE surface
+  catalogued; decisions L1–L4 recorded). The earlier "117 archive fish" and
+  "105 bash" counts in this plan are superseded by that ledger's exact
+  reconciliation (62 files = 23 dup-of-host-tools + 22 legacy-of-bash + 17
+  unique).
+- **Task 5 — repoint reference list:** the 23-file list is captured in the
+  inventory ledger (spec/plan §4.5/§10 figures corrected by PR #175).
+- **Task 6 — asset move:** DE assets are versioned in Cave-Scripts under
+  `de/` for the first time — `de/hypr/` (hyprland/hyprlock/hypridle/hyprpaper
+  confs, 8 scripts, 7 themes incl. `auto`), `de/waybar/` (config, style.css,
+  README, 7 scripts incl. the 4 host-only weather/updates/cava-bar/gpu-usage),
+  `de/sync/` (commit `c197939`).
+- **Task 7 — `cave-sync` skeleton:** `de/sync/cave-sync.sh` shipped with the
+  asset move (waybar|hypr|all, `--check`), shellcheck-clean.
+- **Registry seed → populated:** `spec/functions.yaml` now carries all **153
+  commands** (105 media `cave-*`, 23 host `cave-sys-*`, 13 de, 1 backup, 11
+  btrfs) with family / safety / timeout / args / output-contract fields, plus
+  the helper inventory. Verified 1:1 against live sources: 105/105 bash
+  `stack-*` defs and 23/23 host-tools map to registry rows with no orphans
+  (commit `f35a1f4`).
+
+**In flight**
+- **Task 3 — submodule pin:** PR #178 (`build: pin Cave-Scripts as a
+  submodule at services/cave-scripts`) is open in thebearcave, awaiting
+  review/merge.
+- **L3 chore (from the ledger):** PR #177 drops the sway-era
+  `sway/stack-tui.conf` + its drift tracking; open alongside #178.
+
+**Remaining before Demo 1:** merge #177 + #178, then run the sync round-trip
+(live bar/session reflect a repo-side edit via `cave-sync`).
+
 ---
 
 ### M2 — All three shells
