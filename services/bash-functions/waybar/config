@@ -9,18 +9,24 @@
     "margin-left": 6,
     "margin-right": 6,
 
-    "modules-left": ["sway/workspaces", "sway/scratchpad"],
-    "modules-center": ["sway/window"],
+    "modules-left": ["hyprland/workspaces"],
+    "modules-center": ["hyprland/window"],
     "modules-right": [
         "privacy",
         "temperature#cpu",
+        "cpu",
         "temperature#gpu",
+        "custom/gpu",
+        "memory",
+        "custom/weather",
         "network",
         "mpris",
+        "custom/cava",
         "pulseaudio",
         "pulseaudio#mic",
         "bluetooth",
         "power-profiles-daemon",
+        "custom/updates",
         "systemd-failed-units",
         "custom/record",
         "custom/nightlight",
@@ -32,27 +38,21 @@
     ],
 
     // ── Left ─────────────────────────────────────
-    "sway/workspaces": {
+    "hyprland/workspaces": {
         "format": "{name}",
         "enable-bar-scroll": true,
         "tooltip": true,
         "tooltip-format": "Workspace {name}"
     },
 
-    "sway/window": {
+    "hyprland/window": {
         "max-length": 60,
         "align": 0.5,
         "tooltip": false,
-        "on-click": "swayr switch-window"
+        "on-click": "hyprctl dispatch cyclenext tiled"
     },
 
-    // ── Left / center ───────────────────────────
-    "sway/scratchpad": {
-        "format": " {count}",
-        "show-empty": false,
-        "tooltip": true,
-        "tooltip-format": "{app}: {title}"
-    },
+    // ── Custom state modules (scripts kept in ~/.config/hypr/scripts + waybar) ──
 
     // ── Right ────────────────────────────────────
     "temperature#cpu": {
@@ -75,6 +75,32 @@
         "warning-threshold": 80,
         "critical-threshold": 95,
         "tooltip-format": "GPU edge: {temperatureC}°C"
+    },
+
+    "custom/gpu": {
+        "exec": "$HOME/.config/waybar/scripts/gpu-usage.sh",
+        "interval": 3,
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}",
+        "on-click": "alacritty -e btop"
+    },
+
+    "custom/weather": {
+        "exec": "$HOME/.config/waybar/scripts/weather.sh",
+        "on-click": "rm -f \"${XDG_CACHE_HOME:-$HOME/.cache}/waybar-weather/raw\" && $HOME/.config/waybar/scripts/weather.sh",
+        "interval": 300,
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}"
+    },
+
+    "custom/cava": {
+        "exec": "$HOME/.config/waybar/scripts/cava-bar.sh",
+        "on-click": "alacritty --class cava-full -e cava",
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}"
     },
 
     "mpris": {
@@ -123,6 +149,15 @@
         }
     },
 
+    "custom/updates": {
+        "exec": "$HOME/.config/waybar/scripts/updates.sh",
+        "on-click": "alacritty -e sh -c 'sudo pacman -Syu; read'",
+        "interval": 900,
+        "return-type": "json",
+        "tooltip": true,
+        "format": "{}"
+    },
+
     "systemd-failed-units": {
         "user": true,
         "system": false,
@@ -165,7 +200,7 @@
 
     "network": {
         "format-wifi": "\uf1eb {signalStrength}%  \uf019 {bandwidthDownBytes} \uf093 {bandwidthUpBytes}",
-        "format-ethernet": "\uf6ff {bandwidthDownBytes} \uf093 {bandwidthUpBytes}",
+        "format-ethernet": "\uf1e6 {bandwidthDownBytes} \uf093 {bandwidthUpBytes}",
         "interval": 2,
         "format-disconnected": "\uf127 offline",
         "tooltip": true,
@@ -210,8 +245,8 @@
     },
 
     "custom/idle": {
-        "exec": "$HOME/.config/sway/idle-toggle.sh state",
-        "on-click": "$HOME/.config/sway/idle-toggle.sh toggle",
+        "exec": "$HOME/.config/hypr/scripts/idle-toggle.sh state",
+        "on-click": "$HOME/.config/hypr/scripts/idle-toggle.sh toggle",
         "interval": 5,
         "return-type": "json",
         "tooltip": true,
@@ -220,7 +255,7 @@
 
     "custom/record": {
         "exec": "$HOME/.config/waybar/scripts/record-status.sh",
-        "on-click": "$HOME/.config/sway/recorder-toggle.sh",
+        "on-click": "$HOME/.config/hypr/scripts/recorder-toggle.sh",
         "interval": 2,
         "return-type": "json",
         "tooltip": true,
@@ -229,7 +264,7 @@
 
     "custom/nightlight": {
         "exec": "$HOME/.config/waybar/scripts/nightlight-status.sh",
-        "on-click": "$HOME/.config/sway/gammastep-toggle.sh",
+        "on-click": "$HOME/.config/hypr/scripts/gammastep-toggle.sh",
         "interval": 10,
         "return-type": "json",
         "tooltip": true,
@@ -239,7 +274,7 @@
     "custom/power": {
         "format": "\uf011",
         "tooltip": false,
-        "on-click": "bash $HOME/.config/sway/power.sh"
+        "on-click": "bash $HOME/.config/hypr/scripts/power.sh"
     },
 
     "clock": {

@@ -2,8 +2,8 @@
 # nightlight-status.sh — waybar custom-module state for gammastep.
 #
 # Polled by custom/nightlight: sun (dim) while the night light is off, moon
-# (amber, class `active`) while gammastep runs. The toggle lives in the sway
-# script ~/.config/sway/gammastep-toggle.sh.
+# (amber, class `active`) while gammastep runs. The toggle lives at
+# ~/.config/hypr/scripts/gammastep-toggle.sh.
 set -euo pipefail
 
 if pgrep -x gammastep >/dev/null 2>&1; then

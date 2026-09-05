@@ -4,8 +4,8 @@
 # Polled by custom/record: emits a muted "●" while nothing records and a red
 # "● REC mm:ss" (class `recording`) while wf-recorder is running, with the
 # elapsed time read from the recorder PID. Starting/stopping happens through
-# the sway toggle (~/.config/sway/recorder-toggle.sh), same split as
-# custom/power → sway/power.sh.
+# the toggle (~/.config/hypr/scripts/recorder-toggle.sh), same split as
+# custom/power → hypr/scripts/power.sh.
 set -euo pipefail
 
 pidfile="${XDG_RUNTIME_DIR:-/tmp}/wf-recorder.pid"
