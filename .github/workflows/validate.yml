@@ -44,6 +44,7 @@ jobs:
         run: |
           python3 scripts/test_check_compose_mounts.py
           python3 scripts/test_check_nzbdav_queue.py
+          python3 scripts/test_watch_nzbdav_backend.py
           python3 scripts/test_check_bind_mount_staleness.py
           python3 scripts/test_check_radarr_profiles.py
           python3 scripts/test_check_radarr_db_size.py
