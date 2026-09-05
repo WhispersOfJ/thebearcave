@@ -331,7 +331,9 @@ Four big checkpoints, each ending in a demo before the next begins:
   walkthrough.
   *Progress (2026-09-05): repo created, assets moved to `de/`, registry
   populated (153 rows), inventory ledger + repoint list on main (PR #176);
-  submodule pin PR #178 and L3 chore PR #177 open — see plan §M1 status.*
+  submodule pinned (PRs #177/#178 merged), **Demo 1 passed on both sync
+  targets** — cave-sync round-trips verified, one defect found and fixed
+  (waybar restart, released v0.2.1); M2 open — see plan §M1 status.*
 - **M2 — All three shells.** Bash port lands in the new layout under its
   `cave-*` names with the `stack-*` alias layer (D17); zsh and fish ports 1:1
   from the registry; unified dotfiles + installers; offline suites for all

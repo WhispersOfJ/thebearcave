@@ -177,15 +177,31 @@ Progress recorded as of 2026-09-05; task numbers refer to the list above.
   `stack-*` defs and 23/23 host-tools map to registry rows with no orphans
   (commit `f35a1f4`).
 
-**In flight**
-- **Task 3 — submodule pin:** PR #178 (`build: pin Cave-Scripts as a
-  submodule at services/cave-scripts`) is open in thebearcave, awaiting
-  review/merge.
-- **L3 chore (from the ledger):** PR #177 drops the sway-era
-  `sway/stack-tui.conf` + its drift tracking; open alongside #178.
+**In flight → resolved**
+- **Task 3 — submodule pin:** PR #178 merged (`cc0c4f6`); L3 chore PR #177
+  merged (`1cc337d`); nzbdav-watchdog PR #171 merged (`0ca1aa2`).
 
-**Remaining before Demo 1:** merge #177 + #178, then run the sync round-trip
-(live bar/session reflect a repo-side edit via `cave-sync`).
+#### Demo 1 outcome (2026-09-05)
+
+**Demo 1 ran and passed on both sync targets.**
+
+- **Waybar round-trip:** repo edit → `cave-sync waybar` → live bar reflects
+  it → revert → re-sync → drift green. All 9 waybar assets verified.
+- **Hypr round-trip:** same cycle on `cave-sync hypr` — marker comment in
+  `hypridle.conf` propagated live, all 7 theme trees intact, `hyprctl
+  reload` sent, session healthy. All 19 hypr assets verified.
+- **Final state:** `cave-sync --check all` reports all 28 assets in sync;
+  submodule working tree clean.
+
+**Demo 1 found and fixed a defect:** the skeleton's waybar restart
+(`pkill -x waybar; nohup waybar &`) is reaped when the invoking shell
+exits — the bar died after a sync. Fixed in Cave-Scripts `7c02c92`
+(restart via `hyprctl dispatch exec`, the same path `exec-once` uses,
+with a `setsid` fallback), released as **v0.2.1** (`1dc59c0`), and pinned
+in thebearcave via PR #182 (`b8a104d`).
+
+**M1 exit gate:** inventory ledger + repoint list approved (PR #176,
+merged `d17aeb2`) → **M2 may start.**
 
 ---
 
