@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Check that the live waybar/sway dotfiles match the tracked canonical copies.
+"""Check that the live waybar dotfiles match the tracked canonical copies.
 
 The stack-tui waybar module (custom/stack) was written directly into
 ~/.config/waybar and only later tracked in-repo under
 services/bash-functions/waybar/ (feat/waybar-stack-tui-module). Two copies
 of the same file drift silently: edit the live one and the repo goes stale,
 merge a repo change and the bar never picks it up (waybar does not hot-read
-its config; sway for_window rules live in ~/.config/sway).
+its config).
 
 This is the mechanical version: the tracked waybar/ directory is the source
 of truth, the live XDG paths are the deployed state, and every tracked file
@@ -15,7 +15,10 @@ must exist byte-identical at its live target:
   config            -> ~/.config/waybar/config
   style.css         -> ~/.config/waybar/style.css
   scripts/<name>    -> ~/.config/waybar/scripts/<name>
-  sway/<name>.conf  -> ~/.config/sway/<name>.conf   (sourced via `include`)
+
+(The sway-era tracked copy `sway/stack-tui.conf` and its live
+~/.config/sway/ target were removed 2026-09-05 with the sway→Hyprland
+migration; the stack-tui toggle now drives Hyprland's special:scratchpad.)
 
 A drift report ends with a sync-reminder line (the cp commands) because the
 fix is mechanical — and after editing a live bind-mounted/served config the
@@ -44,7 +47,6 @@ CANONICAL = ROOT / "services" / "bash-functions" / "waybar"
 LIVE_MAP = {
     "config": ".config/waybar/config",
     "style.css": ".config/waybar/style.css",
-    "sway/stack-tui.conf": ".config/sway/stack-tui.conf",
 }
 
 
@@ -56,9 +58,9 @@ def live_target(rel: str, home: Path) -> Path:
 
 
 def tracked_files(canonical: Path) -> list[str]:
-    """Relative paths of tracked dotfiles (config, style, scripts, sway/)."""
+    """Relative paths of tracked dotfiles (config, style, scripts/)."""
     files: list[str] = []
-    for pattern in ("config", "style.css", "scripts/*.sh", "sway/*.conf"):
+    for pattern in ("config", "style.css", "scripts/*.sh"):
         files.extend(str(p.relative_to(canonical)) for p in canonical.glob(pattern))
     return sorted(files)
 
@@ -103,15 +105,10 @@ def collect_pairs(canonical: Path, home: Path) -> dict[str, tuple[bytes | None, 
 
 def sync_hint(files: list[str], home: Path) -> str:
     """The cp commands that remediate every reported drift at once."""
-    waybar = [f for f in files if not f.startswith("sway/")]
-    sway = [f for f in files if f.startswith("sway/")]
     lines = ["hint: sync with:"]
-    if waybar:
-        lines.append(f"  cp -r {CANONICAL}/{'{config,style.css,scripts}'} "
-                     f"{home}/.config/waybar/")
-    if sway:
-        lines.append(f"  cp {CANONICAL}/sway/*.conf {home}/.config/sway/")
-    lines.append("hint: then restart waybar / swaymsg reload (bind-mount rule)")
+    lines.append(f"  cp -r {CANONICAL}/{'{config,style.css,scripts}'} "
+                 f"{home}/.config/waybar/")
+    lines.append("hint: then restart waybar (bind-mount rule)")
     return "\n".join(lines)
 
 
@@ -129,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     drift = find_drift(collect_pairs(CANONICAL, home))
     if not drift:
         n = len(tracked_files(CANONICAL))
-        print(f"OK: {n} tracked waybar/sway dotfile(s) match the live copies.")
+        print(f"OK: {n} tracked waybar dotfile(s) match the live copies.")
         return 0
 
     print(f"CHECK FAILED: {len(drift)} tracked dotfile(s) drifted from the "
