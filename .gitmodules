@@ -1,0 +1,3 @@
+[submodule "services/cave-scripts"]
+	path = services/cave-scripts
+	url = https://github.com/WhispersOfJ/Cave-Scripts
