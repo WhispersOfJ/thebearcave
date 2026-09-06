@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.35.0...v2.0.0) (2026-09-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* Bazarr (:6767) and its config directory are removed; existing subtitle sidecars in media/ are unaffected.
+
+### Features
+
+* raise backup Usenet provider to 60 connections ([#191](https://github.com/WhispersOfJ/thebearcave/issues/191)) ([5253003](https://github.com/WhispersOfJ/thebearcave/commit/52530030aaa6eac0d1d9db2c65abbc608509dc61))
+* re-retire Bazarr and restore the 8-service always-on stack ([#192](https://github.com/WhispersOfJ/thebearcave/issues/192)) ([5369b2f](https://github.com/WhispersOfJ/thebearcave/commit/5369b2fa2f99021054050aaf5fbcabc727e1b55e))
+
+
+### Bug Fixes
+
+* disable Eweka Usenet provider slot after server-side auth rejection ([#189](https://github.com/WhispersOfJ/thebearcave/issues/189)) ([86aa25d](https://github.com/WhispersOfJ/thebearcave/commit/86aa25d1d37419c2d2d4c8bca99e2d57f39895a5))
+
 ## [1.35.0](https://github.com/WhispersOfJ/thebearcave/compare/v1.34.0...v1.35.0) (2026-09-06)
 
 
