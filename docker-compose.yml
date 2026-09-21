@@ -93,7 +93,7 @@ services:
 
   sonarr:
     <<: *common
-    image: ghcr.io/hotio/sonarr:release-4.0.19.2979
+    image: ghcr.io/hotio/sonarr:release-4.0.20.3014
     container_name: sonarr
     mem_limit: 1024m
     cpus: "1.5"
