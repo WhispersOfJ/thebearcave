@@ -323,7 +323,7 @@ services:
   # recompress artwork, remove metadata, empty trash, clean bundles, or touch
   # the media libraries.
   imagemaid:
-    image: kometateam/imagemaid:latest@sha256:ac510622d44c8fd0024d28023ec2ce32f0992271ff019db455e227bd693f0052
+    image: kometateam/imagemaid:latest@sha256:da48bcce34b0a4427f1bbf9ccec671a02881ed4e85a54110c8fb8d62f631d95f
     profiles: [maintenance]
     restart: "no"
     security_opt:
