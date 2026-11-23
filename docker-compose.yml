@@ -68,7 +68,7 @@ services:
   # ==========================================================================
   radarr:
     <<: *common
-    image: ghcr.io/hotio/radarr:release-6.3.0.10514
+    image: ghcr.io/hotio/radarr:release-7.0.3.10918
     container_name: radarr
     mem_limit: 1536m
     cpus: "1.5"
